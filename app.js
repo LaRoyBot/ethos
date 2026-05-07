@@ -1,3 +1,22 @@
+// === FIREBASE CONFIGURATION ===
+const firebaseConfig = {
+  apiKey: "AIzaSyCOQmc-GacWr2OrGqRKaU3Na4NAePe7_T4",
+  authDomain: "ethos-jet.firebaseapp.com",
+  projectId: "ethos-jet",
+  storageBucket: "ethos-jet.firebasestorage.app",
+  messagingSenderId: "936086701935",
+  appId: "1:936086701935:web:0b891975a9ee1a5bfe0a9a"
+};
+
+// Initialize Firebase
+if (typeof firebase !== 'undefined') {
+  try {
+    firebase.initializeApp(firebaseConfig);
+  } catch (e) {
+    console.error("Firebase initialization failed:", e);
+  }
+}
+
 // === STATE ===
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
@@ -18,8 +37,11 @@ let S = load('mathInit_state', {
   trilumaStartDate: '2026-05-01',
   todayOnlyToggle: true,
   swimFilter: 'all',
-  swimSearchQuery: ''
+  swimSearchQuery: '',
+  syncKey: '',
+  lastUpdated: 0
 });
+
 
 // === MIGRATION ===
 // Old key migration
@@ -80,6 +102,10 @@ var historyIdx = -1;
 if (!S.ethosViewMode) S.ethosViewMode = 'groups';
 if (!S.protocolCollapsed) S.protocolCollapsed = {};
 
+// Cloud Sync migrations
+if (S.syncKey === undefined) S.syncKey = '';
+if (S.lastUpdated === undefined) S.lastUpdated = 0;
+
 const TODAY = new Date().toDateString();
 if (S.lastDate !== TODAY) {
   if (S.lastDate) {
@@ -95,7 +121,119 @@ if (S.lastDate !== TODAY) {
     }
   }));
 }
-function ss() { save('mathInit_state', S); }
+function ss(skipFirebase = false) {
+  if (!skipFirebase) {
+    S.lastUpdated = Date.now();
+  }
+  save('mathInit_state', S);
+  if (!skipFirebase && S.syncKey) {
+    firebaseSyncPush();
+  }
+}
+
+// === FIREBASE CLOUD SYNC CORE ===
+function firebaseSyncPush() {
+  if (typeof firebase === 'undefined' || !S.syncKey) return;
+  const cleanKey = S.syncKey.trim().replace(/[.#$[\]]/g, "_");
+  if (!cleanKey) return;
+  
+  firebase.database().ref('sync/' + cleanKey).set({
+    state: S,
+    lastUpdated: S.lastUpdated
+  }).catch(err => {
+    console.error("Firebase push failed:", err);
+  });
+}
+
+function firebaseSyncPull(callback) {
+  if (typeof firebase === 'undefined' || !S.syncKey) {
+    if (callback) callback(false, 'Firebase not loaded or no key');
+    return;
+  }
+  const cleanKey = S.syncKey.trim().replace(/[.#$[\]]/g, "_");
+  if (!cleanKey) {
+    if (callback) callback(false, 'Invalid key');
+    return;
+  }
+  
+  const statusEl = document.getElementById('sync-status');
+  if (statusEl) statusEl.textContent = 'syncing with cloud...';
+  
+  firebase.database().ref('sync/' + cleanKey).once('value')
+    .then(snapshot => {
+      const val = snapshot.val();
+      if (val && val.state) {
+        const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+        const localTime = S.lastUpdated || 0;
+        
+        if (cloudTime > localTime) {
+          // Cloud is newer -> Pull & Overwrite local
+          S = val.state;
+          S.syncKey = cleanKey; // make sure we preserve the syncKey we entered
+          ss(true); // save locally without pushing back
+          render();
+          addLog('info', 'Cloud sync: Pulled newer state from cloud.');
+          if (statusEl) statusEl.textContent = 'synced (pulled newer state)';
+          if (callback) callback(true, 'pulled');
+        } else if (localTime > cloudTime) {
+          // Local is newer -> Push local to cloud
+          firebaseSyncPush();
+          addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
+          if (statusEl) statusEl.textContent = 'synced (pushed newer state)';
+          if (callback) callback(true, 'pushed');
+        } else {
+          // Equal -> Synced
+          if (statusEl) statusEl.textContent = 'synced (up to date)';
+          if (callback) callback(true, 'synced');
+        }
+      } else {
+        // No cloud data -> Push current local state as initial
+        firebaseSyncPush();
+        addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
+        if (statusEl) statusEl.textContent = 'synced (created cloud backup)';
+        if (callback) callback(true, 'pushed_initial');
+      }
+    })
+    .catch(err => {
+      console.error("Firebase pull failed:", err);
+      if (statusEl) statusEl.textContent = 'sync error: ' + err.message;
+      if (callback) callback(false, err);
+    });
+}
+
+function setSyncKey(key) {
+  key = key.trim();
+  if (!key) return;
+  S.syncKey = key;
+  ss();
+  addLog('ok', 'Sync key updated. Initializing sync...');
+  firebaseSyncPull();
+}
+
+function generateSyncKey() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let key = 'ethos-';
+  for (let i = 0; i < 12; i++) {
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+    if (i === 3 || i === 7) key += '-';
+  }
+  return key;
+}
+
+function renderSyncPanel() {
+  const input = document.getElementById('sync-key-input');
+  const status = document.getElementById('sync-status');
+  if (input) {
+    input.value = S.syncKey || '';
+  }
+  if (status) {
+    if (S.syncKey) {
+      status.textContent = 'key: ' + S.syncKey + ' (click "sync now" to force sync)';
+    } else {
+      status.textContent = 'no key configured';
+    }
+  }
+}
 
 // === v2 LIFESTYLE MIGRATION ===
 // Replaces dummy data with real lifestyle + study routines
@@ -149,6 +287,12 @@ function init() {
   var crtEl = document.getElementById('crt-screen-effect');
   if (crtEl) { if (S.crtEnabled) crtEl.classList.add('crt-active'); else crtEl.classList.remove('crt-active'); }
   initTabs(); initButtons(); render(); startClock(); startFlowerAnimation();
+  
+  // Initialize Cloud Sync on startup
+  if (S.syncKey) {
+    firebaseSyncPull();
+  }
+
   // Global Ctrl+Alt+C shortcut for CRT toggle
   document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'c') {
@@ -278,7 +422,7 @@ function initButtons() {
   }
   const tvInput = document.getElementById('tv-input');
   if (tvInput) {
-    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol'];
+    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','sync'];
     tvInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         var val = tvInput.value.trim();
@@ -426,6 +570,36 @@ function initButtons() {
   
   const bioDateInput = document.getElementById('bio-date');
   if (bioDateInput) bioDateInput.value = new Date().toISOString().split('T')[0];
+
+  // Cloud Sync Settings listeners
+  const syncSaveBtn = document.getElementById('sync-save-btn');
+  if (syncSaveBtn) {
+    syncSaveBtn.onclick = () => {
+      const keyInput = document.getElementById('sync-key-input');
+      if (keyInput) {
+        setSyncKey(keyInput.value);
+      }
+    };
+  }
+
+  const syncGenerateBtn = document.getElementById('sync-generate-btn');
+  if (syncGenerateBtn) {
+    syncGenerateBtn.onclick = () => {
+      const keyInput = document.getElementById('sync-key-input');
+      if (keyInput) {
+        const newKey = generateSyncKey();
+        keyInput.value = newKey;
+        setSyncKey(newKey);
+      }
+    };
+  }
+
+  const syncNowBtn = document.getElementById('sync-now-btn');
+  if (syncNowBtn) {
+    syncNowBtn.onclick = () => {
+      firebaseSyncPull();
+    };
+  }
 }
 
 // === INTERACTIVE TERMINAL ===
@@ -502,7 +676,7 @@ function handleCommand(cmd) {
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
-    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
+    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- sync [status|generate|set|pull|push] : secure cloud synchronization system<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
   } else if (action === 'stats') {
     var level = 0, cum = 0;
     for (var i = 0; i < LEVELS.length - 1; i++) { if (S.xp >= cum + LEVELS[i].next) { cum += LEVELS[i].next; level++; } else break; }
@@ -675,6 +849,62 @@ function handleCommand(cmd) {
     renderSysinfoCommand();
   } else if (action === 'protocol') {
     renderProtocolCommand();
+  } else if (action === 'sync') {
+    const sub = args[1] ? args[1].toLowerCase() : '';
+    if (sub === 'status') {
+      const isLoaded = typeof firebase !== 'undefined';
+      const key = S.syncKey || '&lt;none&gt;';
+      const lastUp = S.lastUpdated ? new Date(S.lastUpdated).toLocaleString() : '&lt;never&gt;';
+      printTerm('<span style="color:var(--accent); font-weight:bold;">=== SYNC SYSTEM STATUS ===</span><br>' +
+                'Firebase Client: ' + (isLoaded ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE (NOT LOADED)</span>') + '<br>' +
+                'Active Sync Key: <span style="color:var(--amber)">' + key + '</span><br>' +
+                'Last Local Update: <span style="color:var(--blue)">' + lastUp + '</span>', 'info');
+    } else if (sub === 'generate') {
+      const newKey = generateSyncKey();
+      setSyncKey(newKey);
+      printTerm('Generated and configured new sync key: <span style="color:var(--accent); font-weight:bold;">' + newKey + '</span><br>Write this key down to sync other devices!', 'ok');
+    } else if (sub === 'set') {
+      const val = args[2];
+      if (!val) {
+        printTerm('Usage: sync set [your-sync-key]', 'err');
+      } else {
+        setSyncKey(val);
+        printTerm('Configured sync key: <span style="color:var(--accent); font-weight:bold;">' + val + '</span>. Fetching state...', 'ok');
+      }
+    } else if (sub === 'pull') {
+      if (!S.syncKey) {
+        printTerm('Error: No sync key configured. Use "sync generate" or "sync set [key]".', 'err');
+      } else {
+        printTerm('Initiating manual pull from cloud...', 'info');
+        firebaseSyncPull((success, statusMsg) => {
+          if (success) {
+            printTerm('Sync pull complete: ' + statusMsg, 'ok');
+          } else {
+            printTerm('Sync pull failed: ' + statusMsg, 'err');
+          }
+        });
+      }
+    } else if (sub === 'push') {
+      if (!S.syncKey) {
+        printTerm('Error: No sync key configured. Use "sync generate" or "sync set [key]".', 'err');
+      } else {
+        printTerm('Initiating manual push to cloud...', 'info');
+        try {
+          firebaseSyncPush();
+          printTerm('Sync push initiated successfully.', 'ok');
+        } catch (e) {
+          printTerm('Sync push failed: ' + e.message, 'err');
+        }
+      }
+    } else {
+      printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SYNC MODULE ===</span><br>' +
+                'Usage:<br>' +
+                '  sync status          Show active sync state and key<br>' +
+                '  sync generate        Generate and set a new secure sync key<br>' +
+                '  sync set [key]       Configure an existing sync key<br>' +
+                '  sync pull            Force-pull latest state from cloud (LWW)<br>' +
+                '  sync push            Force-push local state to cloud', 'info');
+    }
   } else {
     printTerm('command not found: "' + action + '". type \'help\' for commands.', 'err');
   }
@@ -889,6 +1119,7 @@ function render() {
   renderEtheTab(); renderTodayQuick(); renderSkills();
   renderPapers(); renderLog(); renderPhases(); renderThemes();
   renderExpectations(); renderSwimTab(); renderBiometrics();
+  renderSyncPanel();
   var n = document.getElementById('today-note');
   var p = document.getElementById('paper-note');
   if (n && document.activeElement !== n) n.value = S.todayNote || '';

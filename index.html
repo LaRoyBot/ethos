@@ -7,6 +7,9 @@
 <meta name="description" content="A terminal-style tracker for mastering the mathematics behind large language models.">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css?v=2.3.1">
+<!-- Firebase App and Database SDKs (Compat v9/v10 format) -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -497,6 +500,22 @@
         <span class="picker-arrow">▾</span>
       </button>
       <div class="theme-dropdown hidden" id="theme-dropdown"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>sync --cloud</span></div>
+    <div class="sync-panel" style="background:var(--bg2); border:1px solid var(--border); border-radius:4px; padding:16px; margin-bottom:1.5rem;">
+      <div style="font-family:var(--font); font-size:12px; color:var(--text-dim); margin-bottom:12px;">
+        // Keep your ethe, routines, papers, water, focus, and weight stats in sync across devices.
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:12px;">
+        <input type="text" class="terminal-input" id="sync-key-input" placeholder="enter private sync key..." style="width:280px; flex:none;">
+        <button class="btn" id="sync-save-btn">set key</button>
+        <button class="btn btn-ghost" id="sync-generate-btn">generate key</button>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button class="btn" id="sync-now-btn" style="flex:none;">sync now</button>
+        <span id="sync-status" style="font-family:var(--font); font-size:11px; color:var(--text-dim);">no key configured</span>
+      </div>
     </div>
     <div class="divider"></div>
     <div class="section-cmd">$ <span>reset --hard</span></div>
