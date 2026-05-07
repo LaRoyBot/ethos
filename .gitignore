@@ -1,0 +1,6 @@
+.chrome-profile/
+*.log
+chunks_raw.json
+extract*.js
+renderProtocolView*.js
+extracted_app*.js

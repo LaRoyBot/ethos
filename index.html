@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ethos.init — LLM Math Mastery Tracker</title>
+<meta name="description" content="A terminal-style tracker for mastering the mathematics behind large language models.">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=2.3.1">
+</head>
+<body>
+
+<!-- CRT SCREEN EFFECT (opt-in via crt command or Ctrl+Alt+C) -->
+<div id="crt-screen-effect" class="crt-overlay"></div>
+
+<!-- BOOT SEQUENCE -->
+<div id="boot">
+  <div class="boot-title">ethos<span>.</span>init</div>
+  <div class="boot-line info" style="animation-delay:0.15s">loading ἤθη module</div>
+  <div class="boot-line ok" style="animation-delay:0.4s">loading streaks engine</div>
+  <div class="boot-line ok" style="animation-delay:0.65s">loading xp system</div>
+  <div class="boot-line ok" style="animation-delay:0.9s">loading progress tracker</div>
+  <div class="boot-line ok" style="animation-delay:1.15s">loading paper log</div>
+  <div class="boot-line info" style="animation-delay:1.4s">loading user profile</div>
+  <div class="boot-line ok" style="animation-delay:1.7s">system ready</div>
+</div>
+
+<div class="shell" id="main-app">
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="site-title">ethos<span>.</span>init</div>
+    <div class="site-desc">llm math mastery tracker — terminal edition</div>
+  </header>
+
+  <!-- NAV -->
+  <nav class="nav" id="tab-nav">
+    <button class="nav-tab active" data-tab="dashboard">dashboard</button>
+    <button class="nav-tab" data-tab="ethe">ἤθη</button>
+    <button class="nav-tab" data-tab="swim">swimming</button>
+    <button class="nav-tab" data-tab="progress">progress</button>
+    <button class="nav-tab" data-tab="papers">papers</button>
+    <button class="nav-tab" data-tab="focus">focus</button>
+    <button class="nav-tab" data-tab="log">log</button>
+  </nav>
+
+  <!-- DASHBOARD -->
+  <div id="tab-dashboard" class="panel active">
+    <div class="section-cmd">$ <span>cat stats.json</span></div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">current streak</div>
+        <div class="stat-value" id="stat-streak">0</div>
+        <div class="stat-unit">days</div>
+        <div class="stat-delta up" id="stat-streak-delta">— start today</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">total XP</div>
+        <div class="stat-value" id="stat-xp">0</div>
+        <div class="stat-unit">points</div>
+        <div class="stat-delta up">▲ today: +<span id="stat-xp-today">0</span></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">study hours</div>
+        <div class="stat-value" id="stat-hours">0</div>
+        <div class="stat-unit">total hrs</div>
+        <div class="stat-delta up" id="stat-hours-delta">▲ this week: 0h</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">ἤθη done</div>
+        <div class="stat-value" id="stat-done">0</div>
+        <div class="stat-unit">today</div>
+        <div class="stat-delta" id="stat-done-delta">— 0 / 0 today</div>
+      </div>
+    </div>
+
+    <!-- Training expectations -->
+    <div class="section-cmd">$ <span>cat training_expectations.json</span></div>
+    <div class="expectations-card" id="expectations-card-container" style="margin-bottom:1.5rem"></div>
+
+    <!-- Group Summary -->
+    <div class="section-cmd">$ <span>cat groups.json</span></div>
+    <div class="group-summary-grid" id="group-summary"></div>
+
+    <!-- XP Bar -->
+    <div class="xp-section">
+      <div class="xp-header">
+        <span class="xp-label">level <span id="xp-level">1</span> — <span id="xp-title">Calculus Initiate</span></span>
+        <span class="xp-value"><span id="xp-current">0</span> / <span id="xp-next">500</span> XP</span>
+      </div>
+      <div class="xp-bar-bg"><div class="xp-bar-fill" id="xp-bar" style="width:0%"></div></div>
+      <div class="xp-sublabel">// next: <span id="xp-next-title">Linear Algebra Apprentice</span></div>
+    </div>
+
+    <!-- Contribution Graph -->
+    <div class="contrib-section">
+      <div class="contrib-label">// activity graph — last 30 weeks</div>
+      <div class="contrib-grid" id="contrib-grid"></div>
+    </div>
+
+    <!-- Today Quick View -->
+    <div class="section-cmd" style="margin-top:1.5rem">$ <span>tail -f today.log</span></div>
+    <div id="today-ethe-quick"></div>
+  </div>
+
+  <!-- ETHE TAB -->
+  <div id="tab-ethe" class="panel">
+    <!-- Terminal prompt -->
+    <div class="ethos-prompt">
+      <span class="hp-user" id="hp-user">user</span><span class="hp-at">@</span><span class="hp-host">ethos.init</span> <span class="hp-dollar">$</span> <span class="hp-cmd">ethe --list --today</span>
+    </div>
+    <div class="ethos-comment" id="ethos-comment">// day 1. the journey begins.</div>
+
+    <!-- Date + streak -->
+    <div class="ethos-date-row">
+      <span>📅 <span id="ethos-date"></span> <span class="ethos-today-badge" id="ethos-today-badge">[today]</span></span>
+      <label class="today-toggle-label">
+        <input type="checkbox" id="today-only-checkbox">
+        <span class="checkbox-box">[ ] today only</span>
+      </label>
+    </div>
+    <div class="ethos-streak-row">
+      <span>🔥 <span id="ethos-streak-val">0</span> days</span>
+      <span> * </span>
+      <span>🛡️ <span id="ethos-shield-val">0</span></span>
+    </div>
+
+    <!-- View mode toggle: groups vs protocol -->
+    <div class="protocol-toggle-row">
+      <button class="protocol-toggle-btn active" id="view-groups-btn">[groups]</button>
+      <button class="protocol-toggle-btn" id="view-protocol-btn">[protocol]</button>
+    </div>
+
+    <!-- Group filter tabs -->
+    <div class="group-filter-bar" id="group-filter-bar">
+      <button class="group-filter-tab active" data-group="all">all</button>
+      <button class="group-filter-tab" data-group="math" style="--gc:#00ff88">[math]</button>
+      <button class="group-filter-tab" data-group="body" style="--gc:#ffb700">[body]</button>
+      <button class="group-filter-tab" data-group="mind" style="--gc:#4488ff">[mind]</button>
+      <button class="group-filter-tab" data-group="build" style="--gc:#aa77ff">[build]</button>
+      <button class="group-filter-tab" data-group="hair" style="--gc:#22d3ee">[hair]</button>
+      <button class="group-filter-tab" data-group="skin" style="--gc:#f472b6">[skin]</button>
+      <button class="group-filter-tab" data-group="nutrition" style="--gc:#ff8c00">[nutrition]</button>
+    </div>
+
+    <!-- Week calendar -->
+    <div class="week-cal">
+      <button class="week-cal-nav" id="week-prev">&lt;</button>
+      <div class="week-cal-days" id="week-cal-days"></div>
+      <button class="week-cal-nav" id="week-next">&gt;</button>
+    </div>
+
+    <!-- Ethos routines — groups view (rendered by JS) -->
+    <div id="ethos-routines"></div>
+
+    <!-- Protocol view — sequential (rendered by JS, hidden by default) -->
+    <div id="protocol-view" style="display:none"></div>
+
+    <!-- Daily progress -->
+    <div class="daily-progress">
+      <div class="dp-bar-bg"><div class="dp-bar-fill" id="dp-bar-fill"></div></div>
+      <div class="dp-label"><span id="dp-pct">0%</span></div>
+      <div class="dp-goal">// goal: 80%</div>
+    </div>
+
+    <!-- Notes -->
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>ethe --today-note</span></div>
+    <textarea class="note-area" id="today-note" placeholder="// what did you learn today? what clicked? what broke your brain?&#10;// e.g. 'finally understood why QK^T needs √d_k scaling'"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button class="btn" id="save-note-btn">save note</button>
+      <span id="note-saved" class="save-flash">✓ saved</span>
+    </div>
+
+    <!-- Sticky bottom bar -->
+    <div class="ethos-bottom-bar" id="ethos-bottom-bar">
+      <button class="hbb-btn hbb-accent" id="hbb-add-ethos">+ ethos</button>
+      <button class="hbb-btn hbb-accent" id="hbb-add-routine">+ routine</button>
+    </div>
+  </div>
+
+  <!-- SWIMMING -->
+  <div id="tab-swim" class="panel">
+    <div class="section-cmd">$ <span>swim --stats</span></div>
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">total sessions</div>
+        <div class="stat-value" id="swim-stat-total">0</div>
+        <div class="stat-unit">sessions</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">total swam days</div>
+        <div class="stat-value" id="swim-stat-days">0</div>
+        <div class="stat-unit">days</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">missed days</div>
+        <div class="stat-value" id="swim-stat-missed" style="color: var(--red);">0</div>
+        <div class="stat-unit">days</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">double-sessions</div>
+        <div class="stat-value" id="swim-stat-double" style="color: var(--amber);">0</div>
+        <div class="stat-unit">days</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">completion rate</div>
+        <div class="stat-value" id="swim-stat-rate">0%</div>
+        <div class="stat-unit">rate</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">total duration</div>
+        <div class="stat-value" id="swim-stat-duration">0</div>
+        <div class="stat-unit">minutes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">current streak</div>
+        <div class="stat-value" id="swim-stat-streak" style="color: var(--accent);">0</div>
+        <div class="stat-unit">days 🔥</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">longest streak</div>
+        <div class="stat-value" id="swim-stat-streak-max" style="color: var(--amber);">0</div>
+        <div class="stat-unit">days 👑</div>
+      </div>
+    </div>
+
+    <!-- Swim logger form -->
+    <div class="section-cmd">$ <span>swim --log-session</span></div>
+    <div class="add-ethos-form swim-log-form" style="margin-bottom:1rem">
+      <input type="date" class="terminal-input" id="swim-input-date" style="width:130px;flex:none">
+      <input type="text" class="terminal-input" id="swim-input-time" placeholder="time (e.g. 8:00 pm – 9:30 pm)" style="width:200px;flex:none">
+      <input type="number" class="terminal-input" id="swim-input-duration" min="0" placeholder="duration (mins)" style="width:130px;flex:none">
+      <input type="text" class="terminal-input" id="swim-input-comment" placeholder="comments (e.g. Machaxi Centre, Olympia)">
+      <button class="btn" id="swim-log-btn" style="flex:none">+ log swim</button>
+    </div>
+
+    <!-- Scrollable timeline -->
+    <div class="section-cmd">$ <span>swim --timeline</span></div>
+    <input type="text" class="terminal-input" id="swim-search-input" placeholder="filter by date, time, or comments..." style="margin-bottom: 1rem; width:100%">
+    
+    <div class="group-filter-bar" style="margin-bottom: 1rem">
+      <button class="swim-filter-tab active" data-filter="all">all days</button>
+      <button class="swim-filter-tab" data-filter="swam" style="--gc:var(--accent)">swam days</button>
+      <button class="swim-filter-tab" data-filter="missed" style="--gc:var(--red)">missed days</button>
+    </div>
+    
+    <div class="swim-timeline-box">
+      <div id="swim-timeline-container"></div>
+    </div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="tab-progress" class="panel">
+    <div class="section-cmd">$ <span>cat progress.json | jq .</span></div>
+    <div class="phase-list">
+      <div class="phase-item"><div class="phase-dot active"></div><div class="phase-name">Phase 1 — Foundation (Linear Algebra, Calculus, Probability)</div><div class="phase-weeks">wks 1–6</div><div class="phase-progress-mini" id="phase1-pct">0%</div></div>
+      <div class="phase-item"><div class="phase-dot pending"></div><div class="phase-name">Phase 2 — Core ML (Optimization, Backprop, Matrix Calc)</div><div class="phase-weeks">wks 7–14</div><div class="phase-progress-mini" id="phase2-pct">—</div></div>
+      <div class="phase-item"><div class="phase-dot pending"></div><div class="phase-name">Phase 3 — LLM Math (Attention, Embeddings, RLHF, LoRA)</div><div class="phase-weeks">wks 15–24</div><div class="phase-progress-mini" id="phase3-pct">—</div></div>
+    </div>
+    <div class="divider"></div>
+    
+    <div class="section-cmd">$ <span>cat skill_matrix.json</span></div>
+    <div class="skill-matrix-grid">
+      <!-- Foundations -->
+      <div class="sm-column">
+        <div class="sm-col-header">// level_0_foundations</div>
+        <div class="skill-node" id="sn-linear_algebra" data-skill="linear_algebra">
+          <div class="sn-title">Linear Algebra</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-linear_algebra" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-linear_algebra">0%</span>
+          </div>
+        </div>
+        <div class="sm-connector">│</div>
+        <div class="skill-node" id="sn-mv_calc" data-skill="mv_calc">
+          <div class="sn-title">Multivariable Calc</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-mv_calc" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-mv_calc">0%</span>
+          </div>
+        </div>
+        <div class="sm-connector">│</div>
+        <div class="skill-node" id="sn-probability" data-skill="probability">
+          <div class="sn-title">Probability / Stats</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-probability" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-probability">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connecting Wire Col 1 -->
+      <div class="sm-divider-col">
+        <div class="sm-wire" style="margin-top:50px">┌─────</div>
+        <div class="sm-wire" style="margin-top:72px">├─────</div>
+        <div class="sm-wire" style="margin-top:72px">└─┬───</div>
+      </div>
+
+      <!-- Core Propagation -->
+      <div class="sm-column">
+        <div class="sm-col-header">// level_1_core_science</div>
+        <div class="skill-node" id="sn-optimization" data-skill="optimization" style="margin-top:15px">
+          <div class="sn-title">Optimization Theory</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-optimization" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-optimization">0%</span>
+          </div>
+        </div>
+        <div class="sm-connector">│</div>
+        <div class="skill-node" id="sn-backprop" data-skill="backprop">
+          <div class="sn-title">Backpropagation</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-backprop" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-backprop">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Connecting Wire Col 2 -->
+      <div class="sm-divider-col">
+        <div class="sm-wire" style="margin-top:90px">┌─────</div>
+        <div class="sm-wire" style="margin-top:106px">└─┬───</div>
+      </div>
+
+      <!-- Advanced Mastery -->
+      <div class="sm-column">
+        <div class="sm-col-header">// level_2_mastery</div>
+        <div class="skill-node" id="sn-attention" data-skill="attention">
+          <div class="sn-title">Attention Mechanism</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-attention" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-attention">0%</span>
+          </div>
+        </div>
+        <div class="sm-connector">│</div>
+        <div class="skill-node" id="sn-transformer" data-skill="transformer">
+          <div class="sn-title">Transformer Arch</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-transformer" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-transformer">0%</span>
+          </div>
+        </div>
+        <div class="sm-connector">│</div>
+        <div class="skill-node" id="sn-lora" data-skill="lora">
+          <div class="sn-title">Fine-Tuning / LoRA</div>
+          <div class="sn-progress">
+            <div class="sn-bar-bg"><div class="sn-bar-fill" id="sn-fill-lora" style="width:0%"></div></div>
+            <span class="sn-val" id="sn-val-lora">0%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mini HUD Popup Box for hovered/selected skills -->
+    <div class="skill-hud-card" id="skill-hud" style="margin-top: 1rem">
+      <div class="sh-header">
+        <span class="sh-title" id="sh-title">Select a skill node above</span>
+        <span class="sh-pct" id="sh-pct">--</span>
+      </div>
+      <div class="sh-body" id="sh-desc">Inspecting diagnostic node parameters... Click on any skill block above to inspect/level up.</div>
+      <div class="sh-action-row" id="sh-action-row" style="display:none; margin-top:8px; gap:8px">
+        <input type="number" class="terminal-input" id="sh-input-val" min="0" max="100" placeholder="Set level 0-100" style="width:120px; flex:none">
+        <button class="btn" id="sh-update-btn">update --level</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>cat achievements.db</span></div>
+    <div class="achievement-shelf" id="achievement-shelf">
+      <!-- Unlocked and locked achievements rendered here by JS -->
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>cat biometrics.db</span></div>
+    <div class="add-ethos-form biometrics-form" style="margin-bottom:1rem">
+      <input type="date" class="terminal-input" id="bio-date" style="width:130px;flex:none">
+      <input type="number" class="terminal-input" id="bio-weight" step="0.1" placeholder="weight (kg)" style="width:120px;flex:none">
+      <input type="number" class="terminal-input" id="bio-uric" step="0.1" placeholder="uric acid" style="width:110px;flex:none">
+      <input type="number" class="terminal-input" id="bio-hdl" step="1" placeholder="hdl" style="width:90px;flex:none">
+      <input type="number" class="terminal-input" id="bio-eosin" step="0.1" placeholder="eosinophils" style="width:120px;flex:none">
+      <button class="btn" id="bio-log-btn" style="flex:none">+ log metrics</button>
+    </div>
+    
+    <div class="biometrics-history-container" style="background:var(--bg2); border:1px solid var(--border); border-radius:4px; padding:12px; margin-bottom:1.5rem; max-height:220px; overflow-y:auto;">
+      <table class="bio-table" style="width:100%; border-collapse:collapse; font-size:12px; text-align:left; font-family:var(--font);">
+        <thead>
+          <tr style="border-bottom:1px dashed var(--border2); color:var(--text-dim);">
+            <th style="padding:6px 4px;">DATE</th>
+            <th style="padding:6px 4px;">WEIGHT</th>
+            <th style="padding:6px 4px;">URIC ACID</th>
+            <th style="padding:6px 4px;">HDL</th>
+            <th style="padding:6px 4px;">EOSINOPHILS</th>
+            <th style="padding:6px 4px; text-align:right;">ACTION</th>
+          </tr>
+        </thead>
+        <tbody id="bio-history-body">
+          <!-- RENDERED BY JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>log --hours</span></div>
+    <div class="add-ethos-form">
+      <input type="number" class="terminal-input" id="hours-input" min="0" max="12" step="0.5" placeholder="hours studied today">
+      <button class="btn" id="log-hours-btn">log</button>
+    </div>
+    <div class="log-msg" id="hours-log-msg"></div>
+  </div>
+
+  <!-- PAPERS -->
+  <div id="tab-papers" class="panel">
+    <div class="section-cmd">$ <span>cat papers.log</span></div>
+    <div class="add-ethos-form">
+      <input type="text" class="terminal-input" id="new-paper-input" placeholder="paper title (e.g. 'Attention Is All You Need')">
+      <select class="terminal-input" id="new-paper-status" style="width:100px;flex:none">
+        <option value="queued">queued</option>
+        <option value="reading">reading</option>
+        <option value="done">done</option>
+      </select>
+      <button class="btn" id="add-paper-btn">+ add</button>
+    </div>
+    <div id="paper-list"></div>
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>papers --insight</span></div>
+    <textarea class="note-area" id="paper-note" placeholder="// key equation from today's paper reading...&#10;// e.g. Attention(Q,K,V) = softmax(QKᵀ/√dₖ)·V"></textarea>
+    <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+      <button class="btn" id="save-paper-note-btn">save insight</button>
+      <span id="paper-note-saved" class="save-flash">✓ saved</span>
+    </div>
+  </div>
+
+  <!-- FOCUS (POMODORO) -->
+  <div id="tab-focus" class="panel">
+    <div class="section-cmd">$ <span>sysctl --focus --enable</span></div>
+    <div class="focus-hud-box">
+      <div class="fhud-header">
+        <span class="fhud-status-tag blinking" id="focus-status-tag">IDLE</span>
+        <span class="fhud-time-utc" id="focus-utc">00:00:00 UTC</span>
+      </div>
+      
+      <div class="fhud-clock-face">
+        <span id="focus-clock-time">25:00</span>
+      </div>
+      
+      <div class="fhud-progress-wrap">
+        <div class="fhud-progress-bar" id="focus-progress-bar" style="width: 0%"></div>
+      </div>
+      <div class="fhud-progress-sub">
+        <span id="focus-progress-pct">0% ACTIVE</span>
+        <span id="focus-session-type">// TASK_IDLE</span>
+      </div>
+
+      <div class="fhud-controls">
+        <button class="btn" id="focus-start-btn">start --session</button>
+        <button class="btn btn-ghost" id="focus-pause-btn" style="display:none">pause</button>
+        <button class="btn btn-danger" id="focus-abort-btn" style="display:none">abort --kill</button>
+      </div>
+
+      <div class="fhud-durations">
+        <button class="btn btn-ghost active" id="fd-25">25m_focus</button>
+        <button class="btn btn-ghost" id="fd-50">50m_focus</button>
+        <button class="btn btn-ghost" id="fd-5">5m_break</button>
+        <button class="btn btn-ghost" id="fd-15">15m_break</button>
+      </div>
+      
+      <div class="fhud-log" id="focus-log-terminal">
+        <div class="fl-line"><span class="fl-ts">[00:00]</span> focus.init online. ready to engage.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="tab-log" class="panel">
+    <div class="section-cmd">$ <span>tail -f system.log</span></div>
+    <div class="log-terminal" id="main-log"></div>
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>log --manual</span></div>
+    <div class="add-ethos-form" style="margin-bottom:1.5rem">
+      <input type="text" class="terminal-input" id="manual-log-input" placeholder="write a log entry...">
+      <select class="terminal-input" id="manual-log-type" style="width:80px;flex:none">
+        <option value="ok">ok</option>
+        <option value="info">info</option>
+        <option value="warn">warn</option>
+      </select>
+      <button class="btn" id="add-log-btn">write</button>
+    </div>
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>term --interactive</span></div>
+    <button class="btn" id="open-term-btn" style="margin-bottom:1.5rem">launch interactive terminal</button>
+    <div class="section-cmd">$ <span>config --theme</span></div>
+    <div class="theme-picker-wrap" id="theme-picker-wrap">
+      <button class="theme-picker-btn" id="theme-picker-btn">
+        <span class="picker-dot"></span>
+        <span id="theme-picker-label">nephrite</span>
+        <span class="picker-arrow">▾</span>
+      </button>
+      <div class="theme-dropdown hidden" id="theme-dropdown"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>reset --hard</span></div>
+    <button class="btn btn-danger" id="reset-btn">erase all data</button>
+    <div class="log-msg">// this will delete everything. no undo.</div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <span>ethos.init v2.3.1 — built for llm mastery</span>
+    <span id="footer-time"></span>
+  </footer>
+
+  <!-- MODALS -->
+  <div class="modal-overlay" id="ethos-modal">
+    <div class="modal">
+      <div class="modal-title" id="hm-title">add ethos (ἔθος)</div>
+      <div class="modal-row">
+        <label class="modal-label">ethos name</label>
+        <input type="text" class="terminal-input" id="hm-name" placeholder="e.g. derive attention by hand">
+      </div>
+      <div class="modal-row">
+        <label class="modal-label">routine</label>
+        <select class="terminal-input" id="hm-routine"></select>
+      </div>
+      <div class="modal-row">
+        <label class="modal-label">group</label>
+        <select class="terminal-input" id="hm-group-select">
+          <option value="math">[math]</option>
+          <option value="body">[body]</option>
+          <option value="mind">[mind]</option>
+          <option value="build">[build]</option>
+          <option value="hair">[hair]</option>
+          <option value="skin">[skin]</option>
+          <option value="nutrition">[nutrition]</option>
+        </select>
+      </div>
+      <div class="modal-row">
+        <label class="modal-label">xp reward</label>
+        <select class="terminal-input" id="hm-xp">
+          <option value="10">10 xp</option>
+          <option value="20">20 xp</option>
+          <option value="30" selected>30 xp</option>
+          <option value="50">50 xp</option>
+        </select>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('ethos-modal').classList.remove('open')">cancel</button>
+        <button class="btn" id="hm-save">save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="routine-modal">
+    <div class="modal">
+      <div class="modal-title">add routine</div>
+      <div class="modal-row">
+        <label class="modal-label">routine name</label>
+        <input type="text" class="terminal-input" id="rm-name" placeholder="e.g. Morning Study">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('routine-modal').classList.remove('open')">cancel</button>
+        <button class="btn" id="rm-save">save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTERACTIVE TERMINAL OVERLAY -->
+  <div class="terminal-view-overlay" id="interactive-terminal">
+    <div class="tv-header">
+      <div class="tv-title">ethos.init // interactive mode</div>
+      <button class="tv-close" id="close-term-btn" onclick="document.getElementById('interactive-terminal').classList.remove('open')">[x] exit</button>
+    </div>
+    <div class="tv-output" id="tv-output"></div>
+    <div class="tv-input-row">
+      <span class="tv-prompt"><span style="color:#22d3ee">user</span><span style="color:var(--text-dim)">@</span><span style="color:var(--accent)">ethos.init</span> <span style="font-weight:bold;color:var(--text)">$</span></span>
+      <input type="text" class="tv-input" id="tv-input" autocomplete="off" spellcheck="false" autofocus>
+    </div>
+    <div class="tv-hint">// ↑↓ history · Tab autocomplete · Ctrl+Alt+C crt toggle</div>
+  </div>
+</div>
+
+<canvas id="ascii-flower" class="ascii-flower"></canvas>
+
+<script src="data.js?v=2.3.1"></script>
+<script src="app.js?v=2.3.1"></script>
+</body>
+</html>
