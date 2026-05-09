@@ -38,7 +38,7 @@ let S = load('mathInit_state', {
   todayOnlyToggle: true,
   swimFilter: 'all',
   swimSearchQuery: '',
-  syncKey: '',
+  authEmail: '',
   lastUpdated: 0
 });
 
@@ -103,7 +103,7 @@ if (!S.ethosViewMode) S.ethosViewMode = 'groups';
 if (!S.protocolCollapsed) S.protocolCollapsed = {};
 
 // Cloud Sync migrations
-if (S.syncKey === undefined) S.syncKey = '';
+if (S.authEmail === undefined) S.authEmail = '';
 if (S.lastUpdated === undefined) S.lastUpdated = 0;
 
 const TODAY = new Date().toDateString();
@@ -126,18 +126,18 @@ function ss(skipFirebase = false) {
     S.lastUpdated = Date.now();
   }
   save('mathInit_state', S);
-  if (!skipFirebase && S.syncKey) {
+  if (!skipFirebase && typeof firebase !== 'undefined' && firebase.auth().currentUser) {
     firebaseSyncPush();
   }
 }
 
 // === FIREBASE CLOUD SYNC CORE ===
 function firebaseSyncPush() {
-  if (typeof firebase === 'undefined' || !S.syncKey) return;
-  const cleanKey = S.syncKey.trim().replace(/[.#$[\]]/g, "_");
-  if (!cleanKey) return;
+  if (typeof firebase === 'undefined') return;
+  const user = firebase.auth().currentUser;
+  if (!user) return;
   
-  firebase.database().ref('sync/' + cleanKey).set({
+  firebase.database().ref('sync/' + user.uid).set({
     state: S,
     lastUpdated: S.lastUpdated
   }).catch(err => {
@@ -146,20 +146,20 @@ function firebaseSyncPush() {
 }
 
 function firebaseSyncPull(callback) {
-  if (typeof firebase === 'undefined' || !S.syncKey) {
-    if (callback) callback(false, 'Firebase not loaded or no key');
+  if (typeof firebase === 'undefined') {
+    if (callback) callback(false, 'Firebase not loaded');
     return;
   }
-  const cleanKey = S.syncKey.trim().replace(/[.#$[\]]/g, "_");
-  if (!cleanKey) {
-    if (callback) callback(false, 'Invalid key');
+  const user = firebase.auth().currentUser;
+  if (!user) {
+    if (callback) callback(false, 'User not authenticated');
     return;
   }
   
-  const statusEl = document.getElementById('sync-status');
-  if (statusEl) statusEl.textContent = 'syncing with cloud...';
+  const statusEl = document.getElementById('auth-sync-status');
+  if (statusEl) statusEl.textContent = 'Status: syncing with cloud...';
   
-  firebase.database().ref('sync/' + cleanKey).once('value')
+  firebase.database().ref('sync/' + user.uid).once('value')
     .then(snapshot => {
       const val = snapshot.val();
       if (val && val.state) {
@@ -168,71 +168,61 @@ function firebaseSyncPull(callback) {
         
         if (cloudTime > localTime) {
           // Cloud is newer -> Pull & Overwrite local
+          const prevAuthEmail = S.authEmail;
           S = val.state;
-          S.syncKey = cleanKey; // make sure we preserve the syncKey we entered
+          S.authEmail = prevAuthEmail;
           ss(true); // save locally without pushing back
           render();
           addLog('info', 'Cloud sync: Pulled newer state from cloud.');
-          if (statusEl) statusEl.textContent = 'synced (pulled newer state)';
+          if (statusEl) statusEl.textContent = 'Status: synced (pulled newer state)';
           if (callback) callback(true, 'pulled');
         } else if (localTime > cloudTime) {
           // Local is newer -> Push local to cloud
           firebaseSyncPush();
           addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
-          if (statusEl) statusEl.textContent = 'synced (pushed newer state)';
+          if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
           if (callback) callback(true, 'pushed');
         } else {
           // Equal -> Synced
-          if (statusEl) statusEl.textContent = 'synced (up to date)';
+          if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
           if (callback) callback(true, 'synced');
         }
       } else {
         // No cloud data -> Push current local state as initial
         firebaseSyncPush();
         addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
-        if (statusEl) statusEl.textContent = 'synced (created cloud backup)';
+        if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
         if (callback) callback(true, 'pushed_initial');
       }
     })
     .catch(err => {
       console.error("Firebase pull failed:", err);
-      if (statusEl) statusEl.textContent = 'sync error: ' + err.message;
+      if (statusEl) statusEl.textContent = 'Status: sync error - ' + err.message;
       if (callback) callback(false, err);
     });
 }
 
-function setSyncKey(key) {
-  key = key.trim();
-  if (!key) return;
-  S.syncKey = key;
-  ss();
-  addLog('ok', 'Sync key updated. Initializing sync...');
-  firebaseSyncPull();
-}
-
-function generateSyncKey() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-  let key = 'ethos-';
-  for (let i = 0; i < 12; i++) {
-    key += chars.charAt(Math.floor(Math.random() * chars.length));
-    if (i === 3 || i === 7) key += '-';
-  }
-  return key;
-}
-
 function renderSyncPanel() {
-  const input = document.getElementById('sync-key-input');
-  const status = document.getElementById('sync-status');
-  if (input) {
-    input.value = S.syncKey || '';
+  const emailEl = document.getElementById('auth-profile-email');
+  const statusEl = document.getElementById('auth-sync-status');
+  if (emailEl) {
+    emailEl.textContent = S.authEmail || 'unknown';
   }
-  if (status) {
-    if (S.syncKey) {
-      status.textContent = 'key: ' + S.syncKey + ' (click "sync now" to force sync)';
-    } else {
-      status.textContent = 'no key configured';
-    }
+  if (statusEl && !S.authEmail) {
+    statusEl.textContent = 'Status: unauthenticated';
   }
+}
+
+function handleLogout() {
+  if (typeof firebase === 'undefined') return;
+  addLog('info', 'Deauthorizing current terminal session...');
+  firebase.auth().signOut().then(() => {
+    S.authEmail = '';
+    save('mathInit_state', S);
+    window.location.reload();
+  }).catch(err => {
+    console.error("Sign out failed:", err);
+  });
 }
 
 // === v2 LIFESTYLE MIGRATION ===
@@ -273,11 +263,33 @@ if (!S.v22WaterSeeded) {
   ss();
 }
 
-// === BOOT ===
+// === BOOT & AUTH GATEWAY CONTROL ===
+let bootFinished = false;
+let authStateFetched = false;
+let currentUser = null;
+
+function tryDismissBoot() {
+  if (!bootFinished || !authStateFetched) return;
+  
+  const bootEl = document.getElementById('boot');
+  if (currentUser) {
+    if (bootEl) {
+      bootEl.classList.add('done');
+      setTimeout(() => bootEl.remove(), 600);
+    }
+    init();
+  } else {
+    const authGate = document.getElementById('auth-gate');
+    if (authGate) {
+      authGate.style.display = 'block';
+    }
+  }
+}
+
+// Start boot timer
 setTimeout(() => {
-  const b = document.getElementById('boot');
-  if (b) { b.classList.add('done'); setTimeout(() => b.remove(), 600); }
-  init();
+  bootFinished = true;
+  tryDismissBoot();
 }, document.getElementById('boot') ? 2200 : 0);
 
 // === INIT ===
@@ -287,11 +299,6 @@ function init() {
   var crtEl = document.getElementById('crt-screen-effect');
   if (crtEl) { if (S.crtEnabled) crtEl.classList.add('crt-active'); else crtEl.classList.remove('crt-active'); }
   initTabs(); initButtons(); render(); startClock(); startFlowerAnimation();
-  
-  // Initialize Cloud Sync on startup
-  if (S.syncKey) {
-    firebaseSyncPull();
-  }
 
   // Global Ctrl+Alt+C shortcut for CRT toggle
   document.addEventListener('keydown', function(e) {
@@ -300,6 +307,118 @@ function init() {
       toggleCRT();
     }
   });
+}
+
+// === INTERACTIVE TERMINAL AUTH PORTAL ===
+let isSignUpMode = false;
+
+function initAuthGate() {
+  const submitBtn = document.getElementById('auth-submit-btn');
+  const switchBtn = document.getElementById('auth-switch-btn');
+  const emailInput = document.getElementById('auth-email');
+  const passwordInput = document.getElementById('auth-password');
+  const errorDisplay = document.getElementById('auth-error-display');
+  const toggleDesc = document.getElementById('auth-toggle-desc');
+  
+  if (!submitBtn || !switchBtn) return;
+  
+  switchBtn.onclick = () => {
+    isSignUpMode = !isSignUpMode;
+    if (isSignUpMode) {
+      submitBtn.textContent = 'register --account';
+      switchBtn.textContent = '[sign in]';
+      toggleDesc.textContent = '// Enter a valid email and new passphrase to provision a new security profile.';
+    } else {
+      submitBtn.textContent = 'authorize --session';
+      switchBtn.textContent = '[register]';
+      toggleDesc.textContent = '// Authentication credentials required to synchronize mathematical mastery records.';
+    }
+    if (errorDisplay) errorDisplay.style.display = 'none';
+  };
+  
+  submitBtn.onclick = () => {
+    const email = emailInput.value.trim();
+    const password = passwordInput.value;
+    
+    if (!email || !password) {
+      showAuthError('ERROR: Identity and passphrase fields cannot be blank.');
+      return;
+    }
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = isSignUpMode ? 'provisioning...' : 'authorizing...';
+    if (errorDisplay) errorDisplay.style.display = 'none';
+    
+    if (isSignUpMode) {
+      firebase.auth().createUserWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          addLog('ok', 'Security credentials provisioned successfully.');
+        })
+        .catch(err => {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'register --account';
+          showAuthError('REGISTRATION_FAILED: ' + err.message);
+        });
+    } else {
+      firebase.auth().signInWithEmailAndPassword(email, password)
+        .then(userCredential => {
+          addLog('ok', 'Security clearance granted.');
+        })
+        .catch(err => {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'authorize --session';
+          showAuthError('AUTH_FAILED: ' + err.message);
+        });
+    }
+  };
+  
+  [emailInput, passwordInput].forEach(input => {
+    if (input) {
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          submitBtn.click();
+        }
+      });
+    }
+  });
+}
+
+function showAuthError(msg) {
+  const errorDisplay = document.getElementById('auth-error-display');
+  if (errorDisplay) {
+    errorDisplay.textContent = '// ' + msg;
+    errorDisplay.style.display = 'block';
+    errorDisplay.style.animation = 'none';
+    errorDisplay.offsetHeight; // trigger reflow
+    errorDisplay.style.animation = 'shake 0.3s ease';
+  }
+}
+
+// Wire up authorization gate on load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAuthGate);
+} else {
+  initAuthGate();
+}
+
+// Wire up Auth Observer
+if (typeof firebase !== 'undefined') {
+  firebase.auth().onAuthStateChanged(user => {
+    authStateFetched = true;
+    currentUser = user;
+    if (user) {
+      S.authEmail = user.email;
+      firebaseSyncPull((success, msg) => {
+        tryDismissBoot();
+      });
+    } else {
+      S.authEmail = '';
+      tryDismissBoot();
+    }
+  });
+} else {
+  authStateFetched = true;
+  tryDismissBoot();
 }
 
 function initTabs() {
@@ -422,7 +541,7 @@ function initButtons() {
   }
   const tvInput = document.getElementById('tv-input');
   if (tvInput) {
-    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','sync'];
+    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','auth','logout'];
     tvInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         var val = tvInput.value.trim();
@@ -572,33 +691,9 @@ function initButtons() {
   if (bioDateInput) bioDateInput.value = new Date().toISOString().split('T')[0];
 
   // Cloud Sync Settings listeners
-  const syncSaveBtn = document.getElementById('sync-save-btn');
-  if (syncSaveBtn) {
-    syncSaveBtn.onclick = () => {
-      const keyInput = document.getElementById('sync-key-input');
-      if (keyInput) {
-        setSyncKey(keyInput.value);
-      }
-    };
-  }
-
-  const syncGenerateBtn = document.getElementById('sync-generate-btn');
-  if (syncGenerateBtn) {
-    syncGenerateBtn.onclick = () => {
-      const keyInput = document.getElementById('sync-key-input');
-      if (keyInput) {
-        const newKey = generateSyncKey();
-        keyInput.value = newKey;
-        setSyncKey(newKey);
-      }
-    };
-  }
-
-  const syncNowBtn = document.getElementById('sync-now-btn');
-  if (syncNowBtn) {
-    syncNowBtn.onclick = () => {
-      firebaseSyncPull();
-    };
+  const logoutBtn = document.getElementById('auth-logout-btn');
+  if (logoutBtn) {
+    logoutBtn.onclick = handleLogout;
   }
 }
 
@@ -676,7 +771,7 @@ function handleCommand(cmd) {
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
-    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- sync [status|generate|set|pull|push] : secure cloud synchronization system<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
+    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
   } else if (action === 'stats') {
     var level = 0, cum = 0;
     for (var i = 0; i < LEVELS.length - 1; i++) { if (S.xp >= cum + LEVELS[i].next) { cum += LEVELS[i].next; level++; } else break; }
@@ -849,62 +944,28 @@ function handleCommand(cmd) {
     renderSysinfoCommand();
   } else if (action === 'protocol') {
     renderProtocolCommand();
-  } else if (action === 'sync') {
+  } else if (action === 'auth') {
     const sub = args[1] ? args[1].toLowerCase() : '';
-    if (sub === 'status') {
+    if (sub === 'status' || !sub) {
       const isLoaded = typeof firebase !== 'undefined';
-      const key = S.syncKey || '&lt;none&gt;';
-      const lastUp = S.lastUpdated ? new Date(S.lastUpdated).toLocaleString() : '&lt;never&gt;';
-      printTerm('<span style="color:var(--accent); font-weight:bold;">=== SYNC SYSTEM STATUS ===</span><br>' +
+      const email = S.authEmail || '<none>';
+      const lastUp = S.lastUpdated ? new Date(S.lastUpdated).toLocaleString() : '<never>';
+      printTerm('<span style="color:var(--accent); font-weight:bold;">=== SECURITY CLEARANCE DIODE ===</span><br>' +
                 'Firebase Client: ' + (isLoaded ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE (NOT LOADED)</span>') + '<br>' +
-                'Active Sync Key: <span style="color:var(--amber)">' + key + '</span><br>' +
-                'Last Local Update: <span style="color:var(--blue)">' + lastUp + '</span>', 'info');
-    } else if (sub === 'generate') {
-      const newKey = generateSyncKey();
-      setSyncKey(newKey);
-      printTerm('Generated and configured new sync key: <span style="color:var(--accent); font-weight:bold;">' + newKey + '</span><br>Write this key down to sync other devices!', 'ok');
-    } else if (sub === 'set') {
-      const val = args[2];
-      if (!val) {
-        printTerm('Usage: sync set [your-sync-key]', 'err');
-      } else {
-        setSyncKey(val);
-        printTerm('Configured sync key: <span style="color:var(--accent); font-weight:bold;">' + val + '</span>. Fetching state...', 'ok');
-      }
-    } else if (sub === 'pull') {
-      if (!S.syncKey) {
-        printTerm('Error: No sync key configured. Use "sync generate" or "sync set [key]".', 'err');
-      } else {
-        printTerm('Initiating manual pull from cloud...', 'info');
-        firebaseSyncPull((success, statusMsg) => {
-          if (success) {
-            printTerm('Sync pull complete: ' + statusMsg, 'ok');
-          } else {
-            printTerm('Sync pull failed: ' + statusMsg, 'err');
-          }
-        });
-      }
-    } else if (sub === 'push') {
-      if (!S.syncKey) {
-        printTerm('Error: No sync key configured. Use "sync generate" or "sync set [key]".', 'err');
-      } else {
-        printTerm('Initiating manual push to cloud...', 'info');
-        try {
-          firebaseSyncPush();
-          printTerm('Sync push initiated successfully.', 'ok');
-        } catch (e) {
-          printTerm('Sync push failed: ' + e.message, 'err');
-        }
-      }
+                'Active Identity: <span style="color:var(--amber)">' + email + '</span><br>' +
+                'Last Sync Merge: <span style="color:var(--blue)">' + lastUp + '</span>', 'info');
+    } else if (sub === 'logout' || sub === 'deauthorize') {
+      printTerm('Initiating session deauthorization...', 'info');
+      handleLogout();
     } else {
-      printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SYNC MODULE ===</span><br>' +
+      printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SECURITY CONTROL ===</span><br>' +
                 'Usage:<br>' +
-                '  sync status          Show active sync state and key<br>' +
-                '  sync generate        Generate and set a new secure sync key<br>' +
-                '  sync set [key]       Configure an existing sync key<br>' +
-                '  sync pull            Force-pull latest state from cloud (LWW)<br>' +
-                '  sync push            Force-push local state to cloud', 'info');
+                '  auth status          Show current clearance status<br>' +
+                '  auth logout          Deauthorize current terminal session', 'info');
     }
+  } else if (action === 'logout') {
+    printTerm('Initiating session deauthorization...', 'info');
+    handleLogout();
   } else {
     printTerm('command not found: "' + action + '". type \'help\' for commands.', 'err');
   }
