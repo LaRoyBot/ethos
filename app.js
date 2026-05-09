@@ -386,7 +386,14 @@ function initAuthGate() {
 function showAuthError(msg) {
   const errorDisplay = document.getElementById('auth-error-display');
   if (errorDisplay) {
-    errorDisplay.textContent = '// ' + msg;
+    let finalMsg = '// ' + msg;
+    if (msg.includes('auth/configuration-not-found')) {
+      finalMsg += '\n\n// DEVELOPER TIP: The Email/Password sign-in provider is disabled.';
+      finalMsg += '\n// Please enable it in your Firebase Console under:';
+      finalMsg += '\n// Authentication -> Sign-in method -> Email/Password';
+      finalMsg += '\n// Direct Link: https://console.firebase.google.com/project/ethos-jet/authentication/providers';
+    }
+    errorDisplay.textContent = finalMsg;
     errorDisplay.style.display = 'block';
     errorDisplay.style.animation = 'none';
     errorDisplay.offsetHeight; // trigger reflow
