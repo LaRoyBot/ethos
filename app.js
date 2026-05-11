@@ -387,7 +387,7 @@ function showAuthError(msg) {
   const errorDisplay = document.getElementById('auth-error-display');
   if (errorDisplay) {
     let finalMsg = '// ' + msg;
-    if (msg.includes('auth/configuration-not-found')) {
+    if (msg.includes('auth/configuration-not-found') || msg.includes('auth/operation-not-allowed')) {
       finalMsg += '\n\n// DEVELOPER TIP: The Email/Password sign-in provider is disabled.';
       finalMsg += '\n// Please enable it in your Firebase Console under:';
       finalMsg += '\n// Authentication -> Sign-in method -> Email/Password';
