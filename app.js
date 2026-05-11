@@ -137,12 +137,16 @@ function firebaseSyncPush() {
   const user = firebase.auth().currentUser;
   if (!user) return;
   
-  firebase.database().ref('sync/' + user.uid).set({
-    state: S,
-    lastUpdated: S.lastUpdated
-  }).catch(err => {
-    console.error("Firebase push failed:", err);
-  });
+  try {
+    firebase.database().ref('sync/' + user.uid).set({
+      state: S,
+      lastUpdated: S.lastUpdated
+    }).catch(err => {
+      console.error("Firebase push failed:", err);
+    });
+  } catch (err) {
+    console.error("Firebase database push initialization failed:", err);
+  }
 }
 
 function firebaseSyncPull(callback) {
@@ -159,47 +163,53 @@ function firebaseSyncPull(callback) {
   const statusEl = document.getElementById('auth-sync-status');
   if (statusEl) statusEl.textContent = 'Status: syncing with cloud...';
   
-  firebase.database().ref('sync/' + user.uid).once('value')
-    .then(snapshot => {
-      const val = snapshot.val();
-      if (val && val.state) {
-        const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
-        const localTime = S.lastUpdated || 0;
-        
-        if (cloudTime > localTime) {
-          // Cloud is newer -> Pull & Overwrite local
-          const prevAuthEmail = S.authEmail;
-          S = val.state;
-          S.authEmail = prevAuthEmail;
-          ss(true); // save locally without pushing back
-          render();
-          addLog('info', 'Cloud sync: Pulled newer state from cloud.');
-          if (statusEl) statusEl.textContent = 'Status: synced (pulled newer state)';
-          if (callback) callback(true, 'pulled');
-        } else if (localTime > cloudTime) {
-          // Local is newer -> Push local to cloud
-          firebaseSyncPush();
-          addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
-          if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
-          if (callback) callback(true, 'pushed');
+  try {
+    firebase.database().ref('sync/' + user.uid).once('value')
+      .then(snapshot => {
+        const val = snapshot.val();
+        if (val && val.state) {
+          const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+          const localTime = S.lastUpdated || 0;
+          
+          if (cloudTime > localTime) {
+            // Cloud is newer -> Pull & Overwrite local
+            const prevAuthEmail = S.authEmail;
+            S = val.state;
+            S.authEmail = prevAuthEmail;
+            ss(true); // save locally without pushing back
+            render();
+            addLog('info', 'Cloud sync: Pulled newer state from cloud.');
+            if (statusEl) statusEl.textContent = 'Status: synced (pulled newer state)';
+            if (callback) callback(true, 'pulled');
+          } else if (localTime > cloudTime) {
+            // Local is newer -> Push local to cloud
+            firebaseSyncPush();
+            addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
+            if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
+            if (callback) callback(true, 'pushed');
+          } else {
+            // Equal -> Synced
+            if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
+            if (callback) callback(true, 'synced');
+          }
         } else {
-          // Equal -> Synced
-          if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
-          if (callback) callback(true, 'synced');
+          // No cloud data -> Push current local state as initial
+          firebaseSyncPush();
+          addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
+          if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
+          if (callback) callback(true, 'pushed_initial');
         }
-      } else {
-        // No cloud data -> Push current local state as initial
-        firebaseSyncPush();
-        addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
-        if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
-        if (callback) callback(true, 'pushed_initial');
-      }
-    })
-    .catch(err => {
-      console.error("Firebase pull failed:", err);
-      if (statusEl) statusEl.textContent = 'Status: sync error - ' + err.message;
-      if (callback) callback(false, err);
-    });
+      })
+      .catch(err => {
+        console.error("Firebase pull failed:", err);
+        if (statusEl) statusEl.textContent = 'Status: sync error - ' + err.message;
+        if (callback) callback(false, err);
+      });
+  } catch (err) {
+    console.error("Firebase database pull initialization failed:", err);
+    if (statusEl) statusEl.textContent = 'Status: database error - ' + err.message;
+    if (callback) callback(false, err);
+  }
 }
 
 function renderSyncPanel() {
