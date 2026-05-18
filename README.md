@@ -8,6 +8,12 @@ A terminal-aesthetic life tracker built around a single idea: the daily discipli
 
 ---
 
+## TL;DR
+
+Open-source life tracker. Terminal aesthetic. Greek philosophy naming. No accounts, no backend, no npm — just open `index.html` and go. Track your daily disciplines across life domains ([math], [body], [mind], [build]), earn XP, keep streaks, own your data.
+
+---
+
 ## What is ethos?
 
 **ethos** is a zero-dependency, offline-first life tracking system. No accounts. No subscriptions. No server. Just open it in a browser and start building your practice.
