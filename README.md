@@ -10,13 +10,13 @@ A terminal-aesthetic life tracker built around a single idea: the daily discipli
 
 ## TL;DR
 
-Open-source life tracker. Terminal aesthetic. Greek philosophy naming. No accounts, no backend, no npm — just open `index.html` and go. Track your daily disciplines across life domains ([math], [body], [mind], [build]), earn XP, keep streaks, own your data.
+Open-source life tracker. Terminal aesthetic. Greek philosophy naming. No npm or complex build step required — just open `index.html` and go. Own your data locally or securely sync across sessions using dynamic developer handle authentication. Track your daily disciplines across life domains ([math], [body], [mind], [build]), earn XP, keep streaks, and build character.
 
 ---
 
 ## What is ethos?
 
-**ethos** is a zero-dependency, offline-first life tracking system. No accounts. No subscriptions. No server. Just open it in a browser and start building your practice.
+**ethos** is a zero-dependency, offline-first life tracking system with optional secure cloud synchronization. It is designed to be completely frictionless—you can run it locally with zero setup, or link it to a secure, private cloud profile to keep your data in sync across all your devices.
 
 The name comes from the ancient Greek **ἔθος** (éthos) — meaning *custom, practice, character*. The traceable units in this app are called **ἤθη** (ethe, plural) — not "habits", not "tasks", but the disciplines you choose to embody.
 
@@ -28,6 +28,8 @@ The name comes from the ancient Greek **ἔθος** (éthos) — meaning *custom
 - **Group system** — organize ethe into life domains: `[math]` `[body]` `[mind]` `[build]`
 - **XP + streak system** — 7 LLM-themed progression levels (Tokenizer → Architect)
 - **Contribution heatmap** — GitHub-style activity grid
+- **Secure Session Authorization** — log in dynamically using raw custom developer usernames (e.g. `@meletus`) or standard emails
+- **Cloud Synchronization** — optional real-time database sync to back up your records automatically
 - **Skill score bars** — track granular sub-skills inside groups (e.g. linear algebra, attention, LoRA under `[math]`)
 - **Paper log** — log research papers or books you're working through
 - **Session notes** — timestamped journal entries per session
@@ -41,7 +43,7 @@ The name comes from the ancient Greek **ἔθος** (éthos) — meaning *custom
 | Principle | What it means |
 |---|---|
 | **One file** | The whole app can be a single HTML file you email to yourself |
-| **Own your data** | Everything in `localStorage` — no cloud, no account |
+| **Own your data** | Local-first design using `localStorage`, with optional, secure Firebase Cloud Sync |
 | **No lock-in** | Fork it, self-host it, strip it down, make it yours |
 | **Zero dependencies** | No npm, no bundler, no build step. Open and use. |
 
@@ -89,7 +91,7 @@ ethos/
 - [ ] Export/import state as JSON
 - [ ] PWA support (installable, offline manifest)
 - [ ] Group-level analytics view
-- [ ] Optional sync via a self-hosted backend
+- [x] Secure Firebase Cloud Sync with dynamic developer handles
 - [ ] CLI companion (`ethos` command to mark ethe from terminal)
 
 ---
