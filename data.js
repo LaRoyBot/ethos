@@ -21,9 +21,9 @@ const DEFAULT_ROUTINES = [
     subtitle: '// before the world wakes up',
     collapsed: false,
     ethe: [
-      { id: 1, name: 'Review yesterday\'s notes', icon: '📝', color: '#00ff88', note: '// spaced repetition, 20 min cold', xp: 20, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 2, name: 'Read math derivation', icon: '📖', color: '#4488ff', note: '// 30 min minimum', xp: 20, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 3, name: 'Work through proofs', icon: '✏️', color: '', note: '// pen and paper only', xp: 30, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 1, name: 'Review yesterday\'s notes', icon: '📝', color: '#00ff88', note: '// spaced repetition active recall', xp: 20, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 2, name: 'Read core theory / derivations', icon: '📖', color: '#4488ff', note: '// 30 min minimum deep-dive', xp: 20, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 3, name: 'Work through proofs', icon: '✏️', color: '', note: '// pen and paper derivation drills', xp: 30, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
   {
@@ -34,10 +34,10 @@ const DEFAULT_ROUTINES = [
     subtitle: '// during focus hours',
     collapsed: false,
     ethe: [
-      { id: 4, name: 'NumPy implementation', icon: '🐍', color: '#00ff88', note: '// no PyTorch allowed', xp: 30, done: false, streak: 0, groupId: 'build', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 5, name: 'Diagnostic question', icon: '🎯', color: '#ff4444', note: '// answer honestly', xp: 20, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 6, name: 'Paper reading drill', icon: '📄', color: '', note: '// one equation deep-dive', xp: 20, done: false, streak: 0, groupId: 'mind', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 7, name: 'Solve problem set', icon: '🧮', color: '#aa77ff', note: '// 3–5 questions', xp: 20, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 4, name: 'Implement core algorithms / code', icon: '🐍', color: '#00ff88', note: '// focus block, zero distractions', xp: 30, done: false, streak: 0, groupId: 'build', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 5, name: 'Solve daily practice question', icon: '🎯', color: '#ff4444', note: '// test conceptual understanding', xp: 20, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 6, name: 'Deep-read research publication', icon: '📄', color: '', note: '// understand methodology & results', xp: 20, done: false, streak: 0, groupId: 'mind', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 7, name: 'Refactor code & write tests', icon: '🧮', color: '#aa77ff', note: '// ensure correctness and quality', xp: 20, done: false, streak: 0, groupId: 'build', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
   {
@@ -48,9 +48,9 @@ const DEFAULT_ROUTINES = [
     subtitle: '// consolidate before sleep',
     collapsed: false,
     ethe: [
-      { id: 8, name: 'Journal weak spots', icon: '📓', color: '#ffb700', note: '// be brutally honest', xp: 10, done: false, streak: 0, groupId: 'mind', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 9, name: 'Anki + 5-sentence summary', icon: '🃏', color: '', note: '', xp: 10, done: false, streak: 0, groupId: 'mind', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 10, name: 'Plan tomorrow\'s study', icon: '📋', color: '#00ff88', note: '', xp: 10, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 8, name: 'Journal learnings & blockers', icon: '📓', color: '#ffb700', note: '// brutal honesty builds growth', xp: 10, done: false, streak: 0, groupId: 'mind', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 9, name: 'Active recall & summary cards', icon: '🃏', color: '', note: '// review today\'s key takeaways', xp: 10, done: false, streak: 0, groupId: 'mind', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 10, name: 'Plan tomorrow\'s priorities', icon: '📋', color: '#00ff88', note: '// pre-load tomorrow\'s focus area', xp: 10, done: false, streak: 0, groupId: 'math', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
 
@@ -63,10 +63,10 @@ const DEFAULT_ROUTINES = [
     subtitle: '// protect + hydrate only — no actives in AM',
     collapsed: false,
     ethe: [
-      { id: 101, name: 'Gentle cleanser', icon: '🧼', color: '#f472b6', note: '// CeraVe or mild equivalent — cleanse face gently', xp: 10, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 102, name: 'Moisturiser', icon: '💧', color: '#f472b6', note: '// recommended — tretinoin will dry you out', xp: 10, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 103, name: 'Dr. Sheth\'s SPF 50+ PA++++', icon: '🌞', color: '#f472b6', note: '// 2 finger lengths · face + neck · reapply every 2-3h outdoors', xp: 15, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 104, name: 'Wait 15 min before stepping outside', icon: '⏱️', color: '#f472b6', note: '// non-negotiable for SPF to activate', xp: 5, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 101, name: 'Wash with gentle cleanser', icon: '🧼', color: '#f472b6', note: '// cleanse face gently to remove nighttime buildup', xp: 10, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 102, name: 'Apply light moisturizer', icon: '💧', color: '#f472b6', note: '// restore skin barrier hydration', xp: 10, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 103, name: 'Apply broad-spectrum sunscreen', icon: '🌞', color: '#f472b6', note: '// SPF 30+ · face + neck · reapply as needed', xp: 15, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 104, name: 'Allow sunscreen to set (10 min)', icon: '⏱️', color: '#f472b6', note: '// let protective barrier fully form', xp: 5, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
 
@@ -76,12 +76,12 @@ const DEFAULT_ROUTINES = [
     title: 'Morning Hair Care',
     icon: '💇',
     color: '#22d3ee',
-    subtitle: '// serums daily · shampoo on Tue/Thu/Sat',
+    subtitle: '// daily health · wash on designated days',
     collapsed: false,
     ethe: [
-      { id: 201, name: 'Brillare Scalp Serum → massage 60s', icon: '🟢', color: '#22d3ee', note: '// apply first, always · wait 5 min before next serum', xp: 10, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 202, name: 'ThriveCo Anti-Grey Serum → massage 60s', icon: '🔵', color: '#22d3ee', note: '// apply after 5 min wait · leave on all day', xp: 10, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 203, name: 'Brillare Shampoo (oil wash day)', icon: '🚿', color: '#22d3ee', note: '// Tue/Thu/Sat only — wash out previous night\'s oil · towel-dry to damp', xp: 10, done: false, streak: 0, groupId: 'hair', days: [2, 4, 6] },
+      { id: 201, name: 'Gentle scalp massage (60s)', icon: '🟢', color: '#22d3ee', note: '// stimulates circulation and hair follicles', xp: 10, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 202, name: 'Apply revitalizing scalp mist / tonic', icon: '🔵', color: '#22d3ee', note: '// lightweight hydration for the scalp', xp: 10, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 203, name: 'Shampoo & wash (as needed)', icon: '🚿', color: '#22d3ee', note: '// Tue/Thu/Sat · towel-dry gently to damp', xp: 10, done: false, streak: 0, groupId: 'hair', days: [2, 4, 6] },
     ]
   },
 
@@ -91,13 +91,13 @@ const DEFAULT_ROUTINES = [
     title: 'Exercise',
     icon: '🏋️',
     color: '#ffb700',
-    subtitle: '// swim 6x/week · dumbbells 3x/week · never skip',
+    subtitle: '// daily movement · strength + conditioning',
     collapsed: false,
     ethe: [
-      { id: 301, name: 'Dumbbell session (60 min)', icon: '💪', color: '#ffb700', note: '// Mon=Upper · Wed=Lower+Core · Fri=Full Body · 5:30 PM', xp: 30, done: false, streak: 0, groupId: 'body', days: [1, 3, 5] },
-      { id: 302, name: 'Pre-swim snack', icon: '🍌', color: '#ff8c00', note: '// banana or dates · 1 hour before swim · non-negotiable', xp: 5, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 4, 5, 6] },
-      { id: 303, name: 'Swimming session (90 min)', icon: '🏊', color: '#22d3ee', note: '// 8 PM · Mon=MED · Tue=HARD · Thu=EASY · Fri=HARD · Sat=MED · Sun=EASY', xp: 30, done: false, streak: 0, groupId: 'body', days: [0, 1, 2, 4, 5, 6] },
-      { id: 304, name: 'Post-workout Whey + Creatine', icon: '🥤', color: '#ff8c00', note: '// after EACH session — dumbbells AND swim separately', xp: 10, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 301, name: 'Strength / resistance training', icon: '💪', color: '#ffb700', note: '// Mon: Upper · Wed: Lower · Fri: Full Body', xp: 30, done: false, streak: 0, groupId: 'body', days: [1, 3, 5] },
+      { id: 302, name: 'Pre-workout healthy snack', icon: '🍌', color: '#ff8c00', note: '// high-quality carbs for training fuel', xp: 5, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 4, 5, 6] },
+      { id: 303, name: 'Cardio / aerobic conditioning', icon: '🏊', color: '#22d3ee', note: '// swim, run, or cycle · active recovery on Sun', xp: 30, done: false, streak: 0, groupId: 'body', days: [0, 1, 2, 4, 5, 6] },
+      { id: 304, name: 'Post-workout hydration & protein', icon: '🥤', color: '#ff8c00', note: '// fuel muscle recovery after exercise', xp: 10, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
 
@@ -107,13 +107,13 @@ const DEFAULT_ROUTINES = [
     title: 'Nutrition & Supplements',
     icon: '🍽️',
     color: '#ff8c00',
-    subtitle: '// fuel the machine — don\'t undereat with this training volume',
+    subtitle: '// daily fuel and balanced nutrition',
     collapsed: false,
     ethe: [
-      { id: 401, name: 'Big breakfast', icon: '🍳', color: '#ff8c00', note: '// biggest meal of the day — fuel for training', xp: 10, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 402, name: 'Water target (3.5-4.5L)', icon: '💧', color: '#4488ff', note: '// 4-4.5L on swim days · dehydration in pool = poor performance + uric acid spike', xp: 10, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6], isWater: true },
-      { id: 403, name: 'D3 vial with fatty breakfast', icon: '💊', color: '#ff8c00', note: '// every Tuesday only — eggs, avocado, nuts', xp: 15, done: false, streak: 0, groupId: 'nutrition', days: [2] },
-      { id: 404, name: 'Dinner by 10 PM', icon: '🍽️', color: '#ff8c00', note: '// don\'t skip — risk of muscle loss if calories too low', xp: 5, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 401, name: 'Nutrient-dense balanced breakfast', icon: '🍳', color: '#ff8c00', note: '// primary fuel source for the day', xp: 10, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 402, name: 'Water target (3.5-4.5L)', icon: '💧', color: '#4488ff', note: '// keep hydration optimal for physical & cognitive performance', xp: 10, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6], isWater: true },
+      { id: 403, name: 'Daily multivitamins / essential minerals', icon: '💊', color: '#ff8c00', note: '// take with healthy fats to optimize absorption', xp: 15, done: false, streak: 0, groupId: 'nutrition', days: [2] },
+      { id: 404, name: 'Light balanced dinner by 8 PM', icon: '🍽️', color: '#ff8c00', note: '// avoid heavy meals close to sleep', xp: 5, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
 
@@ -123,12 +123,12 @@ const DEFAULT_ROUTINES = [
     title: 'Night Skincare',
     icon: '🌙',
     color: '#f472b6',
-    subtitle: '// actives only at night — never in the morning',
+    subtitle: '// deep recovery and nighttime hydration',
     collapsed: false,
     ethe: [
-      { id: 501, name: 'Gentle cleanser', icon: '🧼', color: '#f472b6', note: '// remove SPF, sweat, and buildup', xp: 10, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 502, name: 'Azelaic Acid 15%', icon: '🔬', color: '#f472b6', note: '// apply · wait 10 minutes to fully absorb before next step', xp: 15, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 503, name: 'Triluma (pigmented areas only)', icon: '💊', color: '#f472b6', note: '// thin layer · NOT full face · NOT near eyes/lips · max 3 months continuous', xp: 15, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6], isTriluma: true },
+      { id: 501, name: 'Cleanse face with warm water', icon: '🧼', color: '#f472b6', note: '// remove SPF, dust, and environmental buildup', xp: 10, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 502, name: 'Apply nourishing night cream', icon: '🔬', color: '#f472b6', note: '// deep hydration to support skin regeneration', xp: 15, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 503, name: 'Apply spot treatment / active serum', icon: '🔬', color: '#f472b6', note: '// thin layer only · seek dermatological review if using prescription actives', xp: 15, done: false, streak: 0, groupId: 'skin', days: [0, 1, 2, 3, 4, 5, 6], isTriluma: true },
     ]
   },
 
@@ -138,12 +138,12 @@ const DEFAULT_ROUTINES = [
     title: 'Night Hair Care',
     icon: '🌙',
     color: '#22d3ee',
-    subtitle: '// oil shots Mon/Wed/Fri · Sunday = scalp rest',
+    subtitle: '// evening scalp care · oil on select nights',
     collapsed: false,
     ethe: [
-      { id: 601, name: 'Brillare Oil Shots → scalp', icon: '🟡', color: '#22d3ee', note: '// Mon/Wed/Fri nights only · part hair into sections first', xp: 10, done: false, streak: 0, groupId: 'hair', days: [1, 3, 5] },
-      { id: 602, name: 'Scalp massage 5-10 min', icon: '💆', color: '#22d3ee', note: '// thorough massage for absorption', xp: 10, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
-      { id: 603, name: 'Cover with shower cap · sleep with oil', icon: '😴', color: '#22d3ee', note: '// old t-shirt on pillow works too', xp: 5, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 601, name: 'Apply nourishing scalp oil', icon: '🟡', color: '#22d3ee', note: '// Mon/Wed/Fri nights only · part hair into sections first', xp: 10, done: false, streak: 0, groupId: 'hair', days: [1, 3, 5] },
+      { id: 602, name: 'Deep scalp massage (5 min)', icon: '💆', color: '#22d3ee', note: '// thorough massage to support oil absorption', xp: 10, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
+      { id: 603, name: 'Brush hair to distribute natural oils', icon: '😴', color: '#22d3ee', note: '// protect hair during sleep with a satin cap or pillowcase', xp: 5, done: false, streak: 0, groupId: 'hair', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
 ];

@@ -2649,40 +2649,46 @@ function renderExpectations() {
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const dayName = dayNames[day];
   
-  let dumbbells = 'REST';
-  let swim = 'REST';
-  let hair = 'Serums only (AM)';
-  let supplements = 'Post-session Whey + Creatine';
+  let study = 'REST';
+  let build = 'REST';
+  let body = 'REST';
+  let mind = 'REST';
   
   if (day === 1) {
-    dumbbells = '💪 UPPER BODY at 5:30 PM';
-    swim = '🏊 MEDIUM SWIM at 8 PM (90m)';
-    hair = '🟢 Serums (AM) · 🟡 Oil Shots (night)';
+    study = '📖 Spaced Repetition & Math Derivation';
+    build = '💻 Core Coding / NumPy block';
+    body = '💪 Upper Body Strength (60m)';
+    mind = '📓 Evening Review & Journal';
   } else if (day === 2) {
-    dumbbells = 'REST';
-    swim = '🏊 HARD SWIM at 8 PM (90m)';
-    hair = '🚿 Shampoo + Serums (AM)';
-    supplements = '💊 D3 vial with breakfast · post-swim Whey + Creatine';
+    study = '📖 Core Research Paper Reading';
+    build = '💻 Feature Development & Debug';
+    body = '🏃 Cardio / Conditioning (60m)';
+    mind = '📓 Spaced Repetition Summary';
   } else if (day === 3) {
-    dumbbells = '💪 LOWER + CORE at 5:30 PM';
-    swim = 'REST';
-    hair = '🟢 Serums (AM) · 🟡 Oil Shots (night)';
+    study = '📖 Math Proof Derivation';
+    build = '💻 Refactoring & Unit Tests';
+    body = '💪 Core & Flexibility Session';
+    mind = '📓 Weak Spot Analysis';
   } else if (day === 4) {
-    dumbbells = 'REST';
-    swim = '🏊 EASY SWIM at 8 PM (90m)';
-    hair = '🚿 Shampoo + Serums (AM)';
+    study = '📖 Review & Active Recall';
+    build = '💻 API & Backend Integration';
+    body = '🏃 Active Recovery / Mobility';
+    mind = '📓 Plan Next Sprint';
   } else if (day === 5) {
-    dumbbells = '💪 FULL BODY at 5:30 PM';
-    swim = '🏊 HARD SWIM at 8 PM (90m)';
-    hair = '🟢 Serums (AM) · 🟡 Oil Shots (night)';
+    study = '📖 Advanced Theory Exploration';
+    build = '💻 System Integration & Push';
+    body = '💪 Full Body Strength (60m)';
+    mind = '📓 Weekly Retrospective';
   } else if (day === 6) {
-    dumbbells = 'REST';
-    swim = '🏊 MEDIUM SWIM at 8 PM (90m)';
-    hair = '🚿 Shampoo + Serums (AM)';
+    study = '📖 Technical writing / blogging';
+    build = '💻 Hobby Project / Exploration';
+    body = '🏃 Outdoor Cardio / Swim (90m)';
+    mind = '📓 Free Reflection';
   } else if (day === 0) {
-    dumbbells = 'REST';
-    swim = '🏊 EASY SWIM at 8 PM (90m)';
-    hair = '😴 Scalp rest day (no oil or shampoo)';
+    study = 'REST';
+    build = 'REST';
+    body = '🧘 Active Rest & Recovery';
+    mind = '📓 Weekly Reset & Goal Setting';
   }
   
   container.innerHTML = `
@@ -2692,10 +2698,10 @@ function renderExpectations() {
         <span style="color:var(--text-dim); font-size:11px;">[ activeDate ]</span>
       </div>
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px 16px;">
-        <div><span style="color:var(--text-faint)">🏋️ DUMBBELLS:</span> <span style="color:${dumbbells === 'REST' ? 'var(--text-dim)' : 'var(--amber)'}">${dumbbells}</span></div>
-        <div><span style="color:var(--text-faint)">🏊 SWIMMING:</span> <span style="color:${swim === 'REST' ? 'var(--text-dim)' : 'var(--accent)'}">${swim}</span></div>
-        <div><span style="color:var(--text-faint)">💇 HAIR CARE:</span> <span style="color:var(--text)">${hair}</span></div>
-        <div><span style="color:var(--text-faint)">🥤 SUPPLEMENT:</span> <span style="color:var(--text)">${supplements}</span></div>
+        <div><span style="color:var(--text-faint)">📖 STUDY:</span> <span style="color:${study === 'REST' ? 'var(--text-dim)' : 'var(--accent)'}">${study}</span></div>
+        <div><span style="color:var(--text-faint)">💻 BUILD:</span> <span style="color:${build === 'REST' ? 'var(--text-dim)' : 'var(--amber)'}">${build}</span></div>
+        <div><span style="color:var(--text-faint)">🏋️ BODY:</span> <span style="color:var(--text)">${body}</span></div>
+        <div><span style="color:var(--text-faint)">🧠 MIND:</span> <span style="color:var(--text)">${mind}</span></div>
       </div>
     </div>
   `;
