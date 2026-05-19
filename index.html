@@ -38,8 +38,12 @@
     </div>
     
     <div class="modal-row" style="margin-bottom:12px;">
-      <label class="modal-label" style="font-family:var(--font); font-size:10px; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:4px;">user_identity (email)</label>
-      <input type="email" class="terminal-input" id="auth-email" placeholder="e.g. calculus@ethos.io" style="width:100%; box-sizing:border-box;">
+      <label class="modal-label" style="font-family:var(--font); font-size:10px; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:4px;">user_identity (username or email)</label>
+      <input type="text" class="terminal-input" id="auth-email" placeholder="e.g. meletus or calculus@ethos.io" style="width:100%; box-sizing:border-box;">
+    </div>
+    <div class="modal-row" id="auth-username-row" style="margin-bottom:12px; display:none;">
+      <label class="modal-label" style="font-family:var(--font); font-size:10px; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:4px;">user_handle (username)</label>
+      <input type="text" class="terminal-input" id="auth-username" placeholder="e.g. meletus" style="width:100%; box-sizing:border-box;">
     </div>
     <div class="modal-row" style="margin-bottom:16px;">
       <label class="modal-label" style="font-family:var(--font); font-size:10px; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:4px;">security_passphrase (password)</label>
@@ -538,7 +542,7 @@
       </div>
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
         <div>
-          <div style="font-family:var(--font); font-size:12px; color:var(--text);">Account: <span id="auth-profile-email" style="color:var(--accent);">loading...</span></div>
+          <div style="font-family:var(--font); font-size:12px; color:var(--text);">Identity: <span id="auth-profile-username" style="color:var(--accent); font-weight:bold;">loading...</span> <span id="auth-profile-email" style="color:var(--text-dim); font-size:11px; margin-left:6px;">(loading...)</span></div>
           <div id="auth-sync-status" style="font-family:var(--font); font-size:11px; color:var(--text-dim); margin-top:4px;">Status: sync engine online</div>
         </div>
         <button class="btn btn-danger" id="auth-logout-btn" style="flex:none;">deauthorize --logout</button>

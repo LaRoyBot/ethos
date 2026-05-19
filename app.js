@@ -39,6 +39,7 @@ let S = load('mathInit_state', {
   swimFilter: 'all',
   swimSearchQuery: '',
   authEmail: '',
+  authUsername: '',
   lastUpdated: 0
 });
 
@@ -104,6 +105,7 @@ if (!S.protocolCollapsed) S.protocolCollapsed = {};
 
 // Cloud Sync migrations
 if (S.authEmail === undefined) S.authEmail = '';
+if (S.authUsername === undefined) S.authUsername = '';
 if (S.lastUpdated === undefined) S.lastUpdated = 0;
 
 const TODAY = new Date().toDateString();
@@ -174,8 +176,10 @@ function firebaseSyncPull(callback) {
           if (cloudTime > localTime) {
             // Cloud is newer -> Pull & Overwrite local
             const prevAuthEmail = S.authEmail;
+            const prevAuthUsername = S.authUsername;
             S = val.state;
             S.authEmail = prevAuthEmail;
+            S.authUsername = prevAuthUsername;
             ss(true); // save locally without pushing back
             render();
             addLog('info', 'Cloud sync: Pulled newer state from cloud.');
@@ -213,10 +217,14 @@ function firebaseSyncPull(callback) {
 }
 
 function renderSyncPanel() {
+  const usernameEl = document.getElementById('auth-profile-username');
   const emailEl = document.getElementById('auth-profile-email');
   const statusEl = document.getElementById('auth-sync-status');
+  if (usernameEl) {
+    usernameEl.textContent = S.authUsername ? '@' + S.authUsername : (S.authEmail ? '@' + S.authEmail.split('@')[0] : 'unknown');
+  }
   if (emailEl) {
-    emailEl.textContent = S.authEmail || 'unknown';
+    emailEl.textContent = S.authEmail ? '(' + S.authEmail + ')' : '';
   }
   if (statusEl && !S.authEmail) {
     statusEl.textContent = 'Status: unauthenticated';
@@ -228,6 +236,7 @@ function handleLogout() {
   addLog('info', 'Deauthorizing current terminal session...');
   firebase.auth().signOut().then(() => {
     S.authEmail = '';
+    S.authUsername = '';
     save('mathInit_state', S);
     window.location.reload();
   }).catch(err => {
@@ -287,7 +296,11 @@ function tryDismissBoot() {
       bootEl.classList.add('done');
       setTimeout(() => bootEl.remove(), 600);
     }
-    init();
+    try {
+      init();
+    } catch (e) {
+      console.error("Downstream initialization failed, but boot transition succeeded:", e);
+    }
   } else {
     const authGate = document.getElementById('auth-gate');
     if (authGate) {
@@ -326,6 +339,8 @@ function initAuthGate() {
   const submitBtn = document.getElementById('auth-submit-btn');
   const switchBtn = document.getElementById('auth-switch-btn');
   const emailInput = document.getElementById('auth-email');
+  const usernameInput = document.getElementById('auth-username');
+  const usernameRow = document.getElementById('auth-username-row');
   const passwordInput = document.getElementById('auth-password');
   const errorDisplay = document.getElementById('auth-error-display');
   const toggleDesc = document.getElementById('auth-toggle-desc');
@@ -334,6 +349,9 @@ function initAuthGate() {
   
   switchBtn.onclick = () => {
     isSignUpMode = !isSignUpMode;
+    if (usernameRow) {
+      usernameRow.style.display = isSignUpMode ? 'block' : 'none';
+    }
     if (isSignUpMode) {
       submitBtn.textContent = 'register --account';
       switchBtn.textContent = '[sign in]';
@@ -347,12 +365,22 @@ function initAuthGate() {
   };
   
   submitBtn.onclick = () => {
-    const email = emailInput.value.trim();
+    const rawIdentity = emailInput.value.trim();
     const password = passwordInput.value;
+    const rawUsername = usernameInput ? usernameInput.value.trim() : '';
     
-    if (!email || !password) {
+    if (!rawIdentity || !password) {
       showAuthError('ERROR: Identity and passphrase fields cannot be blank.');
       return;
+    }
+    
+    // Resolve email and username
+    const isEmailFormat = rawIdentity.includes('@');
+    const mappedEmail = isEmailFormat ? rawIdentity : (rawIdentity.toLowerCase() + '@ethos.io');
+    
+    let mappedUsername = rawUsername;
+    if (!mappedUsername) {
+      mappedUsername = isEmailFormat ? rawIdentity.split('@')[0] : rawIdentity;
     }
     
     submitBtn.disabled = true;
@@ -360,9 +388,18 @@ function initAuthGate() {
     if (errorDisplay) errorDisplay.style.display = 'none';
     
     if (isSignUpMode) {
-      firebase.auth().createUserWithEmailAndPassword(email, password)
+      firebase.auth().createUserWithEmailAndPassword(mappedEmail, password)
         .then(userCredential => {
-          addLog('ok', 'Security credentials provisioned successfully.');
+          const user = userCredential.user;
+          user.updateProfile({
+            displayName: mappedUsername
+          }).then(() => {
+            S.authUsername = mappedUsername;
+            ss();
+            addLog('ok', 'Security credentials provisioned with handle: @' + mappedUsername);
+          }).catch(err => {
+            console.error("Failed to update profile displayName:", err);
+          });
         })
         .catch(err => {
           submitBtn.disabled = false;
@@ -370,7 +407,7 @@ function initAuthGate() {
           showAuthError('REGISTRATION_FAILED: ' + err.message);
         });
     } else {
-      firebase.auth().signInWithEmailAndPassword(email, password)
+      firebase.auth().signInWithEmailAndPassword(mappedEmail, password)
         .then(userCredential => {
           addLog('ok', 'Security clearance granted.');
         })
@@ -382,7 +419,7 @@ function initAuthGate() {
     }
   };
   
-  [emailInput, passwordInput].forEach(input => {
+  [emailInput, usernameInput, passwordInput].forEach(input => {
     if (input) {
       input.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
@@ -425,11 +462,21 @@ if (typeof firebase !== 'undefined') {
     currentUser = user;
     if (user) {
       S.authEmail = user.email;
-      firebaseSyncPull((success, msg) => {
-        tryDismissBoot();
-      });
+      let extractedUsername = user.displayName;
+      if (!extractedUsername && user.email) {
+        extractedUsername = user.email.split('@')[0];
+      }
+      S.authUsername = extractedUsername || 'unknown';
+      ss(true); // Save locally
+      
+      // Dismiss boot gate immediately for snappy responsiveness
+      tryDismissBoot();
+      
+      // Sync from cloud in the background
+      firebaseSyncPull();
     } else {
       S.authEmail = '';
+      S.authUsername = '';
       tryDismissBoot();
     }
   });
@@ -966,19 +1013,41 @@ function handleCommand(cmd) {
     if (sub === 'status' || !sub) {
       const isLoaded = typeof firebase !== 'undefined';
       const email = S.authEmail || '<none>';
+      const username = S.authUsername || '<none>';
       const lastUp = S.lastUpdated ? new Date(S.lastUpdated).toLocaleString() : '<never>';
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== SECURITY CLEARANCE DIODE ===</span><br>' +
                 'Firebase Client: ' + (isLoaded ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE (NOT LOADED)</span>') + '<br>' +
-                'Active Identity: <span style="color:var(--amber)">' + email + '</span><br>' +
+                'Active Identity: <span style="color:var(--amber)">@' + username + '</span><br>' +
+                'Active Email:    <span style="color:var(--text-dim)">' + email + '</span><br>' +
                 'Last Sync Merge: <span style="color:var(--blue)">' + lastUp + '</span>', 'info');
+    } else if (sub === 'username' || sub === 'handle') {
+      const newName = args.slice(2).join(' ').trim();
+      if (!newName) {
+        printTerm('Usage: auth username &lt;new_handle&gt;', 'err');
+      } else if (typeof firebase === 'undefined' || !firebase.auth().currentUser) {
+        printTerm('Error: Session is unauthenticated. Cannot change handle.', 'err');
+      } else {
+        printTerm('Updating developer handle to: @' + newName + '...', 'info');
+        firebase.auth().currentUser.updateProfile({
+          displayName: newName
+        }).then(() => {
+          S.authUsername = newName;
+          ss();
+          render();
+          printTerm('Developer handle successfully updated to: @' + newName, 'ok');
+        }).catch(err => {
+          printTerm('Failed to update developer handle: ' + err.message, 'err');
+        });
+      }
     } else if (sub === 'logout' || sub === 'deauthorize') {
       printTerm('Initiating session deauthorization...', 'info');
       handleLogout();
     } else {
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SECURITY CONTROL ===</span><br>' +
                 'Usage:<br>' +
-                '  auth status          Show current clearance status<br>' +
-                '  auth logout          Deauthorize current terminal session', 'info');
+                '  auth status                   Show current clearance status<br>' +
+                '  auth username &lt;new_handle&gt;  Update your active developer handle<br>' +
+                '  auth logout                   Deauthorize current terminal session', 'info');
     }
   } else if (action === 'logout') {
     printTerm('Initiating session deauthorization...', 'info');
@@ -1151,6 +1220,7 @@ function renderSysinfoCommand() {
   var props = [
     ['OS',          'ethos.init v2.3.1'],
     ['Shell',       'interactive / JetBrains Mono'],
+    ['Identity',    (S.authUsername ? '@' + S.authUsername : '') + (S.authEmail ? ' (' + S.authEmail + ')' : '<none>')],
     ['Uptime',      uptimeDays + ' days'],
     ['Theme',       themeName],
     ['Rank',        'lvl ' + (level + 1) + ' / ' + lvl.title],
