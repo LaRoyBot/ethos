@@ -5,7 +5,8 @@ const firebaseConfig = {
   projectId: "ethos-jet",
   storageBucket: "ethos-jet.firebasestorage.app",
   messagingSenderId: "936086701935",
-  appId: "1:936086701935:web:0b891975a9ee1a5bfe0a9a"
+  appId: "1:936086701935:web:0b891975a9ee1a5bfe0a9a",
+  databaseURL: "https://ethos-jet-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 // Initialize Firebase
@@ -396,9 +397,18 @@ function initAuthGate() {
           }).then(() => {
             S.authUsername = mappedUsername;
             ss();
+            
+            // Save username-to-email mapping in DB
+            if (typeof firebase !== 'undefined') {
+              firebase.database().ref('usernames/' + mappedUsername.toLowerCase()).set(mappedEmail)
+                .catch(err => console.error("Failed to save username mapping:", err));
+            }
+            
             addLog('ok', 'Security credentials provisioned with handle: @' + mappedUsername);
           }).catch(err => {
-            console.error("Failed to update profile displayName:", err);
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'register --account';
+            showAuthError('REGISTRATION_FAILED: Profile update failed: ' + err.message);
           });
         })
         .catch(err => {
@@ -407,15 +417,33 @@ function initAuthGate() {
           showAuthError('REGISTRATION_FAILED: ' + err.message);
         });
     } else {
-      firebase.auth().signInWithEmailAndPassword(mappedEmail, password)
-        .then(userCredential => {
-          addLog('ok', 'Security clearance granted.');
-        })
-        .catch(err => {
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'authorize --session';
-          showAuthError('AUTH_FAILED: ' + err.message);
-        });
+      const signInWithResolvedEmail = (email, pwd) => {
+        firebase.auth().signInWithEmailAndPassword(email, pwd)
+          .then(userCredential => {
+            addLog('ok', 'Security clearance granted.');
+          })
+          .catch(err => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'authorize --session';
+            showAuthError('AUTH_FAILED: ' + err.message);
+          });
+      };
+
+      if (typeof firebase !== 'undefined' && !isEmailFormat) {
+        // Look up registered email from the usernames database directory
+        firebase.database().ref('usernames/' + rawIdentity.toLowerCase()).once('value')
+          .then(snapshot => {
+            const resolvedEmail = snapshot.val();
+            const emailToUse = resolvedEmail || mappedEmail; // fallback to username@ethos.io
+            signInWithResolvedEmail(emailToUse, password);
+          })
+          .catch(err => {
+            console.warn("Username database lookup failed, using fallback:", err);
+            signInWithResolvedEmail(mappedEmail, password);
+          });
+      } else {
+        signInWithResolvedEmail(mappedEmail, password);
+      }
     }
   };
   
