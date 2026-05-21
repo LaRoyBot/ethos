@@ -790,6 +790,18 @@ function initButtons() {
 }
 
 // === INTERACTIVE TERMINAL ===
+function scrollToBottom(element, smooth) {
+  if (!element) return;
+  if (smooth) {
+    element.scrollTo({
+      top: element.scrollHeight,
+      behavior: 'smooth'
+    });
+  } else {
+    element.scrollTop = element.scrollHeight;
+  }
+}
+
 function printTerm(msg, type) {
   type = type || 'sys';
   const out = document.getElementById('tv-output');
@@ -798,7 +810,7 @@ function printTerm(msg, type) {
   div.className = 'tv-output-line ' + type;
   div.innerHTML = msg;
   out.appendChild(div);
-  out.scrollTop = out.scrollHeight;
+  scrollToBottom(out, true);
 }
 
 // Typewriter effect for ASCII art terminal output
@@ -839,7 +851,7 @@ function printTermTyped(html, type) {
           var line = lines[lineIdx];
           textNode.textContent += line + (lineIdx < lines.length - 1 ? '\n' : '');
           lineIdx++;
-          out.scrollTop = out.scrollHeight;
+          scrollToBottom(out, false); // Instant scroll during line streaming to prevent stutters
           setTimeout(tickLine, delay);
         } else {
           // Done streaming lines — swap in the full beautiful structured HTML
@@ -848,7 +860,7 @@ function printTermTyped(html, type) {
           div.innerHTML = html;
           div.style.fontFamily = '';
           div.style.whiteSpace = '';
-          out.scrollTop = out.scrollHeight;
+          scrollToBottom(out, true); // Smooth scroll once completed!
           resolve();
         }
       }
@@ -2235,7 +2247,7 @@ function focusLog(msg) {
   div.className = 'fl-line';
   div.innerHTML = '<span class="fl-ts">[' + ts + ']</span> ' + msg;
   logTerm.appendChild(div);
-  logTerm.scrollTop = logTerm.scrollHeight;
+  scrollToBottom(logTerm, true);
 }
 
 function renderPapers() {
