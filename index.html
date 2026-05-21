@@ -621,7 +621,9 @@
       <div class="tv-title">ethos.init // interactive mode</div>
       <button class="tv-close" id="close-term-btn" onclick="document.getElementById('interactive-terminal').classList.remove('open')">[x] exit</button>
     </div>
-    <div class="tv-output" id="tv-output"></div>
+    <div class="tv-output" id="tv-output">
+      <div class="tv-output-inner" id="tv-output-inner"></div>
+    </div>
     <div class="tv-input-row">
       <span class="tv-prompt"><span style="color:#22d3ee">user</span><span style="color:var(--text-dim)">@</span><span style="color:var(--accent)">ethos.init</span> <span style="font-weight:bold;color:var(--text)">$</span></span>
       <input type="text" class="tv-input" id="tv-input" autocomplete="off" spellcheck="false" autofocus>

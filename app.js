@@ -616,7 +616,8 @@ function initButtons() {
     termBtn.onclick = () => {
       document.getElementById('interactive-terminal').classList.add('open');
       document.getElementById('tv-input').focus();
-      if (document.getElementById('tv-output').innerHTML === '') {
+      const outInner = document.getElementById('tv-output-inner');
+      if (outInner && outInner.innerHTML === '') {
         var welcomeLogo = 
           '<div style="font-family: monospace; white-space: pre; line-height: 1.4; color: var(--text-dim);">' +
           '  ███████╗████████╗██╗  ██╗ ██████╗ ███████╗\n' +
@@ -804,12 +805,13 @@ function scrollToBottom(element, smooth) {
 
 function printTerm(msg, type) {
   type = type || 'sys';
+  const outInner = document.getElementById('tv-output-inner');
   const out = document.getElementById('tv-output');
-  if (!out) return;
+  if (!outInner || !out) return;
   const div = document.createElement('div');
   div.className = 'tv-output-line ' + type;
   div.innerHTML = msg;
-  out.appendChild(div);
+  outInner.appendChild(div);
   scrollToBottom(out, true);
 }
 
@@ -820,11 +822,12 @@ function printTermTyped(html, type) {
   type = type || 'sys';
   _twQueue = _twQueue.then(function() {
     return new Promise(function(resolve) {
+      var outInner = document.getElementById('tv-output-inner');
       var out = document.getElementById('tv-output');
-      if (!out) { resolve(); return; }
+      if (!outInner || !out) { resolve(); return; }
       var div = document.createElement('div');
       div.className = 'tv-output-line ' + type;
-      out.appendChild(div);
+      outInner.appendChild(div);
       
       // Get plain text of the output block to stream line-by-line
       var temp = document.createElement('div');
@@ -877,7 +880,8 @@ function handleCommand(cmd) {
   const action = args[0].toLowerCase();
 
   if (action === 'clear') {
-    document.getElementById('tv-output').innerHTML = '';
+    const outInner = document.getElementById('tv-output-inner');
+    if (outInner) outInner.innerHTML = '';
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
@@ -1107,6 +1111,15 @@ function handleCommand(cmd) {
   } else if (action === 'logout') {
     printTerm('Initiating session deauthorization...', 'info');
     handleLogout();
+  } else if (action === 'japanese' || action === 'nihongo' || action === 'jp' || action === 'jpn') {
+    S.japaneseMode = !S.japaneseMode;
+    ss();
+    render();
+    if (S.japaneseMode) {
+      printTerm('日本語モードが有効になりました。', 'ok');
+    } else {
+      printTerm('Japanese mode disabled. Switched back to English.', 'ok');
+    }
   } else {
     printTerm('command not found: "' + action + '". type \'help\' for commands.', 'err');
   }
@@ -1316,8 +1329,165 @@ function renderSysinfoCommand() {
   printTermTyped(html, 'sys');
 }
 
+function translateStaticDOM() {
+  const isJp = !!S.japaneseMode;
+  
+  // Site Desc
+  const siteDesc = document.querySelector('.site-header .site-desc');
+  if (siteDesc) {
+    siteDesc.innerHTML = isJp ? '// LLM数学マスターの軌跡 — ターミナル版' : '// llm math mastery tracker — terminal edition';
+  }
+  
+  // Nav Tabs
+  const navTabs = document.querySelectorAll('#tab-nav .nav-tab');
+  navTabs.forEach(tab => {
+    const dataTab = tab.getAttribute('data-tab');
+    if (dataTab === 'dashboard') tab.textContent = isJp ? 'ダッシュボード' : 'dashboard';
+    else if (dataTab === 'ethe') tab.textContent = isJp ? '習慣 (ἤθη)' : 'ἤθη';
+    else if (dataTab === 'swim') tab.textContent = isJp ? '水泳' : 'swimming';
+    else if (dataTab === 'progress') tab.textContent = isJp ? '進捗' : 'progress';
+    else if (dataTab === 'papers') tab.textContent = isJp ? '論文' : 'papers';
+    else if (dataTab === 'focus') tab.textContent = isJp ? '集中' : 'focus';
+    else if (dataTab === 'log') tab.textContent = isJp ? 'ログ' : 'log';
+  });
+  
+  // Stat Card Labels & Units
+  const statCards = document.querySelectorAll('.stat-card');
+  if (statCards.length >= 4) {
+    // Current Streak Card
+    statCards[0].querySelector('.stat-label').textContent = isJp ? '現在の継続日数' : 'current streak';
+    statCards[0].querySelector('.stat-unit').textContent = isJp ? '日' : 'days';
+    
+    // Total XP Card
+    statCards[1].querySelector('.stat-label').textContent = isJp ? '累計経験値' : 'total XP';
+    statCards[1].querySelector('.stat-unit').textContent = isJp ? 'ポイント' : 'points';
+    
+    // Study Hours Card
+    statCards[2].querySelector('.stat-label').textContent = isJp ? '学習時間' : 'study hours';
+    statCards[2].querySelector('.stat-unit').textContent = isJp ? '累計時間' : 'total hrs';
+    
+    // Ethe Done Card
+    statCards[3].querySelector('.stat-label').textContent = isJp ? '習慣達成数' : 'ἤθη done';
+    statCards[3].querySelector('.stat-unit').textContent = isJp ? '本日' : 'today';
+  }
+  
+  // Section Headers
+  const sectionCmds = document.querySelectorAll('.section-cmd span');
+  sectionCmds.forEach(span => {
+    const text = span.textContent.trim();
+    if (isJp) {
+      if (text === 'cat stats.json' || text === '統計表示 stats.json') span.textContent = '統計表示 stats.json';
+      else if (text === 'cat training_expectations.json' || text === 'マスター要件 training_expectations.json') span.textContent = 'マスター要件 training_expectations.json';
+      else if (text === 'cat groups.json' || text === 'グループ要約 groups.json') span.textContent = 'グループ要約 groups.json';
+      else if (text === 'cat achievements.db' || text === '功績実績 cat achievements.db') span.textContent = '功績実績 cat achievements.db';
+      else if (text === 'cat biometrics.db' || text === '生体データ cat biometrics.db') span.textContent = '生体データ cat biometrics.db';
+      else if (text === 'log --hours' || text === '学習時間記録 log --hours') span.textContent = '学習時間記録 log --hours';
+      else if (text === 'cat papers.log' || text === '論文購読履歴 cat papers.log') span.textContent = '論文購読履歴 cat papers.log';
+      else if (text === 'papers --insight' || text === '今日の学び papers --insight') span.textContent = '今日の学び papers --insight';
+      else if (text === 'sysctl --focus --enable' || text === 'ポモドーロ集中タイマー focus --enable') span.textContent = 'ポモドーロ集中タイマー focus --enable';
+      else if (text === 'tail -f system.log' || text === 'システムログ tail -f system.log') span.textContent = 'システムログ tail -f system.log';
+      else if (text === 'log --manual' || text === '手動ログ記録 log --manual') span.textContent = '手動ログ記録 log --manual';
+      else if (text === 'term --interactive' || text === '対話型ターミナル term --interactive') span.textContent = '対話型ターミナル term --interactive';
+      else if (text === 'config --theme' || text === 'テーマ切り替え config --theme') span.textContent = 'テーマ切り替え config --theme';
+      else if (text === 'auth --status' || text === '認証ステータス auth --status') span.textContent = '認証ステータス auth --status';
+      else if (text === 'reset --hard' || text === 'データ初期化 reset --hard') span.textContent = 'データ初期化 reset --hard';
+    } else {
+      if (text === '統計表示 stats.json') span.textContent = 'cat stats.json';
+      else if (text === 'マスター要件 training_expectations.json') span.textContent = 'cat training_expectations.json';
+      else if (text === 'グループ要約 groups.json') span.textContent = 'cat groups.json';
+      else if (text === '功績実績 cat achievements.db') span.textContent = 'cat achievements.db';
+      else if (text === '生体データ cat biometrics.db') span.textContent = 'cat biometrics.db';
+      else if (text === '学習時間記録 log --hours') span.textContent = 'log --hours';
+      else if (text === '論文購読履歴 cat papers.log') span.textContent = 'cat papers.log';
+      else if (text === '今日の学び papers --insight') span.textContent = 'papers --insight';
+      else if (text === 'ポモドーロ集中タイマー focus --enable') span.textContent = 'sysctl --focus --enable';
+      else if (text === 'システムログ tail -f system.log') span.textContent = 'tail -f system.log';
+      else if (text === '手動ログ記録 log --manual') span.textContent = 'log --manual';
+      else if (text === '対話型ターミナル term --interactive') span.textContent = 'term --interactive';
+      else if (text === 'テーマ切り替え config --theme') span.textContent = 'config --theme';
+      else if (text === '認証ステータス auth --status') span.textContent = 'auth --status';
+      else if (text === 'データ初期化 reset --hard') span.textContent = 'reset --hard';
+    }
+  });
+
+  // Input Fields Placeholders & Button Labels
+  const hoursInput = document.getElementById('hours-input');
+  if (hoursInput) hoursInput.placeholder = isJp ? '本日の学習時間（時間）を入力...' : 'hours studied today';
+  const logHoursBtn = document.getElementById('log-hours-btn');
+  if (logHoursBtn) logHoursBtn.textContent = isJp ? '記録する' : 'log';
+
+  const newPaperInput = document.getElementById('new-paper-input');
+  if (newPaperInput) newPaperInput.placeholder = isJp ? '論文タイトル (例: \'Attention Is All You Need\')' : 'paper title (e.g. \'Attention Is All You Need\')';
+  const addPaperBtn = document.getElementById('add-paper-btn');
+  if (addPaperBtn) addPaperBtn.textContent = isJp ? '+ 追加' : '+ add';
+
+  const paperNote = document.getElementById('paper-note');
+  if (paperNote) paperNote.placeholder = isJp ? '// 今日の論文から学んだ数式や知見...\n// 例: Attention(Q,K,V) = softmax(QKᵀ/√dₖ)·V' : '// key equation from today\'s paper reading...\n// e.g. Attention(Q,K,V) = softmax(QKᵀ/√dₖ)·V';
+  const savePaperNoteBtn = document.getElementById('save-paper-note-btn');
+  if (savePaperNoteBtn) savePaperNoteBtn.textContent = isJp ? '知見を保存' : 'save insight';
+
+  const manualLogInput = document.getElementById('manual-log-input');
+  if (manualLogInput) manualLogInput.placeholder = isJp ? 'ログを入力してください...' : 'write a log entry...';
+  const addLogBtn = document.getElementById('add-log-btn');
+  if (addLogBtn) addLogBtn.textContent = isJp ? '書き込み' : 'write';
+
+  const openTermBtn = document.getElementById('open-term-btn');
+  if (openTermBtn) openTermBtn.textContent = isJp ? '対話型ターミナルを起動' : 'launch interactive terminal';
+
+  const resetBtn = document.getElementById('reset-btn');
+  if (resetBtn) resetBtn.textContent = isJp ? 'すべてのデータを消去' : 'erase all data';
+  const resetMsg = document.querySelector('#tab-log .log-msg');
+  if (resetMsg && resetMsg.textContent.indexOf('reset --hard') === -1) {
+    resetMsg.textContent = isJp ? '// すべてのデータが削除されます。元に戻せません。' : '// this will delete everything. no undo.';
+  }
+
+  // Pomodoro timer buttons
+  const startBtn = document.getElementById('focus-start-btn');
+  if (startBtn) startBtn.textContent = isJp ? 'タイマー開始' : 'start --session';
+  const pauseBtn = document.getElementById('focus-pause-btn');
+  if (pauseBtn) pauseBtn.textContent = isJp ? '一時停止' : 'pause';
+  const abortBtn = document.getElementById('focus-abort-btn');
+  if (abortBtn) abortBtn.textContent = isJp ? '強制終了' : 'abort --kill';
+
+  // Pomodoro clock labels
+  const sessionType = document.getElementById('focus-session-type');
+  if (sessionType) {
+    const stVal = sessionType.textContent.trim();
+    if (isJp) {
+      if (stVal === '// TASK_IDLE') sessionType.textContent = '// 待機中';
+      else if (stVal === '// FOCUS_SESSION') sessionType.textContent = '// 集中中';
+      else if (stVal === '// BREAK_SESSION') sessionType.textContent = '// 休憩中';
+    } else {
+      if (stVal === '// 待機中') sessionType.textContent = '// TASK_IDLE';
+      else if (stVal === '// 集中中') sessionType.textContent = '// FOCUS_SESSION';
+      else if (stVal === '// 休憩中') sessionType.textContent = '// BREAK_SESSION';
+    }
+  }
+
+  const statusTag = document.getElementById('focus-status-tag');
+  if (statusTag) {
+    const tagVal = statusTag.textContent.trim();
+    if (isJp) {
+      if (tagVal === 'IDLE') statusTag.textContent = '待機中';
+      else if (tagVal === 'FOCUS') statusTag.textContent = '集中中';
+      else if (tagVal === 'BREAK') statusTag.textContent = '休憩中';
+    } else {
+      if (tagVal === '待機中') statusTag.textContent = 'IDLE';
+      else if (tagVal === '集中中') statusTag.textContent = 'FOCUS';
+      else if (tagVal === '休憩中') statusTag.textContent = 'BREAK';
+    }
+  }
+
+  // Identity / Auth sync panel text
+  const authUsernameLabel = document.getElementById('auth-sync-status');
+  if (authUsernameLabel) {
+    authUsernameLabel.textContent = isJp ? 'ステータス: 同期エンジンオンライン' : 'Status: sync engine online';
+  }
+}
+
 // === RENDER ===
 function render() {
+  translateStaticDOM();
   renderStats(); renderXP(); renderContrib(); renderGroupSummary();
   renderEtheTab(); renderTodayQuick(); renderSkills();
   renderPapers(); renderLog(); renderPhases(); renderThemes();
@@ -1346,9 +1516,16 @@ function renderStats() {
   document.getElementById('stat-xp-today').textContent = S.xpToday;
   document.getElementById('stat-hours').textContent = Math.round(S.totalHours * 10) / 10;
   document.getElementById('stat-done').textContent = done;
-  document.getElementById('stat-done-delta').textContent = '\u2014 ' + done + ' / ' + all.length + ' today';
-  document.getElementById('stat-streak-delta').textContent = S.streak > 0 ? '\u25B2 ' + S.streak + ' day streak' : '\u2014 start today';
-  document.getElementById('stat-hours-delta').textContent = '\u25B2 this week: ' + (Math.round(S.weekHours * 10) / 10) + 'h';
+  
+  if (S.japaneseMode) {
+    document.getElementById('stat-done-delta').textContent = '\u2014 本日: ' + done + ' / ' + all.length + ' 完了';
+    document.getElementById('stat-streak-delta').textContent = S.streak > 0 ? '\u25B2 ' + S.streak + ' 日連続中' : '\u2014 今日からスタート';
+    document.getElementById('stat-hours-delta').textContent = '\u25B2 今週: ' + (Math.round(S.weekHours * 10) / 10) + ' 時間';
+  } else {
+    document.getElementById('stat-done-delta').textContent = '\u2014 ' + done + ' / ' + all.length + ' today';
+    document.getElementById('stat-streak-delta').textContent = S.streak > 0 ? '\u25B2 ' + S.streak + ' day streak' : '\u2014 start today';
+    document.getElementById('stat-hours-delta').textContent = '\u25B2 this week: ' + (Math.round(S.weekHours * 10) / 10) + 'h';
+  }
 }
 
 function renderGroupSummary() {
@@ -1361,9 +1538,12 @@ function renderGroupSummary() {
     var xp = all.filter(function(e) { return e.done; }).reduce(function(s, e) { return s + e.xp; }, 0);
     var card = document.createElement('div');
     card.className = 'group-card';
+    
+    var progressText = S.japaneseMode ? done + '/' + all.length + ' 本日' : done + '/' + all.length + ' today';
+    
     card.innerHTML = '<div class="gc-label" style="color:' + g.color + '">' + g.label + '</div>' +
       '<div class="gc-streak">' + g.streak + ' \uD83D\uDD25</div>' +
-      '<div class="gc-progress">' + done + '/' + all.length + ' today</div>' +
+      '<div class="gc-progress">' + progressText + '</div>' +
       '<div class="gc-xp">+' + xp + ' xp</div>';
     container.appendChild(card);
   });
