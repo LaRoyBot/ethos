@@ -208,6 +208,7 @@ const THEMES = [
   { id: 'solaris', name: 'solaris', color: '#b58900' },
   { id: 'obsidian', name: 'obsidian', color: '#50fa7b' },
   { id: 'carmine', name: 'carmine', color: '#f92672' },
+  { id: 'cmd', name: 'cmd console', color: '#ffffff' },
 ];
 
 // Seed exact swim history (March 22 - May 19)
