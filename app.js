@@ -963,29 +963,38 @@ function handleCommand(cmd) {
     txt += '</div>';
     printTermTyped(txt, 'sys');
   } else if (action === 'ranks' || action === 'achievements') {
-    var txt = '<div style="font-family: monospace; white-space: pre; line-height: 1.25; color: var(--accent);">';
-    txt += '        /// IMPERIAL ACADEMY ACHIEVEMENT DECK ///\n';
-    txt += '        =========================================\n\n';
+    var txt = '<div style="font-family: monospace; line-height: 1.4; color: var(--text); width: 100%; box-sizing: border-box;">';
+    txt += '  <div style="color: var(--accent); font-weight: bold; text-align: center; margin-bottom: 16px;">\n';
+    txt += '    /// IMPERIAL ACADEMY ACHIEVEMENT DECK ///\n';
+    txt += '    =========================================\n';
+    txt += '  </div>\n\n';
+    txt += '  <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; box-sizing: border-box;">\n';
     
     if (!S.unlockedAchievements) S.unlockedAchievements = {};
     ACHIEVEMENTS.forEach(a => {
       const unlockedDate = S.unlockedAchievements[a.id];
       const isUnlocked = !!unlockedDate;
       const col = isUnlocked ? 'var(--accent)' : 'var(--text-dim)';
+      const borderCol = isUnlocked ? 'var(--accent)' : 'var(--border)';
+      const bgCol = isUnlocked ? 'var(--accent-faint)' : 'var(--bg2)';
+      const shadow = isUnlocked ? 'box-shadow: 0 0 8px var(--accent-faint);' : '';
       
-      txt += '<span style="color:' + col + '">┌─────────────────────────────────────────────────────────┐\n';
-      var nameStr = '  ' + a.name.toUpperCase();
-      var statusStr = isUnlocked ? '✓ UNLOCKED (' + unlockedDate + ')' : '[ LOCKED ]';
-      var padLen = 57 - nameStr.length - statusStr.length;
-      txt += nameStr + ' '.repeat(Math.max(2, padLen)) + statusStr + '\n';
-      txt += '  ' + a.desc + '\n';
-      
-      var lines = a.badge.split('\n');
-      lines.forEach(l => {
-        txt += '  ' + l + '\n';
-      });
-      txt += '└─────────────────────────────────────────────────────────┘</span>\n\n';
+      txt += '    <div style="flex: 1 1 200px; max-width: 250px; border: 1px solid ' + borderCol + '; border-radius: 4px; padding: 12px; background: ' + bgCol + '; color: ' + col + '; ' + shadow + ' display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; min-height: 200px;">\n';
+      txt += '      <div>\n';
+      txt += '        <div style="font-weight: bold; font-size: 12px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">\n';
+      txt += '          <span>' + a.name.toUpperCase() + '</span>\n';
+      txt += '        </div>\n';
+      txt += '        <div style="color: var(--text-dim); font-size: 11px; margin-bottom: 12px; text-align: left; line-height: 1.3;">' + a.desc + '</div>\n';
+      txt += '      </div>\n';
+      txt += '      <div style="margin: auto 0; text-align: center;">\n';
+      txt += '        <pre style="font-family: monospace; font-size: 11px; margin: 0; line-height: 1.2; display: inline-block; text-align: left;">' + a.badge + '</pre>\n';
+      txt += '      </div>\n';
+      txt += '      <div style="font-size: 10px; margin-top: 12px; text-align: center; border-top: 1px dashed ' + (isUnlocked ? 'var(--accent-dim)' : 'var(--border)') + '; padding-top: 6px;">\n';
+      txt += '        ' + (isUnlocked ? '✓ UNLOCKED (' + unlockedDate + ')' : '[ LOCKED ]') + '\n';
+      txt += '      </div>\n';
+      txt += '    </div>\n';
     });
+    txt += '  </div>\n';
     txt += '</div>';
     printTermTyped(txt, 'sys');
   } else if (action === 'focus') {
