@@ -618,7 +618,7 @@ function initButtons() {
       document.getElementById('tv-input').focus();
       if (document.getElementById('tv-output').innerHTML === '') {
         var welcomeLogo = 
-          '<div style="font-family: monospace; white-space: pre; line-height: 1.4; color: var(--accent);">' +
+          '<div style="font-family: monospace; white-space: pre; line-height: 1.4; color: var(--text-dim);">' +
           '  ███████╗████████╗██╗  ██╗ ██████╗ ███████╗\n' +
           '  ██╔════╝╚══██╔══╝██║  ██║██╔═══██╗██╔════╝\n' +
           '  █████╗     ██║   ███████║██║   ██║███████╗\n' +
