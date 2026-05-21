@@ -813,32 +813,38 @@ function printTermTyped(html, type) {
       var div = document.createElement('div');
       div.className = 'tv-output-line ' + type;
       out.appendChild(div);
-      // Strip HTML to get plain text for typing, but keep the wrapper div
+      
+      // Get plain text of the output block to stream line-by-line
       var temp = document.createElement('div');
       temp.innerHTML = html;
       var plainText = temp.textContent || temp.innerText || '';
-      // We type out the plain text char by char, then swap in the full HTML at the end
+      
+      // Split by line break
+      var lines = plainText.split('\n');
+      
       var cursor = document.createElement('span');
       cursor.className = 'tv-typewriter-cursor';
       div.appendChild(cursor);
-      var idx = 0;
-      var speed = 3; // ms per character — fast but visible
+      
+      var lineIdx = 0;
+      var delay = 12; // ms per line delay for rapid streaming
       var textNode = document.createTextNode('');
       div.insertBefore(textNode, cursor);
+      
       div.style.fontFamily = 'monospace';
-      div.style.whiteSpace = 'pre';
-      function tick() {
-        if (idx < plainText.length) {
-          // Add characters in chunks of 3 for speed
-          var chunk = plainText.substring(idx, Math.min(idx + 3, plainText.length));
-          textNode.textContent += chunk;
-          idx += chunk.length;
+      div.style.whiteSpace = 'pre-wrap';
+      
+      function tickLine() {
+        if (lineIdx < lines.length) {
+          var line = lines[lineIdx];
+          textNode.textContent += line + (lineIdx < lines.length - 1 ? '\n' : '');
+          lineIdx++;
           out.scrollTop = out.scrollHeight;
-          setTimeout(tick, speed);
+          setTimeout(tickLine, delay);
         } else {
-          // Done — swap in the full styled HTML and remove cursor
+          // Done streaming lines — swap in the full beautiful structured HTML
           div.removeChild(textNode);
-          div.removeChild(cursor);
+          if (div.contains(cursor)) div.removeChild(cursor);
           div.innerHTML = html;
           div.style.fontFamily = '';
           div.style.whiteSpace = '';
@@ -846,7 +852,7 @@ function printTermTyped(html, type) {
           resolve();
         }
       }
-      tick();
+      tickLine();
     });
   });
 }
