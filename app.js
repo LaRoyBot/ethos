@@ -1086,7 +1086,7 @@ function handleCommand(cmd) {
 }
 
 function renderProtocolCommand() {
-  var html = '<div style="font-family: monospace; line-height: 1.4; color: var(--text);">';
+  var html = '<div style="font-family: monospace; line-height: 1.4; color: var(--text); white-space: pre-wrap;">';
   html += '<span style="color:var(--text-faint)">┌─────────────────────────────────────────────────────────┐</span>\n';
   html += '  <span style="color:var(--accent); font-weight:bold;">═══ DAILY PROTOCOL DIAGNOSTIC ═══</span>\n';
   html += '  <span style="color:var(--text-dim)">Date: ' + S.activeDate + ' | Streak: ' + S.streak + ' days</span>\n';

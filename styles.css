@@ -306,7 +306,7 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); font-si
 .tv-title { color:var(--text-faint); font-size:12px; }
 .tv-close { background:none; border:none; color:var(--red); font-family:var(--font); font-size:12px; cursor:pointer; }
 .tv-output { flex:1; overflow-y:auto; font-size:13px; line-height:1.6; display:flex; flex-direction:column; justify-content:flex-end; padding-bottom:10px; }
-.tv-output-line { margin-bottom:4px; word-break:break-word; }
+.tv-output-line { margin-bottom:4px; word-break:break-word; white-space: pre-wrap; font-family: 'JetBrains Mono', monospace; }
 .tv-output-line.err { color:var(--red); }
 .tv-output-line.ok { color:var(--accent); }
 .tv-output-line.sys { color:var(--text-dim); }
