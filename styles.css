@@ -333,16 +333,6 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); font-si
   filter: drop-shadow(0 0 6px var(--accent));
 }
 
-.sakura-ambient {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 1; /* Sit in the background, but wait! If it's a background, let's use z-index: 1 or z-index: -1 depending on other elements. Actually, let's use -1 as proposed, so it is strictly behind all inputs and text! Wait, let's make sure it is behind other content. Is the container styled? Yes, z-index: -1 is standard for background canvas. Let's make it z-index: -1. Wait, if it sits under everything, we must make sure the parent doesn't have an opaque background. The shell has a semi-transparent or transparent background, so it will show through. Let's use -1. */
-  z-index: -1;
-  pointer-events: none;
-  background: transparent;
-}
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width:600px) {
