@@ -1237,10 +1237,12 @@ function handleCommand(cmd) {
       S.oracleHistory = [];
       ss();
       printTerm('Oracle conversation history cleared.', 'ok');
+    } else if (sub === '--list' || sub === '--models' || sub === '-l') {
+      listOracleModels();
     } else {
       const query = args.slice(1).join(' ').trim();
       if (!query) {
-        printTerm('Oracle LLM Companion:<br>- <span style="color:var(--accent);">oracle --key [key]</span> : configure Gemini API key<br>- <span style="color:var(--accent);">oracle --clear</span> : reset conversation history<br>- <span style="color:var(--accent);">oracle [question]</span> : ask the Oracle a technical question', 'info');
+        printTerm('Oracle LLM Companion:<br>- <span style="color:var(--accent);">oracle --key [key]</span> : configure Gemini API key<br>- <span style="color:var(--accent);">oracle --list</span> : list authorized models / diagnose API key<br>- <span style="color:var(--accent);">oracle --clear</span> : reset conversation history<br>- <span style="color:var(--accent);">oracle [question]</span> : ask the Oracle a technical question', 'info');
       } else {
         queryOracle(query);
       }
@@ -3823,6 +3825,51 @@ async function queryOracle(prompt) {
     // Revert last user prompt on failure so conversation stays in sync
     S.oracleHistory.pop();
     printTerm(`// LINK ERROR: ${escapeHtml(error.message)}`, 'err');
+  }
+}
+
+async function listOracleModels() {
+  if (!S.geminiKey) {
+    printTerm('// ERROR: Gemini API key is not configured.', 'err');
+    printTerm('To configure, run: <span style="color:var(--accent);">oracle --key YOUR_API_KEY</span>', 'info');
+    printTerm('Or use the API Key input card in the Log Settings panel.', 'info');
+    return;
+  }
+
+  printTerm('// ESTABLISHING CONNECTION FOR KEY DIAGNOSTICS...', 'info');
+  
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${S.geminiKey}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const errMsg = errData?.error?.message || `HTTP ${response.status}`;
+      throw new Error(errMsg);
+    }
+
+    const resJson = await response.json();
+    const models = resJson.models || [];
+    
+    if (models.length === 0) {
+      printTerm('// DIAGNOSTICS: Key is active, but no models are authorized.', 'warn');
+    } else {
+      printTerm('// DIAGNOSTICS: Connection successful! Authorized models:', 'ok');
+      // Show first 8 models to keep console clean
+      models.slice(0, 8).forEach(model => {
+        const cleanName = model.name.replace('models/', '');
+        printTerm(`• <span style="color:var(--accent); font-family:var(--font);">${cleanName}</span> (${model.displayName || ''})`, 'info');
+      });
+      if (models.length > 8) {
+        printTerm(`...and ${models.length - 8} more models.`, 'info');
+      }
+    }
+  } catch (error) {
+    printTerm(`// DIAGNOSTIC ERROR: ${escapeHtml(error.message)}`, 'err');
+    printTerm('Suggestions to resolve this block:', 'info');
+    printTerm('1. Generate a new API Key in standard Gmail account via <a href="https://aistudio.google.com/" target="_blank" style="color:var(--accent); text-decoration:underline;">Google AI Studio</a>.', 'info');
+    printTerm('2. Verify if the "Generative Language API" is enabled under the API Library in the Google Cloud Console for your project.', 'info');
+    printTerm('3. Check your Google Cloud billing dashboard for payment holds or suspended states.', 'info');
   }
 }
 
