@@ -4,3 +4,5 @@ chunks_raw.json
 extract*.js
 renderProtocolView*.js
 extracted_app*.js
+leveldb_temp/
+read_log.js

@@ -241,7 +241,7 @@ const DEFAULT_SWIM_HISTORY = [
     ]
   },
   { date: '2026-04-18', status: 'Swam', sessions: [{ time: '8:15 am – 9:25 am', duration: 70, comment: '' }] },
-  { date: '2026-04-19', status: 'Swam', sessions: [{ time: '6:43 pm – 8:20 pm', duration: 97, comment: 'Machaxi Centre' }] },
+  { date: '2026-04-19', status: 'Swam', sessions: [{ time: '6:43 pm – 8:20 pm', duration: 97, comment: 'Local Pool' }] },
   { date: '2026-04-20', status: 'Swam', sessions: [{ time: '7:53 pm – 10:06 pm', duration: 133, comment: '' }] },
   { date: '2026-04-21', status: 'Missed', sessions: [] },
   { date: '2026-04-22', status: 'Missed', sessions: [] },
@@ -294,7 +294,7 @@ const DEFAULT_SWIM_HISTORY = [
     status: 'Swam',
     sessions: [
       { time: '12:07 pm – 12:25 pm', duration: 18, comment: 'Morning session' },
-      { time: '12:36 pm – 1:58 pm', duration: 81, comment: 'Olympia' }
+      { time: '12:36 pm – 1:58 pm', duration: 81, comment: 'Fitness Center' }
     ]
   },
   { date: '2026-05-17', status: 'Swam', sessions: [{ time: '8:25 pm – 9:40 pm', duration: 75, comment: '' }] },

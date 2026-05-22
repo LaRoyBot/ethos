@@ -1,4 +1,7 @@
 // === FIREBASE CONFIGURATION ===
+// NOTE: Client-side Firebase keys are designed to be public.
+// Project safety is guaranteed by strict Database Security Rules (Issue 2/9)
+// and API restrictions/App Check set up in the Firebase Console.
 const firebaseConfig = {
   apiKey: "AIzaSyCOQmc-GacWr2OrGqRKaU3Na4NAePe7_T4",
   authDomain: "ethos-jet.firebaseapp.com",
@@ -19,6 +22,15 @@ if (typeof firebase !== 'undefined') {
 }
 
 // === STATE ===
+function escapeHtml(s) {
+  if (typeof s !== 'string') return s;
+  return s.replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#039;');
+}
+
 function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch{return d;}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
@@ -34,8 +46,8 @@ let S = load('mathInit_state', {
   activeGroupFilter: 'all',
   swimHistory: DEFAULT_SWIM_HISTORY,
   waterLogs: Object.assign({}, DEFAULT_WATER_LOGS),
-  weightLogs: [{ date: '2026-05-19', weight: 91.0, uricAcid: 7.2, hdl: 42, eosinophils: 5.5 }],
-  trilumaStartDate: '2026-05-01',
+  weightLogs: [{ date: '2026-05-19', weight: 70.0, uricAcid: 5.0, hdl: 50, eosinophils: 2.0 }],
+  trilumaStartDate: '2026-01-01',
   todayOnlyToggle: true,
   swimFilter: 'all',
   swimSearchQuery: '',
@@ -89,8 +101,8 @@ if (!S.unlockedAchievements) S.unlockedAchievements = {};
 // Safe migrations for lifestyle parameters
 if (S.swimHistory === undefined) S.swimHistory = DEFAULT_SWIM_HISTORY;
 if (S.waterLogs === undefined) S.waterLogs = {};
-if (S.weightLogs === undefined) S.weightLogs = [{ date: '2026-05-19', weight: 91.0, uricAcid: 7.2, hdl: 42, eosinophils: 5.5 }];
-if (S.trilumaStartDate === undefined) S.trilumaStartDate = '2026-05-01';
+if (S.weightLogs === undefined) S.weightLogs = [{ date: '2026-05-19', weight: 70.0, uricAcid: 5.0, hdl: 50, eosinophils: 2.0 }];
+if (S.trilumaStartDate === undefined) S.trilumaStartDate = '2026-01-01';
 if (S.todayOnlyToggle === undefined) S.todayOnlyToggle = true;
 if (S.swimFilter === undefined) S.swimFilter = 'all';
 if (S.swimSearchQuery === undefined) S.swimSearchQuery = '';
@@ -141,8 +153,11 @@ function firebaseSyncPush() {
   if (!user) return;
   
   try {
+    const syncableState = Object.assign({}, S);
+    delete syncableState.cmdHistory;
+    
     firebase.database().ref('sync/' + user.uid).set({
-      state: S,
+      state: syncableState,
       lastUpdated: S.lastUpdated
     }).catch(err => {
       console.error("Firebase push failed:", err);
@@ -178,9 +193,11 @@ function firebaseSyncPull(callback) {
             // Cloud is newer -> Pull & Overwrite local
             const prevAuthEmail = S.authEmail;
             const prevAuthUsername = S.authUsername;
+            const prevCmdHistory = S.cmdHistory || [];
             S = val.state;
             S.authEmail = prevAuthEmail;
             S.authUsername = prevAuthUsername;
+            S.cmdHistory = prevCmdHistory;
             ss(true); // save locally without pushing back
             render();
             addLog('info', 'Cloud sync: Pulled newer state from cloud.');
@@ -875,7 +892,7 @@ function printTermTyped(html, type) {
 function handleCommand(cmd) {
   cmd = cmd.trim();
   if (!cmd) return;
-  printTerm('<span class="cmd-echo">$ ' + cmd + '</span>');
+  printTerm('<span class="cmd-echo">$ ' + escapeHtml(cmd) + '</span>');
   const args = cmd.split(' ').filter(x => x);
   const action = args[0].toLowerCase();
 
@@ -1121,7 +1138,7 @@ function handleCommand(cmd) {
       printTerm('Japanese mode disabled. Switched back to English.', 'ok');
     }
   } else {
-    printTerm('command not found: "' + action + '". type \'help\' for commands.', 'err');
+    printTerm('command not found: "' + escapeHtml(action) + '". type \'help\' for commands.', 'err');
   }
 }
 
@@ -2445,7 +2462,7 @@ function renderLog() {
   var el = document.getElementById('main-log'); if (!el) return;
   var recent = (S.logs || []).slice(-40).reverse();
   if (recent.length === 0) { el.innerHTML = '<div class="log-line"><span class="ts">--:--:--</span><span class="info">[info]</span> ethos.init started. welcome back.</div>'; return; }
-  el.innerHTML = recent.map(function(l) { return '<div class="log-line"><span class="ts">' + l.ts + '</span> <span class="' + l.type + '">[' + l.type + ']</span> ' + l.msg + '</div>'; }).join('');
+  el.innerHTML = recent.map(function(l) { return '<div class="log-line"><span class="ts">' + l.ts + '</span> <span class="' + l.type + '">[' + l.type + ']</span> ' + escapeHtml(l.msg) + '</div>'; }).join('');
 }
 
 function renderPhases() {
