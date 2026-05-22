@@ -129,21 +129,40 @@ if (!S.notificationSettings) S.notificationSettings = { enabled: false, sound: '
 if (S.geminiKey === undefined) S.geminiKey = '';
 if (!S.oracleHistory) S.oracleHistory = [];
 
-const TODAY = new Date().toDateString();
-if (S.lastDate !== TODAY) {
-  if (S.lastDate) {
-    S.history[S.lastDate] = {};
-    S.routines.forEach(r => r.ethe.forEach(e => { S.history[S.lastDate][e.id] = e.done; }));
-  }
-  S.routines.forEach(r => r.ethe.forEach(e => { if(!e.isWater) e.done = false; }));
-  S.xpToday = 0; S.lastDate = TODAY; S.activeDate = TODAY; ss();
-} else {
-  S.routines.forEach(r => r.ethe.forEach(e => {
-    if(!e.isWater) {
-      e.done = S.history[S.activeDate] ? !!S.history[S.activeDate][e.id] : (S.activeDate === TODAY ? e.done : false);
+let TODAY = new Date().toDateString();
+
+function checkDailyReset(skipFirebase = false) {
+  const currentToday = new Date().toDateString();
+  if (S.lastDate !== currentToday) {
+    if (S.lastDate) {
+      S.history[S.lastDate] = {};
+      S.routines.forEach(r => r.ethe.forEach(e => { S.history[S.lastDate][e.id] = e.done; }));
     }
-  }));
+    S.routines.forEach(r => r.ethe.forEach(e => { if(!e.isWater) e.done = false; }));
+    S.xpToday = 0; S.lastDate = currentToday; S.activeDate = currentToday;
+    ss(skipFirebase);
+  } else {
+    S.routines.forEach(r => r.ethe.forEach(e => {
+      if(!e.isWater) {
+        e.done = S.history[S.activeDate] ? !!S.history[S.activeDate][e.id] : (S.activeDate === TODAY ? e.done : false);
+      }
+    }));
+  }
 }
+
+function updateTodayDate() {
+  const currentToday = new Date().toDateString();
+  if (TODAY !== currentToday) {
+    TODAY = currentToday;
+    checkDailyReset(false);
+    render();
+    addLog('info', `system clock: new day detected (${TODAY}). rolled over lifestyle parameters.`);
+  }
+}
+setInterval(updateTodayDate, 30000);
+
+// Run daily reset on boot locally without bumping timestamp
+checkDailyReset(true);
 function ss(skipFirebase = false) {
   if (!skipFirebase) {
     S.lastUpdated = Date.now();
@@ -206,6 +225,10 @@ function firebaseSyncPull(callback) {
             S.authEmail = prevAuthEmail;
             S.authUsername = prevAuthUsername;
             S.cmdHistory = prevCmdHistory;
+            
+            // Run daily reset on the pulled cloud state without bumping cloud timestamp
+            checkDailyReset(true);
+            
             ss(true); // save locally without pushing back
             render();
             addLog('info', 'Cloud sync: Pulled newer state from cloud.');
@@ -3164,6 +3187,7 @@ function changeWaterIntake(rIdx, eId, delta) {
 function renderSwimTab() {
   const history = S.swimHistory || [];
   let totalSessions = 0, totalSwamDays = 0, missedDays = 0, doubleSessions = 0, totalDuration = 0, scheduledDays = 0;
+  let totalDistance = 0, totalCalories = 0;
   
   history.forEach(entry => {
     const [yr, mo, dy] = entry.date.split('-').map(Number);
@@ -3175,7 +3199,11 @@ function renderSwimTab() {
       totalSwamDays++;
       totalSessions += entry.sessions.length;
       if (entry.sessions.length >= 2) doubleSessions++;
-      entry.sessions.forEach(s => { totalDuration += parseInt(s.duration) || 0; });
+      entry.sessions.forEach(s => {
+        totalDuration += parseInt(s.duration) || 0;
+        totalDistance += parseInt(s.distance) || 0;
+        totalCalories += parseInt(s.calories) || Math.round((parseInt(s.duration) || 0) * 9);
+      });
       scheduledDays++;
     } else {
       if (!isWednesday) {
@@ -3217,6 +3245,8 @@ function renderSwimTab() {
   if (document.getElementById('swim-stat-double')) document.getElementById('swim-stat-double').textContent = doubleSessions;
   if (document.getElementById('swim-stat-rate')) document.getElementById('swim-stat-rate').textContent = rate + '%';
   if (document.getElementById('swim-stat-duration')) document.getElementById('swim-stat-duration').textContent = totalDuration;
+  if (document.getElementById('swim-stat-distance')) document.getElementById('swim-stat-distance').textContent = totalDistance;
+  if (document.getElementById('swim-stat-calories')) document.getElementById('swim-stat-calories').textContent = totalCalories;
   if (document.getElementById('swim-stat-streak')) document.getElementById('swim-stat-streak').textContent = currentStreak;
   if (document.getElementById('swim-stat-streak-max')) document.getElementById('swim-stat-streak-max').textContent = maxStreak;
   
@@ -3259,7 +3289,16 @@ function renderSwimTab() {
     
     let detailsHtml = '';
     if (isSwam) {
-      const sessionsText = entry.sessions.map(s => `• ${s.time} (${s.duration}m)`).join('<br>');
+      const sessionsText = entry.sessions.map(s => {
+        let statsStr = `${s.duration}m`;
+        if (s.laps !== undefined && s.laps > 0) {
+          statsStr += ` | ${s.laps} laps | ${s.distance}m | ${s.calories} kcal`;
+        } else {
+          const estCal = s.calories || Math.round(s.duration * 9);
+          statsStr += ` | ~${estCal} kcal`;
+        }
+        return `• ${s.time} (${statsStr})`;
+      }).join('<br>');
       const commentsText = entry.sessions.map(s => s.comment ? `// ${s.comment}` : '').filter(x => x).join('<br>');
       detailsHtml = `
         <div class="swim-sessions-txt" style="margin-top:2px;">${sessionsText}</div>
@@ -3287,25 +3326,22 @@ function renderSwimTab() {
   });
 }
 
-function logSwimSession() {
-  const dateInput = document.getElementById('swim-input-date');
-  const timeInput = document.getElementById('swim-input-time');
-  const durInput = document.getElementById('swim-input-duration');
-  const commentInput = document.getElementById('swim-input-comment');
-  
-  const date = dateInput.value;
+function logSwimSessionProgrammatic(date, time, duration, comment, laps, distance, calories) {
   if (!date) return;
-  
-  const time = timeInput.value.trim();
-  const duration = parseInt(durInput.value) || 0;
-  const comment = commentInput.value.trim();
-  
   if (!S.swimHistory) S.swimHistory = [];
   let entry = S.swimHistory.find(x => x.date === date);
   const isSwamLog = time && duration > 0;
   
   if (isSwamLog) {
     const sessionObj = { time, duration, comment };
+    if (laps !== undefined && laps > 0) {
+      sessionObj.laps = laps;
+      sessionObj.distance = distance || (laps * 50);
+      sessionObj.calories = calories || (duration * 9);
+    } else if (calories !== undefined) {
+      sessionObj.calories = calories;
+    }
+    
     if (entry) {
       if (entry.status === 'Missed') {
         entry.status = 'Swam';
@@ -3344,12 +3380,39 @@ function logSwimSession() {
     addLog('warn', `swim marked as rest/missed on ${date}`);
   }
   
-  timeInput.value = '';
-  durInput.value = '';
-  commentInput.value = '';
   checkAchievements();
   ss();
   render();
+}
+
+function logSwimSession() {
+  const dateInput = document.getElementById('swim-input-date');
+  const timeInput = document.getElementById('swim-input-time');
+  const durInput = document.getElementById('swim-input-duration');
+  const commentInput = document.getElementById('swim-input-comment');
+  const lapsInput = document.getElementById('swim-input-laps');
+  
+  const date = dateInput.value;
+  if (!date) return;
+  
+  const time = timeInput.value.trim();
+  const duration = parseInt(durInput.value) || 0;
+  const comment = commentInput.value.trim();
+  const laps = lapsInput ? parseInt(lapsInput.value) || 0 : 0;
+  
+  let distance = undefined;
+  let calories = undefined;
+  if (laps > 0) {
+    distance = laps * 50;
+    calories = duration * 9;
+  }
+  
+  logSwimSessionProgrammatic(date, time, duration, comment, laps, distance, calories);
+  
+  timeInput.value = '';
+  durInput.value = '';
+  commentInput.value = '';
+  if (lapsInput) lapsInput.value = '';
 }
 
 function removeSwimDay(date) {
@@ -3885,6 +3948,12 @@ If the user's message indicates they completed, did, or undid any of these habit
 [COMMAND: check <id>]
 [COMMAND: uncheck <id>]
 
+If the user's message indicates they logged a swim or went swimming (e.g., "oracle i swam from 8pm to 10:10 pm, 25 laps, easy"), you MUST calculate the duration in minutes, extract the number of laps, determine the intensity (easy, moderate, or hard), and append a swim command:
+[COMMAND: swim duration=<duration_in_minutes> laps=<laps_count> intensity=<easy|moderate|hard> time="<time_range>" comment="<comment>"]
+For example, for "swam from 8pm to 10:10 pm, 25 laps, easy", you should output:
+[COMMAND: swim duration=130 laps=25 intensity=easy time="8pm to 10:10 pm" comment="easy"]
+If they logged a swim, the system will automatically check off their Cardio habit (ID 303), so you do NOT need to also output a check command for habit 303.
+
 Only check off a habit if it is currently UNDONE, and uncheck it if it is currently DONE.
 Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversational explanation. Confirm your actions in a highly styled cybernetic narrative (e.g. 'Marked "Linear Algebra" as completed in your neural trace. +15 XP logged.').` }]
   };
@@ -3922,9 +3991,9 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
       throw new Error("Empty response received from docking AI core.");
     }
     
-    // Parse check/uncheck commands from response
+    // Parse check/uncheck/swim commands from response
     let cleanReplyText = replyText;
-    const commandRegex = /\[COMMAND:\s*(check|uncheck)\s+([^\]]+)\]/gi;
+    const commandRegex = /\[COMMAND:\s*(check|uncheck|swim)\s+([^\]]+)\]/gi;
     let match;
     const commandsToRun = [];
 
@@ -3946,25 +4015,55 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
     const actionsTaken = [];
     if (commandsToRun.length > 0) {
       commandsToRun.forEach(cmd => {
-        let foundIdx = -1;
-        let ethosObj = null;
-        S.routines.forEach((r, rIdx) => {
-          const e = r.ethe.find(x => String(x.id) === String(cmd.ethosId));
-          if (e) {
-            foundIdx = rIdx;
-            ethosObj = e;
+        if (cmd.action === 'swim') {
+          let swimDuration = 0;
+          let swimLaps = 0;
+          let swimIntensity = 'moderate';
+          let swimTime = '';
+          let swimComment = '';
+          const attrStr = cmd.ethosId;
+          const attrRegex = /(\w+)\s*=\s*(?:"([^"]*)"|(\S+))/g;
+          let attrMatch;
+          while ((attrMatch = attrRegex.exec(attrStr)) !== null) {
+            const key = attrMatch[1].toLowerCase();
+            const val = attrMatch[2] !== undefined ? attrMatch[2] : attrMatch[3];
+            if (key === 'duration') swimDuration = parseInt(val) || 0;
+            else if (key === 'laps') swimLaps = parseInt(val) || 0;
+            else if (key === 'intensity') swimIntensity = val.toLowerCase();
+            else if (key === 'time') swimTime = val;
+            else if (key === 'comment') swimComment = val;
           }
-        });
+          
+          const distance = swimLaps * 50;
+          let calMultiplier = 9;
+          if (swimIntensity === 'easy') calMultiplier = 7;
+          else if (swimIntensity === 'hard' || swimIntensity === 'vigorous') calMultiplier = 11;
+          const calories = swimDuration * calMultiplier;
+          
+          logSwimSessionProgrammatic(TODAY, swimTime || '8pm', swimDuration, swimComment || swimIntensity, swimLaps, distance, calories);
+          actionCount++;
+          actionsTaken.push(`logged swim (${swimDuration} mins, ${swimLaps} laps)`);
+        } else {
+          let foundIdx = -1;
+          let ethosObj = null;
+          S.routines.forEach((r, rIdx) => {
+            const e = r.ethe.find(x => String(x.id) === String(cmd.ethosId));
+            if (e) {
+              foundIdx = rIdx;
+              ethosObj = e;
+            }
+          });
 
-        if (ethosObj && foundIdx !== -1) {
-          if (cmd.action === 'check' && !ethosObj.done) {
-            toggleEthos(foundIdx, ethosObj.id);
-            actionCount++;
-            actionsTaken.push(`checked "${ethosObj.name}"`);
-          } else if (cmd.action === 'uncheck' && ethosObj.done) {
-            toggleEthos(foundIdx, ethosObj.id);
-            actionCount++;
-            actionsTaken.push(`unchecked "${ethosObj.name}"`);
+          if (ethosObj && foundIdx !== -1) {
+            if (cmd.action === 'check' && !ethosObj.done) {
+              toggleEthos(foundIdx, ethosObj.id);
+              actionCount++;
+              actionsTaken.push(`checked "${ethosObj.name}"`);
+            } else if (cmd.action === 'uncheck' && ethosObj.done) {
+              toggleEthos(foundIdx, ethosObj.id);
+              actionCount++;
+              actionsTaken.push(`unchecked "${ethosObj.name}"`);
+            }
           }
         }
       });

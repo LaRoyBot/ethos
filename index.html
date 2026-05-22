@@ -253,6 +253,16 @@
         <div class="stat-unit">minutes</div>
       </div>
       <div class="stat-card">
+        <div class="stat-label">total distance</div>
+        <div class="stat-value" id="swim-stat-distance" style="color: var(--accent);">0</div>
+        <div class="stat-unit">meters</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">total calories</div>
+        <div class="stat-value" id="swim-stat-calories" style="color: var(--amber);">0</div>
+        <div class="stat-unit">kcal</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-label">current streak</div>
         <div class="stat-value" id="swim-stat-streak" style="color: var(--accent);">0</div>
         <div class="stat-unit">days 🔥</div>
@@ -270,6 +280,7 @@
       <input type="date" class="terminal-input" id="swim-input-date" style="width:130px;flex:none">
       <input type="text" class="terminal-input" id="swim-input-time" placeholder="time (e.g. 8:00 pm – 9:30 pm)" style="width:200px;flex:none">
       <input type="number" class="terminal-input" id="swim-input-duration" min="0" placeholder="duration (mins)" style="width:130px;flex:none">
+      <input type="number" class="terminal-input" id="swim-input-laps" min="0" placeholder="laps (optional)" style="width:110px;flex:none">
       <input type="text" class="terminal-input" id="swim-input-comment" placeholder="comments (e.g. Machaxi Centre, Olympia)">
       <button class="btn" id="swim-log-btn" style="flex:none">+ log swim</button>
     </div>
