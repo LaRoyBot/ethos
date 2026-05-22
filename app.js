@@ -3760,6 +3760,45 @@ function startReminderTicker() {
 // ORACLE AI CONVERSATIONAL ENGINE (GEMINI FLASH)
 // ==========================================================================
 
+function showTerminalLoader() {
+  const outInner = document.getElementById('tv-output-inner');
+  const out = document.getElementById('tv-output');
+  if (!outInner || !out) return { stop: () => {} };
+
+  const div = document.createElement('div');
+  div.className = 'tv-output-line info';
+  div.style.fontFamily = 'monospace';
+  div.style.lineHeight = '1.5';
+  outInner.appendChild(div);
+  scrollToBottom(out, true);
+
+  const frames = ['▖', '▘', '▝', '▗'];
+  const spinnerChars = ['/', '-', '\\', '|'];
+  let tick = 0;
+  
+  const intervalId = setInterval(() => {
+    tick++;
+    const spinner = spinnerChars[tick % spinnerChars.length];
+    const block = frames[tick % frames.length];
+    
+    div.innerHTML = `
+      <span style="color:var(--accent); font-weight:bold;">${block}</span> ESTABLISHING CONNECTION TO DOCKING AI CORE <span style="color:var(--text-dim);">[ ${spinner} ]</span><br>
+      <span style="color:var(--text-faint); margin-left: 14px;">• synchronizing neural parameters...</span><br>
+      <span style="color:var(--text-faint); margin-left: 14px;">• querying gemini-2.5-flash: PENDING...</span>
+    `;
+    scrollToBottom(out, false);
+  }, 100);
+
+  return {
+    stop: () => {
+      clearInterval(intervalId);
+      if (div.parentNode) {
+        div.parentNode.removeChild(div);
+      }
+    }
+  };
+}
+
 async function queryOracle(prompt) {
   if (!S.geminiKey) {
     printTerm('// ERROR: Gemini API key is not configured.', 'err');
@@ -3768,7 +3807,7 @@ async function queryOracle(prompt) {
     return;
   }
 
-  printTerm('// ESTABLISHING CONNECTION TO DOCKING AI CORE...', 'info');
+  const loader = showTerminalLoader();
   
   // Format history for conversational turn
   S.oracleHistory.push({ role: 'user', parts: [{ text: prompt }] });
@@ -3814,6 +3853,8 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
         }
       })
     });
+
+    loader.stop();
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
@@ -3888,6 +3929,7 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
     }
     
   } catch (error) {
+    loader.stop();
     // Revert last user prompt on failure so conversation stays in sync
     S.oracleHistory.pop();
     printTerm(`// LINK ERROR: ${escapeHtml(error.message)}`, 'err');
