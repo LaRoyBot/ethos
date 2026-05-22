@@ -787,3 +787,115 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); font-si
   0%, 100% { opacity: 1; }
   50% { opacity: 0; }
 }
+
+/* ==========================================================================
+   CYBERPUNK REMINDERS ENGINE WIDGETS
+   ========================================================================== */
+
+.reminders-config-box {
+  background: rgba(17, 17, 17, 0.7) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border) !important;
+  border-radius: 4px;
+  padding: 14px !important;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 1.5rem;
+}
+
+#pwa-notif-status {
+  text-shadow: 0 0 8px rgba(255, 68, 68, 0.4);
+  transition: all 0.3s ease;
+}
+
+#pwa-notif-status.granted {
+  color: var(--accent) !important;
+  text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+}
+
+/* Custom fluorescent neon styles for the slider */
+#notif-vol-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 4px;
+  background: var(--border);
+  outline: none;
+  border-radius: 2px;
+  transition: background 0.3s;
+}
+
+#notif-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent);
+  transition: transform 0.1s, background-color 0.1s;
+}
+
+#notif-vol-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+#notif-vol-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px var(--accent);
+  transition: transform 0.1s, background-color 0.1s;
+}
+
+#notif-vol-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+}
+
+/* Reminders table rows styling */
+#reminders-table-body tr {
+  transition: background-color 0.2s ease;
+}
+
+#reminders-table-body tr:hover {
+  background-color: var(--bg3);
+}
+
+.save-flash {
+  color: var(--accent);
+  font-size: 11px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.save-flash.show {
+  opacity: 1;
+}
+
+/* Accent range slider colors for other themes */
+[data-theme="aureate"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="cerulean"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="rosewood"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="amethyst"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="vermillion"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="sapphire"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="solaris"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="obsidian"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="carmine"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="cmd"] #notif-vol-slider::-webkit-slider-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+
+[data-theme="aureate"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="cerulean"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="rosewood"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="amethyst"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="vermillion"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="sapphire"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="solaris"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="obsidian"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="carmine"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+[data-theme="cmd"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+

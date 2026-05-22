@@ -121,6 +121,10 @@ if (S.authEmail === undefined) S.authEmail = '';
 if (S.authUsername === undefined) S.authUsername = '';
 if (S.lastUpdated === undefined) S.lastUpdated = 0;
 
+// PWA & Reminders migrations
+if (!S.reminders) S.reminders = [];
+if (!S.notificationSettings) S.notificationSettings = { enabled: false, sound: 'cyber_chime', volume: 0.5 };
+
 const TODAY = new Date().toDateString();
 if (S.lastDate !== TODAY) {
   if (S.lastDate) {
@@ -340,6 +344,10 @@ function init() {
   var crtEl = document.getElementById('crt-screen-effect');
   if (crtEl) { if (S.crtEnabled) crtEl.classList.add('crt-active'); else crtEl.classList.remove('crt-active'); }
   initTabs(); initButtons(); render(); startClock(); startFlowerAnimation();
+  
+  // v2.4.0 PWA & Reminders Init
+  initPWANotifications();
+  startReminderTicker();
 
   // Global Ctrl+Alt+C shortcut for CRT toggle
   document.addEventListener('keydown', function(e) {
@@ -902,7 +910,7 @@ function handleCommand(cmd) {
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
-    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
+    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
   } else if (action === 'stats') {
     var level = 0, cum = 0;
     for (var i = 0; i < LEVELS.length - 1; i++) { if (S.xp >= cum + LEVELS[i].next) { cum += LEVELS[i].next; level++; } else break; }
@@ -1136,6 +1144,76 @@ function handleCommand(cmd) {
       printTerm('日本語モードが有効になりました。', 'ok');
     } else {
       printTerm('Japanese mode disabled. Switched back to English.', 'ok');
+    }
+  } else if (action === 'remind') {
+    const sub = args[1] ? args[1].toLowerCase() : '';
+    if (!sub || sub === 'list') {
+      if (S.reminders.length === 0) {
+        printTerm('// no reminders scheduled. type "remind [time] [msg]" to set one.', 'info');
+      } else {
+        let txt = '<span style="color:var(--accent); font-weight:bold;">=== SCHEDULED ALARMS ===</span><br>';
+        S.reminders.forEach((r, idx) => {
+          txt += `[${idx}] <span style="color:var(--accent)">${r.time}</span> - "${escapeHtml(r.message)}" [${r.active ? '<span style="color:var(--accent)">ACTIVE</span>' : '<span style="color:var(--text-dim)">OFF</span>'}]<br>`;
+        });
+        printTerm(txt, 'info');
+      }
+    } else if (sub === 'test') {
+      triggerNotification("ethos.init // DIAGNOSTIC", "Alert test successful. Audio context synthesized.");
+      printTerm("sent test alert frame. sound synthesized offline.", "ok");
+    } else if (sub === 'delete' || sub === 'remove') {
+      const idx = parseInt(args[2]);
+      if (isNaN(idx) || idx < 0 || idx >= S.reminders.length) {
+        printTerm("usage: remind delete [index]", "err");
+      } else {
+        const deleted = S.reminders.splice(idx, 1)[0];
+        ss();
+        renderRemindersList();
+        printTerm(`deleted reminder: ${deleted.time} - "${deleted.message}"`, "ok");
+      }
+    } else if (sub === 'sound') {
+      const preset = args[2];
+      if (['cyber_chime', 'cyber_pulse', 'cyber_radar', 'none'].includes(preset)) {
+        S.notificationSettings.sound = preset;
+        ss();
+        const presetEl = document.getElementById('notif-sound-preset');
+        if (presetEl) presetEl.value = preset;
+        playSynthSound(preset);
+        printTerm(`reminder sound set to ${preset}`, "ok");
+      } else {
+        printTerm("unknown preset. available: cyber_chime, cyber_pulse, cyber_radar, none", "err");
+      }
+    } else if (sub === 'volume') {
+      const pct = parseInt(args[2]);
+      if (isNaN(pct) || pct < 0 || pct > 100) {
+        printTerm("usage: remind volume [0-100]", "err");
+      } else {
+        const volVal = pct / 100;
+        S.notificationSettings.volume = volVal;
+        ss();
+        const sliderEl = document.getElementById('notif-vol-slider');
+        if (sliderEl) sliderEl.value = volVal;
+        playSynthSound(S.notificationSettings.sound);
+        printTerm(`reminder volume set to ${pct}%`, "ok");
+      }
+    } else {
+      const timeVal = args[1];
+      const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+      if (!timeRegex.test(timeVal)) {
+        printTerm("invalid time format. must be HH:MM (24-hour), e.g., 08:30", "err");
+        return;
+      }
+      const msg = args.slice(2).join(' ').trim() || "Ethos Routine Alarm";
+      S.reminders.push({
+        id: Date.now().toString(),
+        time: timeVal,
+        message: msg,
+        active: true,
+        once: false,
+        lastFiredDate: ''
+      });
+      ss();
+      renderRemindersList();
+      printTerm(`added routine reminder for ${timeVal}: "${escapeHtml(msg)}"`, "ok");
     }
   } else {
     printTerm('command not found: "' + escapeHtml(action) + '". type \'help\' for commands.', 'err');
@@ -2355,6 +2433,10 @@ function completeFocusSession() {
   focusLog('Focus session COMPLETE! +' + xpGained + ' XP. logged ' + hrs.toFixed(1) + 'h.');
   addLog('ok', 'focus session completed (' + mins + 'm) +' + xpGained + ' xp');
   
+  // Custom synth alarm and PWA push alert for focus session completion
+  playSynthSound('cyber_pulse');
+  triggerNotification("ethos.init // FOCUS COMPLETE", `Mathematical focus session finished (+${xpGained} XP).`);
+  
   window.flowerGlowActive = true;
   setTimeout(() => { window.flowerGlowActive = false; }, 20000);
   
@@ -3365,4 +3447,278 @@ function checkHydroChamp() {
     maxStreak = Math.max(maxStreak, currentStreak);
   }
   return maxStreak >= 7;
+}
+
+// ═════════════════════════════════════════════════════════════
+// ═══ v2.4.0 Progressive Web App & Notification Alarm Engine ═══
+// ═════════════════════════════════════════════════════════════
+
+// Web Audio API Synthesizer Presets
+function playSynthSound(preset = 'cyber_chime') {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  
+  try {
+    const ctx = new AudioContext();
+    const now = ctx.currentTime;
+    const vol = S.notificationSettings ? S.notificationSettings.volume : 0.5;
+    
+    if (preset === 'cyber_chime') {
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(880, now);
+      osc1.frequency.exponentialRampToValueAtTime(1760, now + 0.1);
+      gain1.gain.setValueAtTime(vol * 0.15, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1); gain1.connect(ctx.destination);
+      osc1.start(now); osc1.stop(now + 0.4);
+      
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'triangle';
+      osc2.frequency.setValueAtTime(1320, now + 0.1);
+      osc2.frequency.exponentialRampToValueAtTime(2640, now + 0.2);
+      gain2.gain.setValueAtTime(0, now);
+      gain2.gain.setValueAtTime(vol * 0.1, now + 0.1);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc2.start(now + 0.1); osc2.stop(now + 0.5);
+      
+    } else if (preset === 'cyber_pulse') {
+      [0, 0.12].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1000, now + delay);
+        gain.gain.setValueAtTime(vol * 0.05, now + delay);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.08);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(now + delay); osc.stop(now + delay + 0.09);
+      });
+      
+    } else if (preset === 'cyber_radar') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.6);
+      gain.gain.setValueAtTime(vol * 0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(now); osc.stop(now + 0.85);
+    }
+  } catch (err) {
+    console.error("Synthesizer error: ", err);
+  }
+}
+
+// Notification Permissions status synchronizer
+function updatePWANotificationStatus() {
+  const statusEl = document.getElementById('pwa-notif-status');
+  const btnEl = document.getElementById('pwa-request-btn');
+  if (!statusEl) return;
+  
+  const perm = Notification.permission;
+  if (perm === 'granted') {
+    statusEl.textContent = 'GRANTED';
+    statusEl.style.color = 'var(--accent)';
+    if (btnEl) btnEl.style.display = 'none';
+  } else if (perm === 'denied') {
+    statusEl.textContent = 'BLOCKED';
+    statusEl.style.color = 'var(--red)';
+    if (btnEl) btnEl.style.display = 'block';
+  } else {
+    statusEl.textContent = 'DEFAULT';
+    statusEl.style.color = 'var(--text-dim)';
+    if (btnEl) btnEl.style.display = 'block';
+  }
+}
+
+// Register SW and hook UI event listeners
+function initPWANotifications() {
+  // 1. Service Worker registration
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('service-worker.js')
+        .then(reg => console.log('SW registration successful with scope: ', reg.scope))
+        .catch(err => console.warn('SW registration failed: ', err));
+    });
+  }
+  
+  // 2. Event listeners for visual settings tab items
+  const requestBtn = document.getElementById('pwa-request-btn');
+  const soundSelect = document.getElementById('notif-sound-preset');
+  const volSlider = document.getElementById('notif-vol-slider');
+  const testBtn = document.getElementById('notif-test-btn');
+  const saveBtn = document.getElementById('rem-save-btn');
+  const timeInput = document.getElementById('rem-time-input');
+  const msgInput = document.getElementById('rem-msg-input');
+  
+  if (requestBtn) {
+    requestBtn.onclick = () => {
+      Notification.requestPermission().then(() => {
+        updatePWANotificationStatus();
+        if (Notification.permission === 'granted') {
+          playSynthSound('cyber_chime');
+          triggerNotification("ethos.init // SYNC", "System notification clearance granted.");
+        }
+      });
+    };
+  }
+  
+  if (soundSelect) {
+    soundSelect.value = S.notificationSettings.sound;
+    soundSelect.onchange = () => {
+      S.notificationSettings.sound = soundSelect.value;
+      ss();
+      playSynthSound(S.notificationSettings.sound);
+    };
+  }
+  
+  if (volSlider) {
+    volSlider.value = S.notificationSettings.volume;
+    volSlider.oninput = () => {
+      S.notificationSettings.volume = parseFloat(volSlider.value);
+      ss();
+    };
+    volSlider.onchange = () => {
+      playSynthSound(S.notificationSettings.sound);
+    };
+  }
+  
+  if (testBtn) {
+    testBtn.onclick = () => {
+      triggerNotification("ethos.init // TEST", "Dynamic audio synthesizer test frame dispatched.");
+    };
+  }
+  
+  if (saveBtn && timeInput && msgInput) {
+    saveBtn.onclick = () => {
+      const timeVal = timeInput.value;
+      const msgVal = msgInput.value.trim() || "Routine Alarm";
+      if (!timeVal) return;
+      
+      S.reminders.push({
+        id: Date.now().toString(),
+        time: timeVal,
+        message: msgVal,
+        active: true,
+        once: false,
+        lastFiredDate: ''
+      });
+      ss();
+      renderRemindersList();
+      timeInput.value = '';
+      msgInput.value = '';
+    };
+  }
+  
+  updatePWANotificationStatus();
+  renderRemindersList();
+}
+
+// Render dynamic reminders visual table list
+function renderRemindersList() {
+  const container = document.getElementById('reminders-table-body');
+  if (!container) return;
+  
+  if (S.reminders.length === 0) {
+    container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-faint);">// NO ROUTINE ALARMS SCHEDULED</td></tr>';
+    return;
+  }
+  
+  container.innerHTML = S.reminders.map((r, idx) => {
+    return `
+      <tr style="border-bottom: 1px dashed var(--border2); color: var(--text);">
+        <td style="padding: 8px 4px; font-weight: bold; color: var(--accent);">${r.time}</td>
+        <td style="padding: 8px 4px; color: var(--text-dim); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(r.message)}</td>
+        <td style="padding: 8px 4px;">
+          <button class="btn btn-ghost" onclick="toggleReminder(${idx})" style="font-size: 10px; padding: 2px 6px;">
+            ${r.active ? '[ACTIVE]' : '[OFF]'}
+          </button>
+        </td>
+        <td style="padding: 8px 4px; text-align: right;">
+          <button class="btn btn-danger" onclick="deleteReminder(${idx})" style="font-size: 10px; padding: 2px 6px;">
+            [delete]
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Global visual list triggers
+window.toggleReminder = function(idx) {
+  if (S.reminders && S.reminders[idx]) {
+    S.reminders[idx].active = !S.reminders[idx].active;
+    ss();
+    renderRemindersList();
+  }
+};
+
+window.deleteReminder = function(idx) {
+  if (S.reminders && S.reminders[idx]) {
+    S.reminders.splice(idx, 1);
+    ss();
+    renderRemindersList();
+  }
+};
+
+// PWA Push Notification dispatcher
+function triggerNotification(title, body) {
+  if (Notification.permission === 'granted') {
+    if (S.notificationSettings.sound !== 'none') {
+      playSynthSound(S.notificationSettings.sound);
+    }
+    
+    const icon = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'%3E%3Crect width=\'32\' height=\'32\' fill=\'%23000000\'/%3E%3Cpath d=\'M16 4 L24 20 L8 20 Z\' fill=\'%2300ff88\'/%3E%3C/svg%3E';
+    
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(title, {
+          body: body,
+          icon: icon,
+          tag: 'ethos-reminder',
+          renotify: true
+        });
+      });
+    } else {
+      new Notification(title, { body: body, icon: icon });
+    }
+    
+    addLog('ok', `alert pushed: "${title}"`);
+  } else {
+    printTerm(`[ALERT SYSTEM] ${title}: ${body}`, 'warn');
+  }
+}
+
+// Alarm monitoring background ticker loop (scans every 30s)
+function startReminderTicker() {
+  setInterval(() => {
+    const now = new Date();
+    const hr = String(now.getHours()).padStart(2, '0');
+    const min = String(now.getMinutes()).padStart(2, '0');
+    const timeString = `${hr}:${min}`;
+    const todayStr = now.toDateString();
+    
+    let stateChanged = false;
+    
+    S.reminders.forEach(rem => {
+      if (rem.active && rem.time === timeString && rem.lastFiredDate !== todayStr) {
+        triggerNotification("ethos.init // REMINDER", rem.message);
+        rem.lastFiredDate = todayStr;
+        
+        if (rem.once) {
+          rem.active = false;
+        }
+        stateChanged = true;
+      }
+    });
+    
+    if (stateChanged) {
+      ss();
+      renderRemindersList();
+    }
+  }, 30000);
 }
