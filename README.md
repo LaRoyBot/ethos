@@ -1,6 +1,6 @@
 # ἔθος · ethos
 
-> *"We are what we repeatedly do."* — Aristotle
+> *"We are what we repeatedly do."* - Aristotle
 
 A terminal-aesthetic life tracker built around a single idea: the daily disciplines that shape who you are.
 
@@ -10,31 +10,31 @@ A terminal-aesthetic life tracker built around a single idea: the daily discipli
 
 ## TL;DR
 
-Open-source life tracker. Terminal aesthetic. Greek philosophy naming. No npm or complex build step required — just open `index.html` and go. Own your data locally or securely sync across sessions using dynamic developer handle authentication. Track your daily disciplines across life domains ([math], [body], [mind], [build]), earn XP, keep streaks, and build character.
+Open-source life tracker. Terminal aesthetic. Greek philosophy naming. No npm or complex build step required - just open `index.html` and go. Securely sync your records across sessions in the cloud using dynamic developer handle authentication. Track your daily disciplines across life domains ([math], [body], [mind], [build]), earn XP, keep streaks, and build character.
 
 ---
 
 ## What is ethos?
 
-**ethos** is a zero-dependency, offline-first life tracking system with optional secure cloud synchronization. It is designed to be completely frictionless—you can run it locally with zero setup, or link it to a secure, private cloud profile to keep your data in sync across all your devices.
+**ethos** is a zero-dependency, cloud-synchronized life tracking system. It is designed to be completely frictionless - log in with your secure, private cloud profile using a dynamic developer handle to keep your data in sync across all your devices.
 
-The name comes from the ancient Greek **ἔθος** (éthos) — meaning *custom, practice, character*. The traceable units in this app are called **ἤθη** (ethe, plural) — not "habits", not "tasks", but the disciplines you choose to embody.
+The name comes from the ancient Greek **ἔθος** (éthos) - meaning *custom, practice, character*. The traceable units in this app are called **ἤθη** (ethe, plural) - not "habits", not "tasks", but the disciplines you choose to embody.
 
 ---
 
 ## Features
 
-- **ἤθη tracker** — add, complete, and streak your daily disciplines
-- **Group system** — organize ethe into life domains: `[math]` `[body]` `[mind]` `[build]`
-- **XP + streak system** — 7 LLM-themed progression levels (Tokenizer → Architect)
-- **Contribution heatmap** — GitHub-style activity grid
-- **Secure Session Authorization** — log in dynamically using raw custom developer usernames (e.g. `@meletus`) or standard emails
-- **Cloud Synchronization** — optional real-time database sync to back up your records automatically
-- **Skill score bars** — track granular sub-skills inside groups (e.g. linear algebra, attention, LoRA under `[math]`)
-- **Paper log** — log research papers or books you're working through
-- **Session notes** — timestamped journal entries per session
-- **Activity log** — real-time terminal output of everything you do
-- **Boot sequence** — because it matters
+- **ἤθη tracker** - add, complete, and streak your daily disciplines
+- **Group system** - organize ethe into life domains: `[math]` `[body]` `[mind]` `[build]`
+- **XP + streak system** - 7 LLM-themed progression levels (Tokenizer -> Architect)
+- **Contribution heatmap** - GitHub-style activity grid
+- **Secure Session Authorization** - log in dynamically using raw custom developer usernames (e.g. `@meletus`) or standard emails
+- **Cloud Synchronization** - real-time database sync to back up your records automatically
+- **Skill score bars** - track granular sub-skills inside groups (e.g. linear algebra, attention, LoRA under `[math]`)
+- **Paper log** - log research papers or books you're working through
+- **Session notes** - timestamped journal entries per session
+- **Activity log** - real-time terminal output of everything you do
+- **Boot sequence** - because it matters
 
 ---
 
@@ -42,12 +42,12 @@ The name comes from the ancient Greek **ἔθος** (éthos) — meaning *custom
 
 | Principle | What it means |
 |---|---|
-| **One file** | The whole app can be a single HTML file you email to yourself |
-| **Own your data** | Local-first design using `localStorage`, with optional, secure Firebase Cloud Sync |
-| **No lock-in** | Fork it, self-host it, strip it down, make it yours |
+| **One file** | The whole app runs as a lightweight static client with zero build setup |
+| **Cloud Sync** | Secure cloud-synchronized architecture backed by Firebase |
+| **No lock-in** | Fork it, customize it, style it, make it yours |
 | **Zero dependencies** | No npm, no bundler, no build step. Open and use. |
 
-This is built for self-directed learners, indie hackers, and anyone running a personal curriculum outside of institutional structures. A file you can open on a flight is a feature.
+This is built for self-directed learners, indie hackers, and anyone running a personal curriculum outside of institutional structures.
 
 ---
 
@@ -55,8 +55,8 @@ This is built for self-directed learners, indie hackers, and anyone running a pe
 
 ```
 HTML · CSS · Vanilla JS
-localStorage for state
-JetBrains Mono (Google Fonts CDN — only external dependency)
+Firebase Realtime Database for state
+JetBrains Mono (Google Fonts CDN - only external dependency)
 Hosted on Vercel
 ```
 
@@ -67,7 +67,7 @@ Hosted on Vercel
 ```bash
 git clone https://github.com/LaRoyBot/ethos.git
 cd ethos
-# open index.html in any browser — that's it
+# open index.html in any browser - that's it
 ```
 
 Or just visit **[ethos-jet.vercel.app](https://ethos-jet.vercel.app)** directly.
@@ -98,7 +98,7 @@ ethos/
 
 ## Contributing
 
-Issues and PRs welcome. If you fork it and make something interesting, let me know — I'd love to see it.
+Issues and PRs welcome. If you fork it and make something interesting, let me know - I'd love to see it.
 
 If you have a group idea, an ethos suggestion, or a UI improvement, open an issue.
 
@@ -106,7 +106,7 @@ If you have a group idea, an ethos suggestion, or a UI improvement, open an issu
 
 ## License
 
-MIT — do whatever you want with it.
+MIT - do whatever you want with it.
 
 ---
 
