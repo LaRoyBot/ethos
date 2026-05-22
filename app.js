@@ -3781,7 +3781,7 @@ async function queryOracle(prompt) {
   };
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${S.geminiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${S.geminiKey}`;
     const response = await fetch(url, {
       method: 'POST',
       headers: {
