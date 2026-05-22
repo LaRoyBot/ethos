@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.firebaseio.com https://*.firebasedatabase.app https://identitytoolkit.googleapis.com; img-src 'self' data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.firebaseio.com https://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com; img-src 'self' data:;">
 <title>ethos.init — LLM Math Mastery Tracker</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23000000'/%3E%3Cpath d='M18 12C17.2 10.8 14.8 10.4 13.2 10.4C9.6 10.4 6.8 13.2 6.8 16.8C6.8 20.4 9.6 23.2 13.2 23.2C14.8 23.2 17.2 22.8 18 21.6M6.8 16.8H16.4' fill='none' stroke='%2300ff88' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10 7.2C10.8 7.2 11.6 6.4 11.6 5.6' fill='none' stroke='%2300ff88' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M13.2 7.2L14.8 5.6' fill='none' stroke='%2300ff88' stroke-width='1.8' stroke-linecap='round'/%3E%3Cline x1='20' y1='23.2' x2='26' y2='23.2' stroke='%2300ff88' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <meta name="description" content="A terminal-style tracker for mastering the mathematics behind large language models.">
@@ -573,6 +573,18 @@
           <!-- Rendered dynamically -->
         </tbody>
       </table>
+    </div>
+    <div class="divider"></div>
+    <div class="section-cmd">$ <span>oracle --status</span></div>
+    <div class="add-ethos-form oracle-config-box" style="margin-bottom:1.5rem; flex-wrap: wrap;">
+      <div style="width: 100%; display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+        <span style="font-family: var(--font); font-size: 12px;">AI Core Status: <span id="oracle-key-status" style="color:var(--red); font-weight:bold;">OFFLINE</span></span>
+        <a href="https://aistudio.google.com/" target="_blank" style="font-size: 10px; color: var(--accent); text-decoration: underline; font-family: var(--font);">[Get free Gemini Key]</a>
+      </div>
+      <div style="display: flex; gap: 8px; width: 100%; align-items: center;">
+        <input type="password" class="terminal-input" id="oracle-key-input" placeholder="Paste your Gemini API key here..." style="flex:1;">
+        <button class="btn" id="oracle-save-btn" style="flex:none;">save key</button>
+      </div>
     </div>
     <div class="divider"></div>
     <div class="section-cmd">$ <span>config --theme</span></div>

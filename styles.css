@@ -899,3 +899,25 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); font-si
 [data-theme="carmine"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
 [data-theme="cmd"] #notif-vol-slider::-moz-range-thumb { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
 
+/* Oracle Conversational AI Engine Config & Terminal Styling */
+.oracle-config-box {
+  background: rgba(17, 17, 17, 0.7) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border) !important;
+}
+
+#oracle-key-status.online {
+  color: var(--accent) !important;
+  text-shadow: 0 0 8px var(--accent);
+  animation: none;
+}
+
+#oracle-key-status:not(.online) {
+  animation: terminal-blink 1.5s infinite;
+}
+
+@keyframes terminal-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+

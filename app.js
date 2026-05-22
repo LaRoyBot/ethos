@@ -125,6 +125,10 @@ if (S.lastUpdated === undefined) S.lastUpdated = 0;
 if (!S.reminders) S.reminders = [];
 if (!S.notificationSettings) S.notificationSettings = { enabled: false, sound: 'cyber_chime', volume: 0.5 };
 
+// Oracle AI Conversational Engine migrations
+if (S.geminiKey === undefined) S.geminiKey = '';
+if (!S.oracleHistory) S.oracleHistory = [];
+
 const TODAY = new Date().toDateString();
 if (S.lastDate !== TODAY) {
   if (S.lastDate) {
@@ -910,7 +914,7 @@ function handleCommand(cmd) {
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
-    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
+    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- oracle [query|--key|--clear] : converse with retro-cyberpunk LLM math tutor<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
   } else if (action === 'stats') {
     var level = 0, cum = 0;
     for (var i = 0; i < LEVELS.length - 1; i++) { if (S.xp >= cum + LEVELS[i].next) { cum += LEVELS[i].next; level++; } else break; }
@@ -1214,6 +1218,32 @@ function handleCommand(cmd) {
       ss();
       renderRemindersList();
       printTerm(`added routine reminder for ${timeVal}: "${escapeHtml(msg)}"`, "ok");
+    }
+  } else if (action === 'oracle') {
+    const sub = args[1] ? args[1].toLowerCase() : '';
+    if (sub === '--key') {
+      const keyVal = args[2] || '';
+      if (!keyVal) {
+        printTerm('usage: oracle --key YOUR_GEMINI_API_KEY', 'err');
+      } else {
+        S.geminiKey = keyVal;
+        ss();
+        updateOracleKeyStatus();
+        const inputEl = document.getElementById('oracle-key-input');
+        if (inputEl) inputEl.value = keyVal;
+        printTerm('Gemini API key updated successfully.', 'ok');
+      }
+    } else if (sub === '--clear') {
+      S.oracleHistory = [];
+      ss();
+      printTerm('Oracle conversation history cleared.', 'ok');
+    } else {
+      const query = args.slice(1).join(' ').trim();
+      if (!query) {
+        printTerm('Oracle LLM Companion:<br>- <span style="color:var(--accent);">oracle --key [key]</span> : configure Gemini API key<br>- <span style="color:var(--accent);">oracle --clear</span> : reset conversation history<br>- <span style="color:var(--accent);">oracle [question]</span> : ask the Oracle a technical question', 'info');
+      } else {
+        queryOracle(query);
+      }
     }
   } else {
     printTerm('command not found: "' + escapeHtml(action) + '". type \'help\' for commands.', 'err');
@@ -3616,6 +3646,7 @@ function initPWANotifications() {
   
   updatePWANotificationStatus();
   renderRemindersList();
+  initOracleBindings();
 }
 
 // Render dynamic reminders visual table list
@@ -3722,3 +3753,141 @@ function startReminderTicker() {
     }
   }, 30000);
 }
+
+// ==========================================================================
+// ORACLE AI CONVERSATIONAL ENGINE (GEMINI FLASH)
+// ==========================================================================
+
+async function queryOracle(prompt) {
+  if (!S.geminiKey) {
+    printTerm('// ERROR: Gemini API key is not configured.', 'err');
+    printTerm('To configure, run: <span style="color:var(--accent);">oracle --key YOUR_API_KEY</span>', 'info');
+    printTerm('Or use the API Key input card in the Log Settings panel.', 'info');
+    return;
+  }
+
+  printTerm('// ESTABLISHING CONNECTION TO DOCKING AI CORE...', 'info');
+  
+  // Format history for conversational turn
+  S.oracleHistory.push({ role: 'user', parts: [{ text: prompt }] });
+  
+  // Keep history bounded to last 20 turns
+  if (S.oracleHistory.length > 20) {
+    S.oracleHistory = S.oracleHistory.slice(-20);
+  }
+  
+  const systemInstruction = {
+    parts: [{ text: "You are Oracle, the retro-cyberpunk AI mathematics and LLM architecture tutor inside ethos.init. Explain concepts precisely, use clean mathematical formulas, structure your response elegantly with monospace lists, and keep explanations brief and punchy. Make sure to use the active accent color variable (var(--accent)) or other terminal classes to highlight key parameters. Do not output raw markdown code block tags inside your main answers except for direct code snippets. Maintain a highly professional and slightly mysterious cybernetic guide persona." }]
+  };
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${S.geminiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: S.oracleHistory,
+        systemInstruction: systemInstruction,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1000
+        }
+      })
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const errMsg = errData?.error?.message || `HTTP ${response.status}`;
+      throw new Error(errMsg);
+    }
+
+    const resJson = await response.json();
+    const replyText = resJson?.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!replyText) {
+      throw new Error("Empty response received from docking AI core.");
+    }
+    
+    // Save to conversation history
+    S.oracleHistory.push({ role: 'model', parts: [{ text: replyText }] });
+    ss(); // save state
+    
+    // Format markdown/text to visual HTML suitable for the CRT screen
+    const htmlResponse = formatOracleResponse(replyText);
+    
+    printTermTyped(htmlResponse, 'ok');
+    
+  } catch (error) {
+    // Revert last user prompt on failure so conversation stays in sync
+    S.oracleHistory.pop();
+    printTerm(`// LINK ERROR: ${escapeHtml(error.message)}`, 'err');
+  }
+}
+
+// Convert Gemini markdown responses to terminal-compatible HTML
+function formatOracleResponse(text) {
+  let html = escapeHtml(text);
+  
+  // Simple markdown-to-terminal parser
+  
+  // Code blocks: ```javascript ... ``` -> <pre class="terminal-code">...</pre>
+  html = html.replace(/```(?:[a-zA-Z]*)\n([\s\S]*?)```/g, (match, code) => {
+    return `<pre style="background:var(--bg3); border:1px solid var(--border); padding:8px; border-radius:4px; margin:8px 0; overflow-x:auto; font-family:var(--font); font-size:11px; color:var(--text-dim);">${code}</pre>`;
+  });
+  
+  // Inline code: `code` -> <code style="color:var(--accent)">code</code>
+  html = html.replace(/`([^`\n]+)`/g, '<code style="color:var(--accent); background:var(--bg3); padding:1px 4px; border-radius:2px; font-family:var(--font);">$1</code>');
+  
+  // Bold: **text** -> <span style="color:var(--accent); font-weight:bold;">text</span>
+  html = html.replace(/\*\*([^\*]+)\*\*/g, '<span style="color:var(--accent); font-weight:bold;">$1</span>');
+  
+  // Bullets: * -> •
+  html = html.replace(/^\s*\*\s+/gm, ' • ');
+  
+  // Linebreaks
+  html = html.replace(/\n/g, '<br>');
+  
+  return `<span style="font-family:var(--font); font-size:12px; line-height:1.6; display:block;">${html}</span>`;
+}
+
+// Oracle settings GUI event listeners
+function initOracleBindings() {
+  const saveKeyBtn = document.getElementById('oracle-save-btn');
+  const keyInput = document.getElementById('oracle-key-input');
+  
+  if (keyInput) {
+    keyInput.value = S.geminiKey || '';
+  }
+  
+  if (saveKeyBtn && keyInput) {
+    saveKeyBtn.onclick = () => {
+      const val = keyInput.value.trim();
+      S.geminiKey = val;
+      ss();
+      updateOracleKeyStatus();
+      
+      // Print visual feedback in the manual log console
+      addLog('ok', `AI Core Gemini key updated`);
+    };
+  }
+  
+  updateOracleKeyStatus();
+}
+
+function updateOracleKeyStatus() {
+  const statusEl = document.getElementById('oracle-key-status');
+  if (!statusEl) return;
+  
+  if (S.geminiKey) {
+    statusEl.textContent = 'ONLINE';
+    statusEl.className = 'online';
+    statusEl.style.color = 'var(--accent)';
+  } else {
+    statusEl.textContent = 'OFFLINE';
+    statusEl.className = '';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
