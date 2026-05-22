@@ -27,6 +27,11 @@ The name comes from the ancient Greek **ἔθος** (éthos) - meaning *custom, 
 - **ἤθη tracker** - add, complete, and streak your daily disciplines
 - **Group system** - organize ethe into life domains: `[math]` `[body]` `[mind]` `[build]`
 - **XP + streak system** - 7 LLM-themed progression levels (Tokenizer -> Architect)
+- **Oracle LLM Companion** - ask math or deep learning questions in your CRT terminal using Google's ultra-fast `gemini-2.5-flash` model
+- **Natural Language Habit Control** - tell the Oracle what you completed or undid (e.g. `oracle I practiced linear algebra today`), and it automatically toggles ethe, recalculates XP, and saves state
+- **Retro loader animations** - cycling spinners and neural parameter sync frames while connecting to generative AI cores
+- **Reminders & Alarms Engine** - schedule audio routine notifications (`remind HH:MM [label]`) with custom synthesized retro frequencies
+- **Full PWA support** - installable standalone app, offline service-worker caching, and notification triggers
 - **Contribution heatmap** - GitHub-style activity grid
 - **Secure Session Authorization** - log in dynamically using raw custom developer usernames (e.g. `@meletus`) or standard emails
 - **Cloud Synchronization** - real-time database sync to back up your records automatically
@@ -89,10 +94,11 @@ ethos/
 ## Roadmap
 
 - [ ] Export/import state as JSON
-- [ ] PWA support (installable, offline manifest)
+- [x] PWA support (installable, offline manifest, reminders, background notifications)
 - [ ] Group-level analytics view
 - [x] Secure Firebase Cloud Sync with dynamic developer handles
-- [ ] CLI companion (`ethos` command to mark ethe from terminal)
+- [x] CLI companion (`ethos`, `remind`, and `oracle` commands to log ethe/reminders/AI)
+- [x] Natural Language Habit Control via client-side Gemini LLM integrations
 
 ---
 
