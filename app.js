@@ -3778,8 +3778,24 @@ async function queryOracle(prompt) {
     S.oracleHistory = S.oracleHistory.slice(-20);
   }
   
+  // Dynamically compile active ethos status context
+  const allEthe = getAllEthe();
+  const etheDetails = allEthe.map(e => `- [${e.id}] "${e.name}" (Status: ${e.done ? 'DONE' : 'UNDONE'})`).join('\n');
+  
   const systemInstruction = {
-    parts: [{ text: "You are Oracle, the retro-cyberpunk AI mathematics and LLM architecture tutor inside ethos.init. Explain concepts precisely, use clean mathematical formulas, structure your response elegantly with monospace lists, and keep explanations brief and punchy. Make sure to use the active accent color variable (var(--accent)) or other terminal classes to highlight key parameters. Do not output raw markdown code block tags inside your main answers except for direct code snippets. Maintain a highly professional and slightly mysterious cybernetic guide persona." }]
+    parts: [{ text: `You are Oracle, the retro-cyberpunk AI mathematics and LLM architecture tutor inside ethos.init. Explain concepts precisely, use clean mathematical formulas, structure your response elegantly with monospace lists, and keep explanations brief and punchy. Make sure to use the active accent color variable (var(--accent)) or other terminal classes to highlight key parameters. Do not output raw markdown code block tags inside your main answers except for direct code snippets. Maintain a highly professional and slightly mysterious cybernetic guide persona.
+
+You are also integrated into the ethos.init life tracking system. You can check off and uncheck habits (called 'ethe') on behalf of the user when they tell you they have done, completed, skipped, or undone them.
+
+Here is the current list of user habits (ethe) with their IDs and current states:
+${etheDetails}
+
+If the user's message indicates they completed, did, or undid any of these habits, you MUST append commands at the absolute end of your response, each on a new line, using this exact format:
+[COMMAND: check <id>]
+[COMMAND: uncheck <id>]
+
+Only check off a habit if it is currently UNDONE, and uncheck it if it is currently DONE.
+Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversational explanation. Confirm your actions in a highly styled cybernetic narrative (e.g. 'Marked "Linear Algebra" as completed in your neural trace. +15 XP logged.').` }]
   };
 
   try {
@@ -3812,14 +3828,64 @@ async function queryOracle(prompt) {
       throw new Error("Empty response received from docking AI core.");
     }
     
-    // Save to conversation history
-    S.oracleHistory.push({ role: 'model', parts: [{ text: replyText }] });
+    // Parse check/uncheck commands from response
+    let cleanReplyText = replyText;
+    const commandRegex = /\[COMMAND:\s*(check|uncheck)\s+([^\]]+)\]/gi;
+    let match;
+    const commandsToRun = [];
+
+    while ((match = commandRegex.exec(replyText)) !== null) {
+      commandsToRun.push({
+        action: match[1].toLowerCase(),
+        ethosId: match[2].trim()
+      });
+    }
+
+    // Strip commands from displayed text so they remain invisible to user
+    cleanReplyText = replyText.replace(commandRegex, '').trim();
+
+    // Save cleaned conversation history
+    S.oracleHistory.push({ role: 'model', parts: [{ text: cleanReplyText }] });
+    
+    // Execute state modifications
+    let actionCount = 0;
+    const actionsTaken = [];
+    if (commandsToRun.length > 0) {
+      commandsToRun.forEach(cmd => {
+        let foundIdx = -1;
+        let ethosObj = null;
+        S.routines.forEach((r, rIdx) => {
+          const e = r.ethe.find(x => String(x.id) === String(cmd.ethosId));
+          if (e) {
+            foundIdx = rIdx;
+            ethosObj = e;
+          }
+        });
+
+        if (ethosObj && foundIdx !== -1) {
+          if (cmd.action === 'check' && !ethosObj.done) {
+            toggleEthos(foundIdx, ethosObj.id);
+            actionCount++;
+            actionsTaken.push(`checked "${ethosObj.name}"`);
+          } else if (cmd.action === 'uncheck' && ethosObj.done) {
+            toggleEthos(foundIdx, ethosObj.id);
+            actionCount++;
+            actionsTaken.push(`unchecked "${ethosObj.name}"`);
+          }
+        }
+      });
+    }
+
     ss(); // save state
     
     // Format markdown/text to visual HTML suitable for the CRT screen
-    const htmlResponse = formatOracleResponse(replyText);
+    const htmlResponse = formatOracleResponse(cleanReplyText);
     
     printTermTyped(htmlResponse, 'ok');
+
+    if (actionCount > 0) {
+      printTerm(`// DOCKING CORE: State modification successful (${actionsTaken.join(', ')}).`, 'ok');
+    }
     
   } catch (error) {
     // Revert last user prompt on failure so conversation stays in sync
