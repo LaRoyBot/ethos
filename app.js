@@ -89,13 +89,13 @@ if (S.routines) {
     r.ethe.forEach(e => { if (!e.groupId) e.groupId = 'math'; });
   });
 }
-// Migration: Ensure habit ID 303 is named "Swimming" if it was set to the default "Cardio / aerobic conditioning"
+// Migration: Ensure habit ID 303 is named "Swimming session (90 min)" if it was set to the default "Cardio / aerobic conditioning" or "Swimming"
 if (S.routines) {
   S.routines.forEach(r => {
     if (r.ethe) {
       r.ethe.forEach(e => {
-        if (e.id === 303 && e.name === 'Cardio / aerobic conditioning') {
-          e.name = 'Swimming';
+        if (e.id === 303 && (e.name === 'Cardio / aerobic conditioning' || e.name === 'Swimming')) {
+          e.name = 'Swimming session (90 min)';
         }
       });
     }
