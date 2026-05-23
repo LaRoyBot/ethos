@@ -56,6 +56,34 @@ let S = load('mathInit_state', {
   lastUpdated: 0
 });
 
+function sanitizeStateArrays(state) {
+  if (!state) return;
+  const ensureArray = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    if (typeof val === 'object') {
+      return Object.keys(val)
+        .sort((a, b) => parseInt(a) - parseInt(b))
+        .map(k => val[k]);
+    }
+    return [];
+  };
+  state.logs = ensureArray(state.logs);
+  state.contrib = ensureArray(state.contrib);
+  state.swimHistory = ensureArray(state.swimHistory);
+  state.weightLogs = ensureArray(state.weightLogs);
+  state.reminders = ensureArray(state.reminders);
+  state.oracleHistory = ensureArray(state.oracleHistory);
+  state.papers = ensureArray(state.papers);
+  if (state.routines) {
+    state.routines = ensureArray(state.routines);
+    state.routines.forEach(r => {
+      if (r) r.ethe = ensureArray(r.ethe);
+    });
+  }
+}
+sanitizeStateArrays(S);
+
 
 // === MIGRATION ===
 // Old key migration
@@ -248,6 +276,7 @@ function firebaseSyncPull(callback, forcePull = false) {
             
             // Overwrite S
             S = val.state;
+            sanitizeStateArrays(S);
             S.authEmail = prevAuthEmail;
             S.authUsername = prevAuthUsername;
             S.cmdHistory = prevCmdHistory;
@@ -651,6 +680,7 @@ if (typeof firebase !== 'undefined') {
             const prevCmdHistory = S.cmdHistory || [];
             
             S = val.state;
+            sanitizeStateArrays(S);
             S.authEmail = prevAuthEmail;
             S.authUsername = prevAuthUsername;
             S.cmdHistory = prevCmdHistory;
@@ -3087,11 +3117,32 @@ function resetAll() {
 
 function flash(id) { var el = document.getElementById(id); if (!el) return; el.style.display = 'inline'; setTimeout(function() { el.style.display = 'none'; }, 2000); }
 
+let isLogging = false;
 function addLog(type, msg) {
-  var ts = new Date().toTimeString().slice(0, 8);
-  if (!S.logs) S.logs = [];
-  S.logs.push({ ts: ts, date: new Date().toDateString(), type: type, msg: msg });
-  if (S.logs.length > 200) S.logs = S.logs.slice(-200);
+  if (isLogging) return;
+  isLogging = true;
+  try {
+    var ts = new Date().toTimeString().slice(0, 8);
+    if (!S.logs || !Array.isArray(S.logs)) {
+      if (S.logs && typeof S.logs === 'object') {
+        S.logs = Object.keys(S.logs)
+          .sort((a, b) => parseInt(a) - parseInt(b))
+          .map(k => S.logs[k]);
+      } else {
+        S.logs = [];
+      }
+    }
+    S.logs.push({ ts: ts, date: new Date().toDateString(), type: type, msg: msg });
+    if (S.logs.length > 200) S.logs = S.logs.slice(-200);
+    
+    // Save locally and sync immediately to Firebase, then update the UI in real-time
+    ss(false);
+    renderLog();
+  } catch (e) {
+    console.error("Error inside addLog:", e);
+  } finally {
+    isLogging = false;
+  }
 }
 
 function addContrib(level) {
