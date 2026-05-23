@@ -89,6 +89,18 @@ if (S.routines) {
     r.ethe.forEach(e => { if (!e.groupId) e.groupId = 'math'; });
   });
 }
+// Migration: Ensure habit ID 303 is named "Swimming" if it was set to the default "Cardio / aerobic conditioning"
+if (S.routines) {
+  S.routines.forEach(r => {
+    if (r.ethe) {
+      r.ethe.forEach(e => {
+        if (e.id === 303 && e.name === 'Cardio / aerobic conditioning') {
+          e.name = 'Swimming';
+        }
+      });
+    }
+  });
+}
 if (!S.ethosGroups) S.ethosGroups = JSON.parse(JSON.stringify(ETHOS_GROUPS));
 if (S.weekOffset === undefined) S.weekOffset = 0;
 if (!S.history) S.history = {};
@@ -3693,13 +3705,14 @@ function logSwimSessionProgrammatic(date, time, duration, comment, laps, distanc
     }
     
     // Auto-complete swim ethos (id 303)
+    const historyDateKey = new Date(date + 'T00:00:00').toDateString();
     S.routines.forEach((r, rIdx) => {
       const e = r.ethe.find(x => x.id === 303);
       if (e) {
-        if (!S.history[date]) S.history[date] = {};
-        if (!S.history[date][e.id]) {
-          S.history[date][e.id] = true;
-          if (date === S.activeDate) e.done = true;
+        if (!S.history[historyDateKey]) S.history[historyDateKey] = {};
+        if (!S.history[historyDateKey][e.id]) {
+          S.history[historyDateKey][e.id] = true;
+          if (historyDateKey === S.activeDate) e.done = true;
         }
       }
     });
@@ -3765,11 +3778,12 @@ function removeSwimDay(date) {
     }
     S.swimHistory = S.swimHistory.filter(x => x.date !== date);
     
+    const historyDateKey = new Date(date + 'T00:00:00').toDateString();
     S.routines.forEach(r => {
       const e = r.ethe.find(x => x.id === 303);
       if (e) {
-        if (S.history[date]) S.history[date][e.id] = false;
-        if (date === S.activeDate) e.done = false;
+        if (S.history[historyDateKey]) S.history[historyDateKey][e.id] = false;
+        if (historyDateKey === S.activeDate) e.done = false;
       }
     });
     ss();

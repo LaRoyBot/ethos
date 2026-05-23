@@ -96,7 +96,7 @@ const DEFAULT_ROUTINES = [
     ethe: [
       { id: 301, name: 'Strength / resistance training', icon: '💪', color: '#ffb700', note: '// Mon: Upper · Wed: Lower · Fri: Full Body', xp: 30, done: false, streak: 0, groupId: 'body', days: [1, 3, 5] },
       { id: 302, name: 'Pre-workout healthy snack', icon: '🍌', color: '#ff8c00', note: '// high-quality carbs for training fuel', xp: 5, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 4, 5, 6] },
-      { id: 303, name: 'Cardio / aerobic conditioning', icon: '🏊', color: '#22d3ee', note: '// swim, run, or cycle · active recovery on Sun', xp: 30, done: false, streak: 0, groupId: 'body', days: [0, 1, 2, 4, 5, 6] },
+      { id: 303, name: 'Swimming', icon: '🏊', color: '#22d3ee', note: '// swim, run, or cycle · active recovery on Sun', xp: 30, done: false, streak: 0, groupId: 'body', days: [0, 1, 2, 4, 5, 6] },
       { id: 304, name: 'Post-workout hydration & protein', icon: '🥤', color: '#ff8c00', note: '// fuel muscle recovery after exercise', xp: 10, done: false, streak: 0, groupId: 'nutrition', days: [0, 1, 2, 3, 4, 5, 6] },
     ]
   },
