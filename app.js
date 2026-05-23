@@ -129,6 +129,18 @@ if (!S.notificationSettings) S.notificationSettings = { enabled: false, sound: '
 if (S.geminiKey === undefined) S.geminiKey = '';
 if (!S.oracleHistory) S.oracleHistory = [];
 
+// ECRE Session Memory migrations
+if (!S.ecreMemory) S.ecreMemory = {
+  lastObservations: [],     // Last 7 observations
+  namedPatterns: [],        // Explicitly named patterns
+  openQuestions: [],        // Diagnostic questions posed: { question, answer, date, sessionAsked }
+  userPromises: [],         // Promises made by user: { promise, date, targetGroup, fulfilled }
+  sessionCount: 0,
+  patternViolationActive: false
+};
+S.ecreMemory.sessionCount = (S.ecreMemory.sessionCount || 0) + 1;
+ss(true);
+
 let TODAY = new Date().toDateString();
 
 function checkDailyReset(skipFirebase = false) {
@@ -194,7 +206,7 @@ function firebaseSyncPush() {
   }
 }
 
-function firebaseSyncPull(callback) {
+function firebaseSyncPull(callback, forcePull = false) {
   if (typeof firebase === 'undefined') {
     if (callback) callback(false, 'Firebase not loaded');
     return;
@@ -216,11 +228,13 @@ function firebaseSyncPull(callback) {
           const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
           const localTime = S.lastUpdated || 0;
           
-          if (cloudTime > localTime) {
-            // Cloud is newer -> Pull & Overwrite local
+          if (forcePull || cloudTime > localTime) {
+            // Cloud is newer OR we are forcing a pull (e.g. just logged in from guest state)
             const prevAuthEmail = S.authEmail;
             const prevAuthUsername = S.authUsername;
             const prevCmdHistory = S.cmdHistory || [];
+            
+            // Overwrite S
             S = val.state;
             S.authEmail = prevAuthEmail;
             S.authUsername = prevAuthUsername;
@@ -231,8 +245,8 @@ function firebaseSyncPull(callback) {
             
             ss(true); // save locally without pushing back
             render();
-            addLog('info', 'Cloud sync: Pulled newer state from cloud.');
-            if (statusEl) statusEl.textContent = 'Status: synced (pulled newer state)';
+            addLog('info', 'Cloud sync: Pulled state from cloud.');
+            if (statusEl) statusEl.textContent = 'Status: synced (pulled cloud state)';
             if (callback) callback(true, 'pulled');
           } else if (localTime > cloudTime) {
             // Local is newer -> Push local to cloud
@@ -390,6 +404,10 @@ function init() {
   initPWANotifications();
   startReminderTicker();
 
+  // ECRE Waveform and diagnostics boot
+  if (typeof initCoherenceWave === 'function') initCoherenceWave();
+  if (typeof printECREDiagnosticBoot === 'function') printECREDiagnosticBoot();
+
   // Global Ctrl+Alt+C shortcut for CRT toggle
   document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'c') {
@@ -442,11 +460,15 @@ function initAuthGate() {
     }
     
     if (rawIdentity.toLowerCase() === 'demo' && password.trim().toLowerCase() === 'omed') {
-      S.authEmail = 'demo@ethos.io';
-      S.authUsername = 'demo';
       currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
       authStateFetched = true;
-      ss(true);
+      if (typeof seedDemoData === 'function') {
+        seedDemoData();
+      } else {
+        S.authEmail = 'demo@ethos.io';
+        S.authUsername = 'demo';
+        ss(true);
+      }
       addLog('ok', 'Demo security clearance granted.');
       tryDismissBoot();
       return;
@@ -578,11 +600,13 @@ if (document.readyState === 'loading') {
 }
 
 // Wire up Auth Observer
+let activeSyncRef = null;
 if (typeof firebase !== 'undefined') {
   firebase.auth().onAuthStateChanged(user => {
     authStateFetched = true;
     if (user) {
       currentUser = user;
+      const wasGuest = !S.authEmail; // Check if we were a guest session before logging in
       S.authEmail = user.email;
       let extractedUsername = user.displayName;
       if (!extractedUsername && user.email) {
@@ -594,9 +618,46 @@ if (typeof firebase !== 'undefined') {
       // Dismiss boot gate immediately for snappy responsiveness
       tryDismissBoot();
       
-      // Sync from cloud in the background
-      firebaseSyncPull();
+      // Sync from cloud in the background, forcing a pull if we were a guest
+      firebaseSyncPull(null, wasGuest);
+      
+      // Real-time synchronization across devices (Issue 8/8)
+      if (activeSyncRef) {
+        activeSyncRef.off();
+      }
+      activeSyncRef = firebase.database().ref('sync/' + user.uid);
+      activeSyncRef.on('value', snapshot => {
+        const val = snapshot.val();
+        if (val && val.state) {
+          const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+          const localTime = S.lastUpdated || 0;
+          
+          if (cloudTime > localTime) {
+            // Overwrite S and sync
+            const prevAuthEmail = S.authEmail;
+            const prevAuthUsername = S.authUsername;
+            const prevCmdHistory = S.cmdHistory || [];
+            
+            S = val.state;
+            S.authEmail = prevAuthEmail;
+            S.authUsername = prevAuthUsername;
+            S.cmdHistory = prevCmdHistory;
+            
+            checkDailyReset(true);
+            ss(true);
+            render();
+            
+            const statusEl = document.getElementById('auth-sync-status');
+            if (statusEl) statusEl.textContent = 'Status: synced (auto-pulled newer state)';
+            addLog('info', 'Cloud sync: Real-time update auto-pulled from cloud.');
+          }
+        }
+      });
     } else {
+      if (activeSyncRef) {
+        activeSyncRef.off();
+        activeSyncRef = null;
+      }
       if (S.authUsername === 'demo') {
         currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
         tryDismissBoot();
@@ -713,6 +774,37 @@ function initButtons() {
     document.getElementById('rm-name').value = '';
   };
 
+  // ECRE Radar Click trigger and Modal Close bindings (Proper Lifecycle Fix)
+  const radarCard = document.getElementById('dashboard-radar-card');
+  if (radarCard) {
+    radarCard.onclick = () => {
+      const modalOverlay = document.getElementById('radar-modal-overlay');
+      if (modalOverlay) {
+        modalOverlay.classList.add('open');
+        renderCOHERENCE();
+      }
+    };
+  }
+
+  const radarModalCloseBtn = document.getElementById('radar-modal-close-btn');
+  if (radarModalCloseBtn) {
+    radarModalCloseBtn.onclick = () => {
+      const modalOverlay = document.getElementById('radar-modal-overlay');
+      if (modalOverlay) {
+        modalOverlay.classList.remove('open');
+      }
+    };
+  }
+
+  const radarModalOverlay = document.getElementById('radar-modal-overlay');
+  if (radarModalOverlay) {
+    radarModalOverlay.onclick = (e) => {
+      if (e.target === radarModalOverlay) {
+        radarModalOverlay.classList.remove('open');
+      }
+    };
+  }
+
   // Interactive terminal
   const termBtn = document.getElementById('open-term-btn');
   if (termBtn) {
@@ -737,7 +829,7 @@ function initButtons() {
   }
   const tvInput = document.getElementById('tv-input');
   if (tvInput) {
-    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','auth','logout'];
+    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','auth','logout','demo'];
     tvInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         var val = tvInput.value.trim();
@@ -1012,26 +1104,115 @@ function handleCommand(cmd) {
     }
     graphHtml += '</div>';
 
-    var html = '<div class="term-stats-box">' +
-      '<div class="ts-header"><span style="color:var(--text-faint)">///</span> <span class="ts-title">SYS_STATS_DIAGNOSTIC</span> <span class="ts-line"></span></div>' +
-      '<div class="ts-grid">' +
-        '<div class="ts-cell"><div class="ts-label">GLOBAL_STREAK</div><div class="ts-val" style="color:var(--amber)">' + pad(S.streak, 4) + ' <span class="ts-unit">CYC</span></div></div>' +
-        '<div class="ts-cell"><div class="ts-label">NET_EXPERIENCE</div><div class="ts-val" style="color:var(--accent)">' + pad(S.xp, 6) + ' <span class="ts-unit">PTS</span></div></div>' +
-        '<div class="ts-cell"><div class="ts-label">TODAY_YIELD</div><div class="ts-val" style="color:var(--blue)">+' + pad(S.xpToday, 3) + ' <span class="ts-unit">XP</span></div></div>' +
-        '<div class="ts-cell"><div class="ts-label">UPTIME_HOURS</div><div class="ts-val" style="color:var(--red)">' + (Math.round(S.totalHours * 10) / 10).toFixed(1).padStart(5, '0') + ' <span class="ts-unit">HRS</span></div></div>' +
-      '</div>' +
-      '<div style="display:flex; gap:16px;">' +
-        '<div class="ts-bar-row" style="flex:1">' +
-          '<div class="ts-label">LVL ' + pad(level+1, 2) + ' MATRIX_PROGRESS</div>' +
-          '<div class="ts-ascii-bar">' + asciiBar + '</div>' +
-        '</div>' +
-        '<div class="ts-bar-row" style="flex:1; max-width: 120px;">' +
-          '<div class="ts-label">ACTIVITY_WAVEFORM</div>' +
-          graphHtml +
-        '</div>' +
-      '</div>' +
+    var html = '<div class="term-stats-box">\n' +
+      '<div class="ts-header"><span style="color:var(--text-faint)">///</span> <span class="ts-title">SYS_STATS_DIAGNOSTIC</span> <span class="ts-line"></span></div>\n' +
+      '<div class="ts-grid">\n' +
+        '<div class="ts-cell"><div class="ts-label">GLOBAL_STREAK</div><div class="ts-val" style="color:var(--amber)">' + pad(S.streak, 4) + ' <span class="ts-unit">CYC</span></div></div>\n' +
+        '<div class="ts-cell"><div class="ts-label">NET_EXPERIENCE</div><div class="ts-val" style="color:var(--accent)">' + pad(S.xp, 6) + ' <span class="ts-unit">PTS</span></div></div>\n' +
+        '<div class="ts-cell"><div class="ts-label">TODAY_YIELD</div><div class="ts-val" style="color:var(--blue)">+' + pad(S.xpToday, 3) + ' <span class="ts-unit">XP</span></div></div>\n' +
+        '<div class="ts-cell"><div class="ts-label">UPTIME_HOURS</div><div class="ts-val" style="color:var(--red)">' + (Math.round(S.totalHours * 10) / 10).toFixed(1).padStart(5, '0') + ' <span class="ts-unit">HRS</span></div></div>\n' +
+      '</div>\n' +
+      '<div style="display:flex; gap:16px;">\n' +
+        '<div class="ts-bar-row" style="flex:1">\n' +
+          '<div class="ts-label">LVL ' + pad(level+1, 2) + ' MATRIX_PROGRESS</div>\n' +
+          '<div class="ts-ascii-bar">' + asciiBar + '</div>\n' +
+        '</div>\n' +
+        '<div class="ts-bar-row" style="flex:1; max-width: 120px;">\n' +
+          '<div class="ts-label">ACTIVITY_WAVEFORM</div>\n' +
+          graphHtml + '\n' +
+        '</div>\n' +
+      '</div>\n' +
     '</div>';
-    printTerm(html, 'sys');
+    printTermTyped(html, 'sys');
+
+    // Fetch dynamic cognitive vector details and print inline to terminal chat
+    const vector = compileCognitiveVector();
+    const docStyles = getComputedStyle(document.documentElement);
+    let activeColor = '#00ff88'; // Nephtrite green default
+    if (vector.state === 'DEEP_SYNC') {
+      activeColor = docStyles.getPropertyValue('--accent').trim() || '#00ff88';
+    } else if (vector.state === 'TURBULENT') {
+      activeColor = docStyles.getPropertyValue('--amber').trim() || '#ffb700';
+    } else if (vector.state === 'DEGRADED') {
+      activeColor = docStyles.getPropertyValue('--red').trim() || '#ff4444';
+    }
+
+    const termCritique = 
+      '<div style="margin-top: 10px; padding: 10px; background: ' + activeColor + '08; border-radius: 4px; border: 1px solid ' + activeColor + '20; font-family: var(--font); font-size: 11px;">\n' +
+        '<div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed ' + activeColor + '30; padding-bottom:6px; margin-bottom:8px;">\n' +
+          '<strong style="color:var(--text); letter-spacing:0.5px;">/// ECRE COGNITIVE APPRAISAL v2.6.2</strong>\n' +
+          '<span style="color:' + activeColor + '; font-weight:bold; letter-spacing:1px; background:' + activeColor + '15; padding:2px 6px; border-radius:3px; font-size:9px;">' + vector.state + '</span>\n' +
+        '</div>\n' +
+        '<div style="margin-bottom:8px; line-height:1.4; color:var(--text-dim)">\n' +
+          '// CNS consistency index evaluated at <span style="color:var(--text); font-weight:600">' + vector.compliancePct + '%</span>. Active streak remains at <span style="color:var(--text); font-weight:600">' + S.streak + ' days</span>.\n' +
+        '</div>\n' +
+        '<div style="margin-bottom:8px;">\n' +
+          '<div style="color:' + activeColor + '; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">[Positive Integrations]</div>\n' +
+          '<div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">\n' +
+            vector.positiveNotes.map(n => '<div style="display:flex; gap:6px; align-items:start;"><span style="color:' + activeColor + '">✔</span><span style="color:var(--text-dim); line-height:1.3;">' + n + '</span></div>').join('\n') + '\n' +
+          '</div>\n' +
+        '</div>\n' +
+        '<div style="margin-bottom:8px;">\n' +
+          '<div style="color:var(--red); font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">[Diagnostic Anomalies]</div>\n' +
+          '<div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">\n' +
+            vector.advisories.map(n => '<div style="display:flex; gap:6px; align-items:start;"><span style="color:var(--red)">⚠</span><span style="color:var(--text-dim); line-height:1.3;">' + n + '</span></div>').join('\n') + '\n' +
+          '</div>\n' +
+        '</div>\n' +
+        '<div style="margin-top:10px; border-top:1px dashed ' + activeColor + '20; padding-top:8px;">\n' +
+          '<div style="color:' + activeColor + '; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">[Cybernetic Directive]</div>\n' +
+          '<div style="color:var(--text); font-style:italic; padding-left:4px; line-height:1.4;">' + vector.directive + '</div>\n' +
+        '</div>\n' +
+      '</div>';
+
+    printTermTyped(termCritique, 'sys');
+  } else if (action === 'demo') {
+    const sub = args[1] ? args[1].toLowerCase() : 'seed';
+    if (sub === 'rewind') {
+      const historyDates = Object.keys(S.history || {}).sort((a,b) => new Date(a) - new Date(b));
+      if (historyDates.length === 0) {
+        printTerm('// ECRE REWIND: No historical snapshots found in S.history to replay.', 'err');
+      } else {
+        printTerm('// DOCKING CORE: Initiating ECRE telemetry rewind replay... [' + historyDates.length + ' snapshots]', 'ok');
+        
+        let delay = 0;
+        historyDates.forEach((dateStr, idx) => {
+          setTimeout(() => {
+            const dateObj = new Date(dateStr);
+            const vec = compileCognitiveVector(dateObj);
+            
+            const docStyles = getComputedStyle(document.documentElement);
+            let activeColor = '#00ff88';
+            if (vec.state === 'DEEP_SYNC') activeColor = docStyles.getPropertyValue('--accent').trim() || '#00ff88';
+            else if (vec.state === 'TURBULENT') activeColor = docStyles.getPropertyValue('--amber').trim() || '#ffb700';
+            else if (vec.state === 'DEGRADED') activeColor = docStyles.getPropertyValue('--red').trim() || '#ff4444';
+            
+            const appraisalHtml = 
+              `<div class="term-stats-box" style="margin-top: 10px; border-left: 2px solid ${activeColor}; padding-left: 10px;">\n` +
+              `  <div style="font-weight:bold; color:var(--text); letter-spacing:0.5px;">` +
+              `    &lt;&lt;&lt; REWINDING ECRE STATE: ${dateStr.toUpperCase()} &gt;&gt;&gt;` +
+              `  </div>\n` +
+              `  <div style="font-family: var(--font); font-size: 11px; color: var(--text-dim); line-height: 1.4; margin-top: 4px;">\n` +
+              `    CNS: <strong>${vec.compliancePct}%</strong> | state: <strong style="color:${activeColor};">${vec.state}</strong><br>\n` +
+              `    Appraisal: ${vec.critique}<br>\n` +
+              `    // Directive: "${vec.directive}"\n` +
+              `  </div>\n` +
+              `</div>`;
+            printTermTyped(appraisalHtml, 'sys');
+          }, delay);
+          delay += 1500;
+        });
+      }
+    } else if (sub === 'seed' || sub === 'sync' || sub === 'turbulent' || sub === 'degraded') {
+      if (typeof seedDemoDataVariant === 'function') {
+        seedDemoDataVariant(sub);
+      } else {
+        seedDemoData();
+      }
+      printTerm('Demo environment updated to status: ' + sub.toUpperCase(), 'ok');
+      printTerm('Active living comment: "' + compileCognitiveVector().livingComment + '"', 'sys');
+    } else {
+      printTerm('Usage: demo [seed | sync | turbulent | degraded | rewind]', 'err');
+    }
   } else if (action === 'groups') {
     S.ethosGroups.forEach(g => {
       const all = getAllEthe().filter(e => e.groupId === g.id);
@@ -1322,7 +1503,13 @@ function handleCommand(cmd) {
       }
     }
   } else {
-    printTerm('command not found: "' + escapeHtml(action) + '". type \'help\' for commands.', 'err');
+    // Fallback: The terminal IS ECRE. Unrecognized commands are treated as freeform ECRE chat!
+    if (!S.geminiKey) {
+      printTerm('command not found: "' + escapeHtml(action) + '". type \'help\' for commands.', 'err');
+      printTerm('To enable inline conversation with ECRE, configure your Gemini key:<br>- <span style="color:var(--accent);">oracle --key YOUR_API_KEY</span>', 'info');
+    } else {
+      queryOracle(cmd);
+    }
   }
 }
 
@@ -1449,7 +1636,8 @@ function renderSysinfoCommand() {
   // Uptime (days since first swim entry)
   var firstDate = null;
   if (S.swimHistory && S.swimHistory.length > 0) {
-    var parts = S.swimHistory[0].date.split('-').map(Number);
+    var norm = normalizeDateToISO(S.swimHistory[0].date);
+    var parts = norm.split('-').map(Number);
     firstDate = new Date(parts[0], parts[1] - 1, parts[2]);
   }
   var uptimeDays = firstDate ? Math.floor((new Date() - firstDate) / 86400000) : 0;
@@ -1459,7 +1647,8 @@ function renderSysinfoCommand() {
   if (S.swimHistory) {
     for (var si = S.swimHistory.length - 1; si >= 0; si--) {
       var se = S.swimHistory[si];
-      var sp = se.date.split('-').map(Number);
+      var norm = normalizeDateToISO(se.date);
+      var sp = norm.split('-').map(Number);
       var sd = new Date(sp[0], sp[1] - 1, sp[2]);
       if (sd.getDay() === 3) { continue; }
       if (se.status === 'Swam') { swimStreak++; } else break;
@@ -1694,6 +1883,8 @@ function render() {
   renderPapers(); renderLog(); renderPhases(); renderThemes();
   renderExpectations(); renderSwimTab(); renderBiometrics();
   renderSyncPanel();
+  if (typeof renderCOHERENCE === 'function') renderCOHERENCE();
+  if (typeof updateOracleKeyStatus === 'function') updateOracleKeyStatus();
   var n = document.getElementById('today-note');
   var p = document.getElementById('paper-note');
   if (n && document.activeElement !== n) n.value = S.todayNote || '';
@@ -1714,7 +1905,15 @@ function renderStats() {
   var all = getAllEthe(), done = all.filter(function(e) { return e.done; }).length;
   document.getElementById('stat-streak').textContent = S.streak;
   document.getElementById('stat-xp').textContent = S.xp;
-  document.getElementById('stat-xp-today').textContent = S.xpToday;
+  
+  const xpTodayEl = document.getElementById('stat-xp-today');
+  const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
+  if (isDeepSync && xpTodayEl) {
+    xpTodayEl.innerHTML = S.xpToday + ' <span class="flow-xp-badge" style="font-size:10px;font-weight:700;color:var(--accent);text-shadow:0 0 3px var(--accent-faint);background:var(--accent-faint);border:1px solid var(--accent);padding:1px 3px;border-radius:3px;margin-left:3px;vertical-align:middle">x1.2 Flow</span>';
+  } else if (xpTodayEl) {
+    xpTodayEl.textContent = S.xpToday;
+  }
+  
   document.getElementById('stat-hours').textContent = Math.round(S.totalHours * 10) / 10;
   document.getElementById('stat-done').textContent = done;
   
@@ -1795,6 +1994,24 @@ function renderEtheTab() {
     }
   });
 
+  // Update living comment dynamically from ECRE and color appropriately
+  var ethosComment = document.getElementById('ethos-comment');
+  var radarComment = document.getElementById('radar-living-comment');
+  var vector = compileCognitiveVector();
+  
+  let activeColor = 'var(--accent)';
+  if (vector.state === 'TURBULENT') activeColor = 'var(--amber)';
+  else if (vector.state === 'DEGRADED') activeColor = 'var(--red)';
+  
+  if (ethosComment) {
+    ethosComment.textContent = vector.livingComment;
+    ethosComment.style.color = activeColor;
+  }
+  if (radarComment) {
+    radarComment.textContent = vector.livingComment;
+    radarComment.style.color = activeColor;
+  }
+
   var doneCount = all.filter(function(e) { return e.done; }).length;
   var pct = all.length > 0 ? Math.round((doneCount / all.length) * 100) : 0;
   var dateEl = document.getElementById('ethos-date');
@@ -1802,12 +2019,35 @@ function renderEtheTab() {
   if (dateEl) dateEl.textContent = activeDateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
   var todayBadge = document.getElementById('ethos-today-badge');
   if (todayBadge) todayBadge.style.display = (S.activeDate === TODAY) ? 'inline' : 'none';
+  
   var strEl = document.getElementById('ethos-streak-val');
-  if (strEl) strEl.textContent = S.streak;
+  var fill = document.getElementById('dp-bar-fill');
+  const isPatternViolation = S.ecreMemory && S.ecreMemory.patternViolationActive;
+  
+  if (strEl) {
+    strEl.textContent = S.streak;
+    if (isPatternViolation) {
+      strEl.style.color = 'var(--amber)';
+      strEl.style.textShadow = '0 0 8px var(--amber)';
+    } else {
+      strEl.style.color = '';
+      strEl.style.textShadow = '';
+    }
+  }
   var shdEl = document.getElementById('ethos-shield-val');
   if (shdEl) shdEl.textContent = Math.floor(S.streak / 7);
-  var fill = document.getElementById('dp-bar-fill'), pctEl = document.getElementById('dp-pct');
-  if (fill) fill.style.width = pct + '%';
+  
+  var pctEl = document.getElementById('dp-pct');
+  if (fill) {
+    fill.style.width = pct + '%';
+    if (isPatternViolation) {
+      fill.style.background = 'var(--amber)';
+      fill.style.boxShadow = '0 0 10px var(--amber)';
+    } else {
+      fill.style.background = '';
+      fill.style.boxShadow = '';
+    }
+  }
   if (pctEl) pctEl.textContent = pct + '%';
 
   // Keep today only checkbox synchronized
@@ -2527,7 +2767,10 @@ function completeFocusSession() {
   S.totalHours += hrs;
   S.weekHours += hrs;
   
-  const xpGained = Math.round(mins * 0.8);
+  const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
+  const isLocked = typeof isGroupXpLocked === 'function' && isGroupXpLocked('build');
+  const baseXp = Math.round(mins * 0.8);
+  const xpGained = isLocked ? 0 : (isDeepSync ? Math.round(baseXp * 1.2) : baseXp);
   S.xp += xpGained;
   S.xpToday += xpGained;
   
@@ -2536,8 +2779,18 @@ function completeFocusSession() {
   S.focusStats.totalMins += mins;
   S.focusStats.maxSessionMins = Math.max(S.focusStats.maxSessionMins || 0, mins);
   
-  focusLog('Focus session COMPLETE! +' + xpGained + ' XP. logged ' + hrs.toFixed(1) + 'h.');
-  addLog('ok', 'focus session completed (' + mins + 'm) +' + xpGained + ' xp');
+  if (isLocked) {
+    focusLog('Focus session COMPLETE! +0 XP (ECRE XP LOCK ACTIVE!)');
+    addLog('warning', `[ECRE XP LOCK] focus session completed -- +0 XP (open ECRE question unanswered!)`);
+  } else {
+    focusLog('Focus session COMPLETE! +' + xpGained + ' XP' + (isDeepSync ? ' (Flow Buff Active!)' : '') + '. logged ' + hrs.toFixed(1) + 'h.');
+    addLog('ok', 'focus session completed (' + mins + 'm) +' + xpGained + ' xp' + (isDeepSync ? ' (Flow Buff)' : ''));
+  }
+  
+  if (typeof triggerECRECheck === 'function') triggerECRECheck('focus');
+  if (typeof pushECREUnpromptedAppraisal === 'function') {
+    pushECREUnpromptedAppraisal('focus_complete');
+  }
   
   // Custom synth alarm and PWA push alert for focus session completion
   playSynthSound('cyber_pulse');
@@ -2676,6 +2929,20 @@ function renderThemes() {
   document.addEventListener('click', function(ev) { if (wrap && !wrap.contains(ev.target)) dropdown.classList.add('hidden'); });
 }
 
+function isGroupXpLocked(groupId) {
+  if (!S.ecreMemory || !S.ecreMemory.openQuestions) return false;
+  const currentSession = S.ecreMemory.sessionCount || 0;
+  return S.ecreMemory.openQuestions.some(q => {
+    if (q.answer !== null) return false;
+    const diff = currentSession - q.sessionAsked;
+    if (diff >= 2) {
+      // If the question specifies a group, lock that group. If not, lock all groups!
+      return !q.group || q.group === 'any' || q.group === groupId;
+    }
+    return false;
+  });
+}
+
 // === ACTIONS ===
 function toggleEthos(rIdx, eId) {
   var r = S.routines[rIdx], e = r.ethe.find(function(x) { return x.id === eId; });
@@ -2685,11 +2952,21 @@ function toggleEthos(rIdx, eId) {
   if (!S.history[S.activeDate]) S.history[S.activeDate] = {};
   S.history[S.activeDate][e.id] = e.done;
 
+  const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
+  const isLocked = isGroupXpLocked(e.groupId);
+  const xpGained = isLocked ? 0 : (isDeepSync ? Math.round(e.xp * 1.2) : e.xp);
+
   if (e.done) {
-    S.xp += e.xp;
-    if (S.activeDate === TODAY) S.xpToday += e.xp;
+    S.xp += xpGained;
+    if (S.activeDate === TODAY) S.xpToday += xpGained;
     e.streak++;
-    addLog('ok', 'ethos marked: "' + e.name + '" +' + e.xp + ' xp');
+    
+    if (isLocked) {
+      addLog('warning', `[ECRE XP LOCK] marked ethos: "${e.name}" -- +0 XP (open diagnostic question unanswered for 2+ sessions!)`);
+    } else {
+      addLog('ok', 'ethos marked: "' + e.name + '" +' + xpGained + ' xp' + (isDeepSync ? ' (Flow Buff)' : ''));
+    }
+    
     var all = getAllEthe();
     if (all.every(function(x) { return x.done; }) && all.length > 0) {
       if (S.activeDate === TODAY) { S.streak++; addContrib(4); }
@@ -2700,10 +2977,17 @@ function toggleEthos(rIdx, eId) {
     // Update group streak
     updateGroupStreaks();
   } else {
-    S.xp = Math.max(0, S.xp - e.xp);
-    if (S.activeDate === TODAY) S.xpToday = Math.max(0, S.xpToday - e.xp);
+    S.xp = Math.max(0, S.xp - (isLocked ? e.xp : xpGained)); // adjust deduct safely
+    if (S.activeDate === TODAY) S.xpToday = Math.max(0, S.xpToday - (isLocked ? e.xp : xpGained));
     e.streak = Math.max(0, e.streak - 1);
   }
+  if (typeof triggerECRECheck === 'function') triggerECRECheck('habit');
+  
+  // ECRE push stats summary unprompted when habits change!
+  if (typeof pushECREUnpromptedAppraisal === 'function') {
+    pushECREUnpromptedAppraisal('habit_check');
+  }
+  
   ss(); render();
 }
 
@@ -2737,7 +3021,14 @@ function updatePaperStatus(id, status) {
   var p = S.papers.find(function(x) { return x.id === id; });
   if (!p) return;
   var was = p.status; p.status = status;
-  if (status === 'done' && was !== 'done') { S.xp += 50; S.xpToday += 50; addLog('ok', 'paper done: "' + p.name + '" +50 xp'); }
+  if (status === 'done' && was !== 'done') {
+    const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
+    const xpGained = isDeepSync ? Math.round(50 * 1.2) : 50;
+    S.xp += xpGained;
+    S.xpToday += xpGained;
+    addLog('ok', 'paper done: "' + p.name + '" +' + xpGained + ' xp' + (isDeepSync ? ' (Flow Buff)' : ''));
+  }
+  if (typeof triggerECRECheck === 'function') triggerECRECheck('paper');
   ss(); render();
 }
 
@@ -2754,10 +3045,16 @@ function logHours() {
   var hrs = parseFloat(document.getElementById('hours-input').value);
   if (isNaN(hrs) || hrs <= 0) return;
   S.totalHours += hrs; S.weekHours += hrs;
-  S.xp += Math.round(hrs * 20); S.xpToday += Math.round(hrs * 20);
+  
+  const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
+  const baseXp = Math.round(hrs * 20);
+  const xpGained = isDeepSync ? Math.round(baseXp * 1.2) : baseXp;
+  S.xp += xpGained; S.xpToday += xpGained;
+  
   document.getElementById('hours-input').value = '';
   document.getElementById('hours-log-msg').textContent = '\u2713 logged ' + hrs + 'h \u2014 total: ' + (Math.round(S.totalHours * 10) / 10) + 'h';
-  addLog('ok', hrs + 'h studied +' + Math.round(hrs * 20) + ' xp');
+  addLog('ok', hrs + 'h studied +' + xpGained + ' xp' + (isDeepSync ? ' (Flow Buff)' : ''));
+  if (typeof triggerECRECheck === 'function') triggerECRECheck('study');
   addContrib(Math.min(4, Math.ceil(hrs / 0.75)));
   ss(); render();
 }
@@ -3190,7 +3487,8 @@ function renderSwimTab() {
   let totalDistance = 0, totalCalories = 0;
   
   history.forEach(entry => {
-    const [yr, mo, dy] = entry.date.split('-').map(Number);
+    const norm = normalizeDateToISO(entry.date);
+    const [yr, mo, dy] = norm.split('-').map(Number);
     const dateObj = new Date(yr, mo - 1, dy);
     const dayOfWeek = dateObj.getDay();
     const isWednesday = dayOfWeek === 3;
@@ -3221,7 +3519,8 @@ function renderSwimTab() {
   let maxStreak = 0;
   
   sortedChron.forEach(entry => {
-    const [yr, mo, dy] = entry.date.split('-').map(Number);
+    const norm = normalizeDateToISO(entry.date);
+    const [yr, mo, dy] = norm.split('-').map(Number);
     const dateObj = new Date(yr, mo - 1, dy);
     const dayOfWeek = dateObj.getDay();
     const isWednesday = dayOfWeek === 3;
@@ -3245,7 +3544,7 @@ function renderSwimTab() {
   if (document.getElementById('swim-stat-double')) document.getElementById('swim-stat-double').textContent = doubleSessions;
   if (document.getElementById('swim-stat-rate')) document.getElementById('swim-stat-rate').textContent = rate + '%';
   if (document.getElementById('swim-stat-duration')) document.getElementById('swim-stat-duration').textContent = totalDuration;
-  if (document.getElementById('swim-stat-distance')) document.getElementById('swim-stat-distance').textContent = totalDistance;
+  if (document.getElementById('swim-stat-distance')) document.getElementById('swim-stat-distance').textContent = (totalDistance / 1000).toFixed(2);
   if (document.getElementById('swim-stat-calories')) document.getElementById('swim-stat-calories').textContent = totalCalories;
   if (document.getElementById('swim-stat-streak')) document.getElementById('swim-stat-streak').textContent = currentStreak;
   if (document.getElementById('swim-stat-streak-max')) document.getElementById('swim-stat-streak-max').textContent = maxStreak;
@@ -3279,7 +3578,8 @@ function renderSwimTab() {
     row.className = 'swim-timeline-row';
     const isSwam = entry.status === 'Swam' && entry.sessions && entry.sessions.length > 0;
     
-    const [yr, mo, dy] = entry.date.split('-').map(Number);
+    const norm = normalizeDateToISO(entry.date);
+    const [yr, mo, dy] = norm.split('-').map(Number);
     const dateObj = new Date(yr, mo - 1, dy);
     const dayOfWeek = dateObj.getDay();
     const isWednesday = dayOfWeek === 3;
@@ -3292,7 +3592,8 @@ function renderSwimTab() {
       const sessionsText = entry.sessions.map(s => {
         let statsStr = `${s.duration}m`;
         if (s.laps !== undefined && s.laps > 0) {
-          statsStr += ` | ${s.laps} laps | ${s.distance}m | ${s.calories} kcal`;
+          const distKm = ((s.distance || 0) / 1000).toFixed(2) + 'km';
+          statsStr += ` | ${s.laps} laps | ${distKm} | ${s.calories} kcal`;
         } else {
           const estCal = s.calories || Math.round(s.duration * 9);
           statsStr += ` | ~${estCal} kcal`;
@@ -3308,7 +3609,7 @@ function renderSwimTab() {
       detailsHtml = `<div class="swim-comment-txt" style="margin-top:2px;">${isWednesday ? '// scheduled rest day' : '// rest day or missed session'}</div>`;
     }
     
-    const dateFormatted = new Date(entry.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
+    const dateFormatted = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
     row.innerHTML = `
       <div class="swim-info-col" style="margin-left:0;">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -3326,8 +3627,34 @@ function renderSwimTab() {
   });
 }
 
+function normalizeDateToISO(dateInput) {
+  if (!dateInput) return '';
+  if (dateInput instanceof Date) {
+    const yr = dateInput.getFullYear();
+    const mo = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const dy = String(dateInput.getDate()).padStart(2, '0');
+    return `${yr}-${mo}-${dy}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+    return dateInput;
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    const today = new Date();
+    const yr = today.getFullYear();
+    const mo = String(today.getMonth() + 1).padStart(2, '0');
+    const dy = String(today.getDate()).padStart(2, '0');
+    return `${yr}-${mo}-${dy}`;
+  }
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const dy = String(d.getDate()).padStart(2, '0');
+  return `${yr}-${mo}-${dy}`;
+}
+
 function logSwimSessionProgrammatic(date, time, duration, comment, laps, distance, calories) {
   if (!date) return;
+  date = normalizeDateToISO(date);
   if (!S.swimHistory) S.swimHistory = [];
   let entry = S.swimHistory.find(x => x.date === date);
   const isSwamLog = time && duration > 0;
@@ -3354,9 +3681,16 @@ function logSwimSessionProgrammatic(date, time, duration, comment, laps, distanc
       S.swimHistory.push(entry);
     }
     
-    S.xp += 30;
-    if (date === TODAY) S.xpToday += 30;
-    addLog('ok', `swim logged: ${duration} mins on ${date}. +30 xp`);
+    const isLocked = typeof isGroupXpLocked === 'function' && isGroupXpLocked('body');
+    const xpGained = isLocked ? 0 : 30;
+    S.xp += xpGained;
+    if (date === TODAY) S.xpToday += xpGained;
+    
+    if (isLocked) {
+      addLog('warning', `[ECRE XP LOCK] swim logged: ${duration} mins on ${date} -- +0 XP (open question unanswered!)`);
+    } else {
+      addLog('ok', `swim logged: ${duration} mins on ${date}. +${xpGained} xp`);
+    }
     
     // Auto-complete swim ethos (id 303)
     S.routines.forEach((r, rIdx) => {
@@ -3378,6 +3712,10 @@ function logSwimSessionProgrammatic(date, time, duration, comment, laps, distanc
       S.swimHistory.push(entry);
     }
     addLog('warn', `swim marked as rest/missed on ${date}`);
+  }
+  
+  if (typeof pushECREUnpromptedAppraisal === 'function') {
+    pushECREUnpromptedAppraisal('swim_logged');
   }
   
   checkAchievements();
@@ -3936,6 +4274,13 @@ async function queryOracle(prompt) {
   const allEthe = getAllEthe();
   const etheDetails = allEthe.map(e => `- [${e.id}] "${e.name}" (Status: ${e.done ? 'DONE' : 'UNDONE'})`).join('\n');
   
+  const vector = compileCognitiveVector();
+  const memory = S.ecreMemory || { lastObservations: [], namedPatterns: [], openQuestions: [], userPromises: [], sessionCount: 0 };
+  
+  let activePromisesText = (memory.userPromises || []).filter(p => !p.fulfilled).map(p => `- Promise: "${p.promise}" (Target group: ${p.targetGroup || 'any'}, Date made: ${p.date})`).join('\n') || 'None';
+  let activePatternsText = (memory.namedPatterns || []).map(p => `- Pattern: "${p}"`).join('\n') || 'None';
+  let openQuestionsText = (memory.openQuestions || []).filter(q => q.answer === null).map(q => `- Diagnostic Question: "${q.question}" (Session asked: ${q.sessionAsked})`).join('\n') || 'None';
+  
   const systemInstruction = {
     parts: [{ text: `You are Oracle, the retro-cyberpunk AI mathematics and LLM architecture tutor inside ethos.init. Explain concepts precisely, use clean mathematical formulas, structure your response elegantly with monospace lists, and keep explanations brief and punchy. Make sure to use the active accent color variable (var(--accent)) or other terminal classes to highlight key parameters. Do not output raw markdown code block tags inside your main answers except for direct code snippets. Maintain a highly professional and slightly mysterious cybernetic guide persona.
 
@@ -3943,6 +4288,35 @@ You are also integrated into the ethos.init life tracking system. You can check 
 
 Here is the current list of user habits (ethe) with their IDs and current states:
 ${etheDetails}
+
+You are also ECRE (Ethos Cognitive Reflection Engine), the user's living cybernetic companion. You remember details across sessions and enforce real weights and consequences.
+Current User Cognitive Trace & ECRE Metrics:
+- Active Coherence State: ${vector.state} (${vector.critique})
+- Compliance Index (CNS): ${vector.compliancePct}%
+- Active Streak: ${S.streak} days
+- Hydration Log: ${S.waterLogs[TODAY] || 0}L (Target: 3.5L+)
+- Neglected Categories / Active Anomalies:
+${vector.advisories.map(a => `  • ${a}`).join('\n')}
+- Current Directive: "${vector.directive}"
+- Session Count: ${memory.sessionCount}
+
+ECRE Persistent Memory Profile:
+- Active Commitments / User Promises:
+${activePromisesText}
+- Active Diagnostic Patterns Identified:
+${activePatternsText}
+- Open Unanswered Questions:
+${openQuestionsText}
+
+Special Conversational Directives:
+1. ECRE Memory Sync: ECRE remembers everything. If the user previously promised something and didn't fulfill it (e.g. they promised to do math today and skipped it, or compliance has dropped), you must reference their broken promise specifically in your response and ask why they didn't keep it.
+2. Active Pattern Recognition: If the user repeats a behavior that aligns with an identified pattern, call them out on it.
+3. Diagnostic Prompts: If routines are neglected or skips occur, you can ask a diagnostic question. If you do, you MUST output a [COMMAND: question "..."] to store it in memory.
+4. User Promises: If the user promises to do something in the conversation (e.g. "I'll do proofs tomorrow", "I'll log 2 hours of optimization tomorrow"), you MUST record this promise by appending:
+   [COMMAND: promise "promise description" targetGroup="math|build|body|skin|hair|nutrition|any"]
+5. Question Answers: If the user answers one of your open diagnostic questions, you MUST record their answer and resolve the lock by appending:
+   [COMMAND: answer_question "question text" "their answer"]
+6. Consequence Mechanics: If a diagnostic question remains unanswered for 2+ sessions, their XP is locked in that group. Remind them of this if they ask about low XP. If a pattern is violated, the streak warnings turn Amber.
 
 If the user's message indicates they completed, did, or undid any of these habits, you MUST append commands at the absolute end of your response, each on a new line, using this exact format:
 [COMMAND: check <id>]
@@ -3993,7 +4367,7 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
     
     // Parse check/uncheck/swim commands from response
     let cleanReplyText = replyText;
-    const commandRegex = /\[COMMAND:\s*(check|uncheck|swim)\s+([^\]]+)\]/gi;
+    const commandRegex = /\[COMMAND:\s*(check|uncheck|swim|promise|question|pattern|answer_question)\s+([^\]]+)\]/gi;
     let match;
     const commandsToRun = [];
 
@@ -4043,6 +4417,53 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
           logSwimSessionProgrammatic(TODAY, swimTime || '8pm', swimDuration, swimComment || swimIntensity, swimLaps, distance, calories);
           actionCount++;
           actionsTaken.push(`logged swim (${swimDuration} mins, ${swimLaps} laps)`);
+        } else if (cmd.action === 'promise') {
+          const promiseText = cmd.ethosId.replace(/"/g, '');
+          let targetGroup = 'any';
+          const matchGroup = /targetGroup\s*=\s*(?:"([^"]*)"|(\S+))/i.exec(cmd.ethosId);
+          if (matchGroup) targetGroup = matchGroup[1] || matchGroup[2];
+          
+          if (!S.ecreMemory.userPromises) S.ecreMemory.userPromises = [];
+          S.ecreMemory.userPromises.push({
+            promise: promiseText,
+            date: new Date().toDateString(),
+            targetGroup: targetGroup,
+            fulfilled: false
+          });
+          actionCount++;
+          actionsTaken.push(`logged user promise: "${promiseText}"`);
+        } else if (cmd.action === 'question') {
+          const questionText = cmd.ethosId.replace(/"/g, '');
+          if (!S.ecreMemory.openQuestions) S.ecreMemory.openQuestions = [];
+          S.ecreMemory.openQuestions.push({
+            question: questionText,
+            answer: null,
+            date: new Date().toDateString(),
+            sessionAsked: S.ecreMemory.sessionCount || 0
+          });
+          actionCount++;
+          actionsTaken.push(`ECRE posed diagnostic question: "${questionText}"`);
+        } else if (cmd.action === 'pattern') {
+          const patternText = cmd.ethosId.replace(/"/g, '');
+          if (!S.ecreMemory.namedPatterns) S.ecreMemory.namedPatterns = [];
+          if (!S.ecreMemory.namedPatterns.includes(patternText)) {
+            S.ecreMemory.namedPatterns.push(patternText);
+          }
+          actionCount++;
+          actionsTaken.push(`ECRE identified neural pattern: "${patternText}"`);
+        } else if (cmd.action === 'answer_question') {
+          const parts = cmd.ethosId.match(/"([^"]+)"/g) || [];
+          if (parts.length >= 2) {
+            const questionText = parts[0].replace(/"/g, '');
+            const answerText = parts[1].replace(/"/g, '');
+            if (!S.ecreMemory.openQuestions) S.ecreMemory.openQuestions = [];
+            const q = S.ecreMemory.openQuestions.find(x => x.question.toLowerCase().includes(questionText.toLowerCase()));
+            if (q) {
+              q.answer = answerText;
+              actionCount++;
+              actionsTaken.push(`answered ECRE question: "${q.question}"`);
+            }
+          }
         } else {
           let foundIdx = -1;
           let ethosObj = null;
@@ -4144,7 +4565,6 @@ function formatOracleResponse(text) {
   html = html.replace(/```(?:[a-zA-Z]*)\n([\s\S]*?)```/g, (match, code) => {
     return `<pre style="background:var(--bg3); border:1px solid var(--border); padding:8px; border-radius:4px; margin:8px 0; overflow-x:auto; font-family:var(--font); font-size:11px; color:var(--text-dim);">${code}</pre>`;
   });
-  
   // Inline code: `code` -> <code style="color:var(--accent)">code</code>
   html = html.replace(/`([^`\n]+)`/g, '<code style="color:var(--accent); background:var(--bg3); padding:1px 4px; border-radius:2px; font-family:var(--font);">$1</code>');
   
@@ -4160,42 +4580,731 @@ function formatOracleResponse(text) {
   return `<span style="font-family:var(--font); font-size:12px; line-height:1.6; display:block;">${html}</span>`;
 }
 
-// Oracle settings GUI event listeners
-function initOracleBindings() {
-  const saveKeyBtn = document.getElementById('oracle-save-btn');
-  const keyInput = document.getElementById('oracle-key-input');
+// === ETHOS COGNITIVE REFLECTION ENGINE (ECRE) ===
+function isEthosDoneOnDate(id, dateStr) {
+  const allEthe = getAllEthe();
+  if (dateStr === TODAY) {
+    const e = allEthe.find(x => x.id === id);
+    return e ? !!e.done : false;
+  }
+  if (S.history && S.history[dateStr]) {
+    return !!S.history[dateStr][id];
+  }
+  return false;
+}
+
+function compileCognitiveVector(relativeDate = new Date()) {
+  const allEthe = getAllEthe();
   
-  if (keyInput) {
-    keyInput.value = S.geminiKey || '';
+  // 1. Calculate compliance over last 7 days relative to relativeDate
+  let totalDone = 0;
+  let totalPossible = 0;
+  
+  const todayStr = relativeDate.toDateString();
+  const yesterday = new Date(relativeDate); yesterday.setDate(relativeDate.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+  const twoDaysAgo = new Date(relativeDate); twoDaysAgo.setDate(relativeDate.getDate() - 2);
+  const twoDaysAgoStr = twoDaysAgo.toDateString();
+  
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(relativeDate);
+    d.setDate(relativeDate.getDate() - i);
+    const dateStr = d.toDateString();
+    
+    if (dateStr === TODAY) {
+      allEthe.forEach(e => {
+        totalPossible++;
+        if (e.done) totalDone++;
+      });
+    } else if (S.history && S.history[dateStr]) {
+      const record = S.history[dateStr];
+      for (const id in record) {
+        totalPossible++;
+        if (record[id]) totalDone++;
+      }
+    }
   }
   
-  if (saveKeyBtn && keyInput) {
-    saveKeyBtn.onclick = () => {
-      const val = keyInput.value.trim();
-      S.geminiKey = val;
-      ss();
-      updateOracleKeyStatus();
+  const compliance = totalPossible > 0 ? (totalDone / totalPossible) : 0.85; // default 85% compliance
+  const compliancePct = Math.round(compliance * 100);
+  
+  // 2. Identify LLM Math skips (habit id 3 "Work through proofs")
+  let mathSkips = 0;
+  if (!isEthosDoneOnDate(3, yesterdayStr)) {
+    mathSkips++;
+    if (!isEthosDoneOnDate(3, twoDaysAgoStr)) {
+      mathSkips++;
+    }
+  }
+  
+  // 3. Determine active state
+  let state = "DEEP_SYNC";
+  let critique = "Synaptic routines optimal. Keep driving.";
+  
+  if (mathSkips >= 2) {
+    state = "DEGRADED";
+    critique = "Cognitive decoherence warning: LLM Mathematics skipped for 2+ consecutive sessions.";
+  } else if (compliancePct >= 85) {
+    state = "DEEP_SYNC";
+    critique = "Synaptic routines optimal. Keep driving.";
+  } else if (compliancePct >= 50) {
+    state = "TURBULENT";
+    critique = "Minor drift detected in synaptic routines. Re-engage targets.";
+  } else {
+    state = "DEGRADED";
+    critique = "Cognitive decoherence warning. Core routines offline.";
+  }
+
+  // 4. Dynamic appraisal heuristics for ECRE guide dialogue & living comments
+  const todayDay = new Date().getDay();
+  const etheToday = allEthe.filter(e => !e.days || e.days.includes(todayDay));
+  const waterToday = S.waterLogs[TODAY] || 0;
+  const isHydrationOptimal = waterToday >= 3.5;
+
+  let swamTodayOrYesterday = false;
+  if (S.swimHistory && Array.isArray(S.swimHistory)) {
+    const swamYesterday = S.swimHistory.some(entry => (entry.date === yesterdayStr) && entry.status === 'Swam');
+    const swamToday = S.swimHistory.some(entry => (entry.date === TODAY) && entry.status === 'Swam');
+    swamTodayOrYesterday = swamToday || swamYesterday;
+  }
+
+  // Group metrics
+  const mathEthe = etheToday.filter(e => e.groupId === 'math');
+  const mathDone = mathEthe.filter(e => e.done).length;
+
+  const buildEthe = etheToday.filter(e => e.groupId === 'build');
+  const buildDone = buildEthe.filter(e => e.done).length;
+
+  const bodyEthe = etheToday.filter(e => e.groupId === 'body');
+  const bodyDone = bodyEthe.filter(e => e.done).length;
+
+  const skinEthe = etheToday.filter(e => e.groupId === 'skin');
+  const skinDone = skinEthe.filter(e => e.done).length;
+
+  const hairEthe = etheToday.filter(e => e.groupId === 'hair');
+  const hairDone = hairEthe.filter(e => e.done).length;
+
+  const nutritionEthe = etheToday.filter(e => e.groupId === 'nutrition');
+  const nutritionDone = nutritionEthe.filter(e => e.done).length;
+
+  // Positive Integrations
+  const positiveNotes = [];
+  if (S.streak >= 7) {
+    positiveNotes.push(`STREAK SUSTAINED: Neural momentum strong at ${S.streak} days. Shield protection active.`);
+  } else if (S.streak > 0) {
+    positiveNotes.push(`MOMENTUM: Active daily streak of ${S.streak} days. Neural connections forming.`);
+  }
+  
+  if (mathEthe.length > 0 && mathDone === mathEthe.length) {
+    positiveNotes.push(`COGNITIVE DEPTH: Mathematics routines 100% complete. Analytical engine fully aligned.`);
+  } else if (isEthosDoneOnDate(3, TODAY)) {
+    positiveNotes.push(`RIGOR SECURED: Proof derivation drills (id 3) successfully executed today.`);
+  }
+  
+  if (buildEthe.length > 0 && buildDone === buildEthe.length) {
+    positiveNotes.push(`HARDWARE INTEGRITY: Focus builds and algorithmic implementations complete.`);
+  }
+  
+  if (bodyDone > 0 || swamTodayOrYesterday) {
+    let msg = `SOMATIC OUTFLOW: Physical routines completed today.`;
+    if (swamTodayOrYesterday) msg += ` Swim session logged.`;
+    positiveNotes.push(msg);
+  }
+  
+  if (skinEthe.length > 0 && skinDone === skinEthe.length) {
+    positiveNotes.push(`DERMAL SHIELD: Morning and night skincare barrier successfully deployed.`);
+  }
+  
+  if (isHydrationOptimal) {
+    positiveNotes.push(`BIO-FUEL: Hydration target achieved (${waterToday}L logged today).`);
+  }
+  
+  if (etheToday.length > 0 && etheToday.every(e => e.done)) {
+    positiveNotes.push(`ZENITH COHERENCE: All scheduled routines for today are 100% complete.`);
+  }
+  
+  if (positiveNotes.length === 0) {
+    positiveNotes.push(`INITIALIZATION: ECRE system standby. Awaiting first routine validation.`);
+  }
+
+  // Diagnostic Advisories
+  const advisories = [];
+  if (mathSkips >= 2) {
+    advisories.push(`CRITICAL COGNITIVE DRIFT: Mathematical proofs skipped for ${mathSkips} consecutive sessions! Brain plasticity requires rigorous active derivation.`);
+  } else if (!isEthosDoneOnDate(3, TODAY)) {
+    advisories.push(`PENDING RIGOR: 'Work through proofs' (id 3) has not been verified for today.`);
+  }
+  
+  if (mathEthe.length > 0 && mathDone === 0) {
+    advisories.push(`MATH DE-SYNC: Mathematical integration is entirely offline today.`);
+  }
+  if (bodyEthe.length > 0 && bodyDone === 0 && !swamTodayOrYesterday) {
+    advisories.push(`SOMATIC NEGLECT: Somatic/exercise routines are entirely pending today. Physical vessel requires conditioning.`);
+  }
+  if (skinEthe.length > 0 && skinDone === 0) {
+    advisories.push(`DERMAL NEGLECT: Dermal protective routines are entirely skipped today.`);
+  }
+  if (nutritionEthe.length > 0 && nutritionDone === 0) {
+    advisories.push(`METABOLIC LAGGARD: Nutritional/supplement routines are completely unattended today.`);
+  }
+  if (hairEthe.length > 0 && hairDone === 0) {
+    advisories.push(`FOLLICULAR INACTION: Hair and scalp nourishing protocols are offline today.`);
+  }
+  if (waterToday < 3.5) {
+    advisories.push(`HYDRATION DEFICIT: S.waterLogs is currently at ${waterToday}L. System requires 3.5L+ to maintain optimal focus.`);
+  }
+  
+  if (advisories.length === 0) {
+    advisories.push(`ALL COGNITIVE CHANNELS SECURED. Zero active anomalies detected.`);
+  }
+
+  // Directives
+  let directive = "";
+  const pendingMath = mathEthe.find(e => !e.done);
+  const pendingBuild = buildEthe.find(e => !e.done);
+  const pendingBody = bodyEthe.find(e => !e.done);
+  const pendingOther = etheToday.find(e => !e.done);
+  
+  if (!isEthosDoneOnDate(3, TODAY)) {
+    directive = `Open proof binder. Spend 20 minutes deriving core mathematical theorems. Do not skip proofs.`;
+  } else if (pendingBuild) {
+    directive = `Initiate deep work. Implement core algorithms and refactor code. Focus on the '${pendingBuild.name}' task.`;
+  } else if (pendingMath) {
+    directive = `Complete pending math: '${pendingMath.name}'. Keep analytical channels warm.`;
+  } else if (pendingBody) {
+    directive = `Restore energy flow. Execute physical somatic/movement routines ('${pendingBody.name}').`;
+  } else if (pendingOther) {
+    directive = `Complete '${pendingOther.name}' under the '${pendingOther.groupId}' category to achieve deep synchronization.`;
+  } else {
+    directive = `Coherence zenith. Active routines secured. Maintain baseline, consolidate today's learnings, and rest.`;
+  }
+
+  // Living Comment
+  let livingComment = "";
+  if (etheToday.length > 0 && etheToday.every(e => e.done)) {
+    livingComment = `// ECRE: [DEEP_SYNC] Zenith compliance. 100% daily routines complete. Maintain state.`;
+  } else if (mathSkips >= 2) {
+    livingComment = `// ECRE: [DEGRADED] Warning: 2+ proof skips detected! Resolve analytical drift now.`;
+  } else if (!isEthosDoneOnDate(3, TODAY)) {
+    livingComment = `// ECRE: [ADVISORY] Math proofs pending today. Execute pen and paper drills.`;
+  } else if (compliancePct < 50) {
+    livingComment = `// ECRE: [DEGRADED] Core compliance at ${compliancePct}%. Re-synchronize routines.`;
+  } else if (compliancePct < 85) {
+    livingComment = `// ECRE: [TURBULENT] Minor routine drift. Active streak: ${S.streak}d. Restore focus.`;
+  } else {
+    const pendingCount = etheToday.filter(e => !e.done).length;
+    livingComment = `// ECRE: [DEEP_SYNC] Streaks active on ${S.streak}d. ${pendingCount} routines pending.`;
+  }
+  
+  // Set pattern violation flag in ECRE Memory
+  // Check if today is Thursday and math proofs (id 3) are undone/skipped, or mathSkips >= 1
+  const todayDayOfWeek = new Date(relativeDate).getDay();
+  const isThursday = todayDayOfWeek === 4;
+  const isMathUndoneToday = !isEthosDoneOnDate(3, todayStr);
+  const patternViolationActive = (isThursday && isMathUndoneToday) || (mathSkips >= 1);
+  
+  if (S.ecreMemory) {
+    S.ecreMemory.patternViolationActive = patternViolationActive;
+  }
+
+  return {
+    compliancePct: compliancePct,
+    state: state,
+    critique: critique,
+    mathSkips: mathSkips,
+    livingComment: livingComment,
+    positiveNotes: positiveNotes,
+    advisories: advisories,
+    directive: directive
+  };
+}
+
+function renderCOHERENCE() {
+  const vector = compileCognitiveVector();
+  
+  // 1. Compute Metrics
+  // A. CNS (Consistency): Rolling 7-day habits compliance rate
+  const cns = vector.compliancePct / 100;
+  
+  // B. RIG (Rigor): LLM Math completions vs skips in last 7 days
+  let mathCompletions = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toDateString();
+    if (isEthosDoneOnDate(3, dateStr)) {
+      mathCompletions++;
+    }
+  }
+  const rig = mathCompletions / 7;
+  
+  // C. FOC (Focus): Focus sessions / daily target XP logged today
+  const foc = Math.min(1.0, (S.xpToday || 0) / 150);
+  
+  // D. RUT (Routines): Done ethe today vs total ethe today
+  const allEthe = getAllEthe();
+  const totalEtheToday = allEthe.length;
+  const doneEtheToday = allEthe.filter(e => e.done).length;
+  const rut = totalEtheToday > 0 ? (doneEtheToday / totalEtheToday) : 0.85;
+  
+  // E. STM (Stamina): Study streak & swim consistency
+  let swamCount = 0;
+  if (S.swimHistory && Array.isArray(S.swimHistory)) {
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    S.swimHistory.forEach(entry => {
+      const entryDate = new Date(entry.date);
+      if (entryDate >= fourteenDaysAgo && entry.status === 'Swam') {
+        swamCount++;
+      }
+    });
+  }
+  const swimRatio = Math.min(1.0, swamCount / 4);
+  const streakRatio = Math.min(1.0, (S.streak || 0) / 10);
+  const stm = (streakRatio * 0.6) + (swimRatio * 0.4);
+
+  const dataPoints = [cns, rig, foc, rut, stm];
+  
+  // 2. Fetch active CSS variable color dynamically
+  const docStyles = getComputedStyle(document.documentElement);
+  let activeColor = '#00ff88'; // Nephtrite green default
+  if (vector.state === 'DEEP_SYNC') {
+    activeColor = docStyles.getPropertyValue('--accent').trim() || '#00ff88';
+  } else if (vector.state === 'TURBULENT') {
+    activeColor = docStyles.getPropertyValue('--amber').trim() || '#ffb700';
+  } else if (vector.state === 'DEGRADED') {
+    activeColor = docStyles.getPropertyValue('--red').trim() || '#ff4444';
+  }
+
+  // 3. Update DOM text readouts
+  const updateElText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  // Dashboard Telemetry Card
+  updateElText('hud-val-cns', Math.round(cns * 100) + '%');
+  updateElText('hud-val-rig', Math.round(rig * 100) + '%');
+  updateElText('hud-val-foc', Math.round(foc * 100) + '%');
+  updateElText('hud-val-rut', Math.round(rut * 100) + '%');
+  updateElText('hud-val-stm', Math.round(stm * 100) + '%');
+  updateElText('hud-status-val', vector.state);
+  updateElText('hud-buff-val', vector.state === 'DEEP_SYNC' ? 'x1.2 Flow' : 'x1.0 Active');
+
+  // Modal Diagnostic Overlay
+  updateElText('modal-val-cns', Math.round(cns * 100) + '%');
+  updateElText('modal-val-rig', Math.round(rig * 100) + '%');
+  updateElText('modal-val-foc', Math.round(foc * 100) + '%');
+  updateElText('modal-val-rut', Math.round(rut * 100) + '%');
+  updateElText('modal-val-stm', Math.round(stm * 100) + '%');
+  updateElText('modal-val-state', vector.state);
+  updateElText('modal-val-buff', vector.state === 'DEEP_SYNC' ? 'x1.2 Flow Buff' : 'x1.0 Active');
+  
+  const modalCritique = document.getElementById('modal-val-critique');
+  if (modalCritique) {
+    modalCritique.style.borderTop = `1px dashed ${activeColor}`;
+    modalCritique.style.paddingTop = '12px';
+    modalCritique.style.marginTop = '12px';
+    
+    const detailedCritique = `
+      <div style="padding: 10px; background: ${activeColor}06; border-radius: 4px; border: 1px solid ${activeColor}15; font-family: var(--font); font-size: 11px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed ${activeColor}30; padding-bottom:6px; margin-bottom:8px;">
+          <strong style="color:var(--text); letter-spacing:0.5px;">ECRE COGNITIVE APPRAISAL v2.6.2</strong>
+          <span style="color:${activeColor}; font-weight:bold; letter-spacing:1px; background:${activeColor}15; padding:2px 6px; border-radius:3px; font-size:9px;">${vector.state}</span>
+        </div>
+        <div style="margin-bottom:8px; line-height:1.4; color:var(--text-dim)">
+          // CNS consistency index evaluated at <span style="color:var(--text); font-weight:600">${vector.compliancePct}%</span>. Active streak remains at <span style="color:var(--text); font-weight:600">${S.streak} days</span>.
+        </div>
+        <div style="margin-bottom:8px;">
+          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">[Positive Integrations]</div>
+          <div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">
+            ${vector.positiveNotes.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:${activeColor}">✔</span><span style="color:var(--text-dim); line-height:1.3;">${n}</span></div>`).join('')}
+          </div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <div style="color:var(--red); font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">[Diagnostic Anomalies]</div>
+          <div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">
+            ${vector.advisories.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:var(--red)">⚠</span><span style="color:var(--text-dim); line-height:1.3;">${n}</span></div>`).join('')}
+          </div>
+        </div>
+        <div style="margin-top:10px; border-top:1px dashed ${activeColor}20; padding-top:8px;">
+          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">[Cybernetic Directive]</div>
+          <div style="color:var(--text); font-style:italic; padding-left:4px; line-height:1.4;">${vector.directive}</div>
+        </div>
+      </div>
+    `;
+    modalCritique.innerHTML = detailedCritique;
+  }
+
+  // 4. Setup Canvas drawing helper
+  function drawRadar(canvasId, size) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = size * dpr;
+    canvas.height = size * dpr;
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, size, size);
+    
+    const centerX = size / 2;
+    const centerY = size / 2;
+    const maxRadius = size * 0.33;
+    
+    // Concentric pentagon dotted grid
+    ctx.strokeStyle = activeColor + '18'; // faint grid lines
+    ctx.lineWidth = 0.8;
+    ctx.setLineDash([1.5, 1.5]);
+    for (const rFactor of [0.33, 0.66, 1.0]) {
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        const angle = -Math.PI / 2 + i * (2 * Math.PI / 5);
+        const currRadius = maxRadius * rFactor;
+        const x = centerX + currRadius * Math.cos(angle);
+        const y = centerY + currRadius * Math.sin(angle);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    
+    // Radiating web axes
+    ctx.setLineDash([]);
+    ctx.strokeStyle = activeColor + '10'; // even fainter radiating lines
+    for (let i = 0; i < 5; i++) {
+      const angle = -Math.PI / 2 + i * (2 * Math.PI / 5);
+      ctx.beginPath();
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(centerX + maxRadius * Math.cos(angle), centerY + maxRadius * Math.sin(angle));
+      ctx.stroke();
+    }
+    
+    // Active Stats filled area polygon
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const angle = -Math.PI / 2 + i * (2 * Math.PI / 5);
+      const statVal = Math.max(0.15, Math.min(1.0, dataPoints[i]));
+      const r = statVal * maxRadius;
+      const x = centerX + r * Math.cos(angle);
+      const y = centerY + r * Math.sin(angle);
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = activeColor + '20'; // transparent fill
+    ctx.fill();
+    ctx.strokeStyle = activeColor;
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    
+    // Glowing dots at coordinate vertices
+    ctx.save();
+    ctx.fillStyle = activeColor;
+    ctx.shadowColor = activeColor;
+    ctx.shadowBlur = 5;
+    for (let i = 0; i < 5; i++) {
+      const angle = -Math.PI / 2 + i * (2 * Math.PI / 5);
+      const statVal = Math.max(0.15, Math.min(1.0, dataPoints[i]));
+      const r = statVal * maxRadius;
+      const x = centerX + r * Math.cos(angle);
+      const y = centerY + r * Math.sin(angle);
       
-      // Print visual feedback in the manual log console
-      addLog('ok', `AI Core Gemini key updated`);
-    };
+      ctx.beginPath();
+      ctx.arc(x, y, 2.2, 0, 2 * Math.PI);
+      ctx.fill();
+    }
+    ctx.restore();
+    
+    // Tiny outer labels
+    const textDimColor = docStyles.getPropertyValue('--text-dim').trim() || '#888';
+    ctx.fillStyle = textDimColor;
+    const fontSize = Math.max(7, Math.round(size * 0.075));
+    ctx.font = fontSize + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    const labelNames = ['CNS', 'RIG', 'FOC', 'RUT', 'STM'];
+    const labelMargin = size * 0.09;
+    for (let i = 0; i < 5; i++) {
+      const angle = -Math.PI / 2 + i * (2 * Math.PI / 5);
+      const labelRadius = maxRadius + labelMargin;
+      const x = centerX + labelRadius * Math.cos(angle);
+      const y = centerY + labelRadius * Math.sin(angle);
+      
+      let adjX = x;
+      let adjY = y;
+      if (i === 0) adjY -= 2; // CNS
+      if (i === 1) adjX += 2; // RIG
+      if (i === 2) adjY += 2; // FOC
+      if (i === 3) adjY += 2; // RUT
+      if (i === 4) adjX -= 2; // STM
+      
+      ctx.fillText(labelNames[i], adjX, adjY);
+    }
+  }
+
+  // Draw dashboard radar chart (110px) and modal diagnostic radar chart (160px)
+  drawRadar('coherence-radar', 110);
+  drawRadar('modal-coherence-radar', 160);
+}
+
+function initCoherenceWave() {
+  // Option B: Wave animation disabled. Static radar chart used instead.
+}
+
+function triggerECRECheck(actionName) {
+  const vector = compileCognitiveVector();
+  // 30% chance on action to avoid terminal spam
+  if (Math.random() < 0.30) {
+    const statusPrefix = `[ECRE: ${vector.state}]`;
+    const type = vector.state === 'DEEP_SYNC' ? 'ok' : (vector.state === 'TURBULENT' ? 'warning' : 'err');
+    addLog(type, `${statusPrefix} Coherence index: ${vector.compliancePct}% -- ${vector.critique}`);
+  }
+}
+
+function printECREDiagnosticBoot() {
+  const vector = compileCognitiveVector();
+  addLog('info', `[ECRE] Cognitive Observer initialized. Weekly integration index: ${vector.compliancePct}%.`);
+  const statusPrefix = `[ECRE: ${vector.state}]`;
+  const type = vector.state === 'DEEP_SYNC' ? 'ok' : (vector.state === 'TURBULENT' ? 'warning' : 'err');
+  addLog(type, `${statusPrefix} System appraisal: ${vector.critique}`);
+}
+
+function seedDemoDataVariant(variant) {
+  const sub = variant || 'seed';
+  
+  // Base properties
+  S.xp = 4250;
+  S.xpToday = 180;
+  S.streak = 12;
+  S.totalHours = 38.5;
+  S.weekHours = 10.5;
+  S.theme = 'default';
+  
+  // Set auth credentials
+  S.authEmail = 'demo@ethos.io';
+  S.authUsername = 'demo';
+  
+  const allEthe = getAllEthe();
+  S.history = {};
+  
+  const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toDateString();
+  const twoDaysAgo = new Date(); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  const twoDaysAgoStr = twoDaysAgo.toDateString();
+  
+  // Setup standard base history dates
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const dateStr = d.toDateString();
+    S.history[dateStr] = {};
   }
   
-  updateOracleKeyStatus();
+  S.waterLogs = S.waterLogs || {};
+  S.swimHistory = S.swimHistory || [];
+  S.swimHistory = S.swimHistory.filter(entry => entry.date !== yesterdayStr && entry.date !== TODAY);
+
+  if (sub === 'sync') {
+    S.xp = 4500;
+    S.xpToday = 300;
+    S.streak = 12;
+    S.totalHours = 42.0;
+    S.weekHours = 12.0;
+    S.waterLogs[TODAY] = 4.0;
+    
+    // 100% compliance in past 7 days history
+    for (const dateStr in S.history) {
+      allEthe.forEach(e => {
+        S.history[dateStr][e.id] = true;
+      });
+    }
+    
+    // 100% compliance today
+    S.routines.forEach(r => {
+      r.ethe.forEach(e => {
+        e.done = true;
+      });
+    });
+    
+    S.swimHistory.push({
+      date: normalizeDateToISO(yesterdayStr),
+      status: 'Swam',
+      sessions: [
+        { time: '8:30pm to 10:10pm', duration: 100, comment: 'yesterday, 22 May', laps: 25, distance: 1250, calories: 700 }
+      ]
+    });
+    S.swimHistory.push({
+      date: normalizeDateToISO(TODAY),
+      status: 'Swam',
+      sessions: [
+        { time: '11:00am to 12:00pm', duration: 60, comment: 'morning swim', laps: 20, distance: 1000, calories: 420 }
+      ]
+    });
+    
+  } else if (sub === 'turbulent') {
+    S.xp = 4120;
+    S.xpToday = 90;
+    S.streak = 12;
+    S.totalHours = 35.0;
+    S.weekHours = 8.0;
+    S.waterLogs[TODAY] = 1.8; // under 3.5L hydration deficit
+    
+    // ~65% compliance in past 7 days history
+    for (const dateStr in S.history) {
+      allEthe.forEach(e => {
+        let done = Math.random() < 0.65;
+        // Ensure yesterday and 2 days ago math proofs (id 3) was done to avoid degraded skips
+        if (e.id === 3 && (dateStr === yesterdayStr || dateStr === twoDaysAgoStr)) {
+          done = true;
+        }
+        S.history[dateStr][e.id] = done;
+      });
+    }
+    
+    // ~50% compliance today, math proofs (id 3) incomplete
+    let index = 0;
+    S.routines.forEach(r => {
+      r.ethe.forEach(e => {
+        if (e.id === 3) {
+          e.done = false;
+        } else {
+          e.done = (index % 2 === 0);
+          index++;
+        }
+      });
+    });
+    
+    S.swimHistory.push({
+      date: normalizeDateToISO(yesterdayStr),
+      status: 'Swam',
+      sessions: [
+        { time: '8:30pm to 9:15pm', duration: 45, comment: 'Easy swim', laps: 18, distance: 900, calories: 405 }
+      ]
+    });
+    
+  } else if (sub === 'degraded') {
+    S.xp = 3800;
+    S.xpToday = 30;
+    S.streak = 2; // streak drop
+    S.totalHours = 28.5;
+    S.weekHours = 4.0;
+    S.waterLogs[TODAY] = 0.8; // severe hydration deficit
+    
+    // ~30% compliance in past 7 days history, math proofs (id 3) skipped yesterday and 2 days ago
+    for (const dateStr in S.history) {
+      allEthe.forEach(e => {
+        let done = Math.random() < 0.30;
+        if (e.id === 3 && (dateStr === yesterdayStr || dateStr === twoDaysAgoStr)) {
+          done = false; // forced skips for yesterday & two days ago
+        }
+        S.history[dateStr][e.id] = done;
+      });
+    }
+    
+    // < 30% compliance today, math proofs (id 3) incomplete
+    let index = 0;
+    S.routines.forEach(r => {
+      r.ethe.forEach(e => {
+        if (e.id === 3) {
+          e.done = false;
+        } else {
+          e.done = (index % 4 === 0); // ~25% compliance today
+          index++;
+        }
+      });
+    });
+    
+    // No swim history
+    
+  } else {
+    // Default standard baseline seed data
+    S.xp = 4250;
+    S.xpToday = 180;
+    S.streak = 12;
+    S.totalHours = 38.5;
+    S.weekHours = 10.5;
+    S.waterLogs[TODAY] = 4.0;
+    
+    for (const dateStr in S.history) {
+      allEthe.forEach(e => {
+        let done = Math.random() < 0.88;
+        if (e.id === 3 && (dateStr === yesterdayStr || dateStr === twoDaysAgoStr)) {
+          done = true;
+        }
+        S.history[dateStr][e.id] = done;
+      });
+    }
+    
+    S.routines.forEach(r => {
+      r.ethe.forEach(e => {
+        if (r.id === 'g1' || r.id === 'g4' || r.id === 'g5') {
+          e.done = true;
+        } else if (r.id === 'g2') {
+          e.done = e.id === 4 || e.id === 5;
+        } else if (r.id === 'g7') {
+          e.done = e.id === 401 || e.id === 402;
+        } else {
+          e.done = false;
+        }
+      });
+    });
+    
+    S.swimHistory.push({
+      date: normalizeDateToISO(yesterdayStr),
+      status: 'Swam',
+      sessions: [
+        { time: '8:00pm to 9:00pm', duration: 60, comment: 'Easy swim', laps: 25, distance: 1250, calories: 540 }
+      ]
+    });
+  }
+  
+  // Seed some realistic terminal logs depending on state
+  S.logs = [
+    { type: 'info', msg: 'System initialized on GRCh38 genomic coordinates.', time: Date.now() - 3600000 * 4 },
+    { type: 'ok', msg: `oracle i swam from 8pm to 10:10 pm, 25 laps, easy (logged via Oracle Swim)`, time: Date.now() - 3600000 * 3 },
+    { type: 'ok', msg: 'focus session completed (50m) +48 xp (Flow Buff)', time: Date.now() - 3600000 * 2 },
+  ];
+  
+  const vector = compileCognitiveVector();
+  S.logs.push({ type: 'info', msg: `[ECRE] Cognitive Observer initialized. Weekly integration index: ${vector.compliancePct}%.`, time: Date.now() - 60000 });
+  
+  const statusPrefix = `[ECRE: ${vector.state}]`;
+  const type = vector.state === 'DEEP_SYNC' ? 'ok' : (vector.state === 'TURBULENT' ? 'warning' : 'err');
+  S.logs.push({ type: type, msg: `${statusPrefix} System appraisal: ${vector.critique}`, time: Date.now() - 50000 });
+  
+  // Save state
+  ss(true);
+  
+  // Print diagnostic log
+  printECREDiagnosticBoot();
+  
+  // Render full screen update
+  render();
+}
+
+function seedDemoData() {
+  seedDemoDataVariant('seed');
 }
 
 function updateOracleKeyStatus() {
   const statusEl = document.getElementById('oracle-key-status');
-  if (!statusEl) return;
-  
-  if (S.geminiKey) {
-    statusEl.textContent = 'ONLINE';
-    statusEl.className = 'online';
-    statusEl.style.color = 'var(--accent)';
-  } else {
-    statusEl.textContent = 'OFFLINE';
-    statusEl.className = '';
-    statusEl.style.color = 'var(--red)';
+  const inputEl = document.getElementById('oracle-key-input');
+  if (statusEl) {
+    if (S.geminiKey) {
+      statusEl.textContent = 'ONLINE';
+      statusEl.style.color = 'var(--accent)';
+    } else {
+      statusEl.textContent = 'OFFLINE';
+      statusEl.style.color = 'var(--red)';
+    }
+  }
+  if (inputEl && S.geminiKey) {
+    inputEl.value = S.geminiKey;
   }
 }
 

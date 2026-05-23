@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://*.firebaseio.com https://*.firebasedatabase.app https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com; img-src 'self' data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://ethos-jet-default-rtdb.asia-southeast1.firebasedatabase.app wss://ethos-jet-default-rtdb.asia-southeast1.firebasedatabase.app https://identitytoolkit.googleapis.com https://generativelanguage.googleapis.com; img-src 'self' data:;">
 <title>ethos.init — LLM Math Mastery Tracker</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23000000'/%3E%3Cpath d='M18 12C17.2 10.8 14.8 10.4 13.2 10.4C9.6 10.4 6.8 13.2 6.8 16.8C6.8 20.4 9.6 23.2 13.2 23.2C14.8 23.2 17.2 22.8 18 21.6M6.8 16.8H16.4' fill='none' stroke='%2300ff88' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10 7.2C10.8 7.2 11.6 6.4 11.6 5.6' fill='none' stroke='%2300ff88' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M13.2 7.2L14.8 5.6' fill='none' stroke='%2300ff88' stroke-width='1.8' stroke-linecap='round'/%3E%3Cline x1='20' y1='23.2' x2='26' y2='23.2' stroke='%2300ff88' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <meta name="description" content="A terminal-style tracker for mastering the mathematics behind large language models.">
@@ -68,8 +68,10 @@
 
   <!-- HEADER -->
   <header class="site-header">
-    <div class="site-title">ethos<span>.</span>init</div>
-    <div class="site-desc">llm math mastery tracker — terminal edition</div>
+    <div class="site-title-group">
+      <div class="site-title">ethos<span>.</span>init</div>
+      <div class="site-desc">llm math mastery tracker — terminal edition</div>
+    </div>
   </header>
 
   <!-- NAV -->
@@ -131,10 +133,38 @@
       <div class="xp-sublabel">// next: <span id="xp-next-title">Linear Algebra Apprentice</span></div>
     </div>
 
-    <!-- Contribution Graph -->
-    <div class="contrib-section">
-      <div class="contrib-label">// activity graph — last 30 weeks</div>
-      <div class="contrib-grid" id="contrib-grid"></div>
+    <!-- Visual Heatmap and Radar telemetry -->
+    <div class="dashboard-visuals">
+      <!-- Contribution Graph -->
+      <div class="contrib-section">
+        <div class="contrib-label">// activity graph — last 30 weeks</div>
+        <div class="contrib-grid" id="contrib-grid"></div>
+      </div>
+      <!-- ECRE Radar Graph Card -->
+      <div class="radar-section">
+        <div class="radar-label">// ethos cognitive reflection engine (ecre)</div>
+        <div class="radar-card" id="dashboard-radar-card" style="cursor:pointer; display:flex; flex-direction:column; align-items:stretch;">
+          <div style="display:flex; align-items:center; gap:16px;">
+            <canvas id="coherence-radar" width="110" height="110" style="width:110px;height:110px;"></canvas>
+            <div class="radar-telemetry">
+              <div class="radar-tel-row"><span class="tel-lbl">CNS:</span> <span class="tel-val" id="hud-val-cns">0%</span></div>
+              <div class="radar-tel-row"><span class="tel-lbl">RIG:</span> <span class="tel-val" id="hud-val-rig">0%</span></div>
+              <div class="radar-tel-row"><span class="tel-lbl">FOC:</span> <span class="tel-val" id="hud-val-foc">0%</span></div>
+              <div class="radar-tel-row"><span class="tel-lbl">RUT:</span> <span class="tel-val" id="hud-val-rut">0%</span></div>
+              <div class="radar-tel-row"><span class="tel-lbl">STM:</span> <span class="tel-val" id="hud-val-stm">0%</span></div>
+              <div class="radar-tel-row" style="margin-top: 4px; border-top: 1px dashed var(--border); padding-top: 4px;">
+                <span class="tel-lbl">STATE:</span> <span class="tel-val" id="hud-status-val" style="font-weight:bold;">DEEP_SYNC</span>
+              </div>
+              <div class="radar-tel-row">
+                <span class="tel-lbl">BUFF:</span> <span class="tel-val" id="hud-buff-val" style="color:var(--accent);">x1.2 Flow</span>
+              </div>
+            </div>
+          </div>
+          <div id="radar-living-comment" style="font-size:10px; color:var(--text-dim); margin-top:8px; border-top:1px dashed var(--border); padding-top:6px; font-family:var(--font); font-style:italic;">
+            // ECRE: Standby...
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Today Quick View -->
@@ -255,7 +285,7 @@
       <div class="stat-card">
         <div class="stat-label">total distance</div>
         <div class="stat-value" id="swim-stat-distance" style="color: var(--accent);">0</div>
-        <div class="stat-unit">meters</div>
+        <div class="stat-unit">km</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">total calories</div>
@@ -683,6 +713,35 @@
       <div class="modal-actions">
         <button class="btn btn-ghost" onclick="document.getElementById('routine-modal').classList.remove('open')">cancel</button>
         <button class="btn" id="rm-save">save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ECRE RADAR DIAGNOSTIC OVERLAY -->
+  <div class="modal-overlay" id="radar-modal-overlay">
+    <div class="modal" id="radar-modal" style="width: 480px; max-width: 100%;">
+      <div class="modal-title">ECRE_REFLECTIVE_COHERENCE_DIAGNOSTIC</div>
+      <div class="radar-modal-body" style="display:flex; gap:20px; align-items:center; margin-bottom:1.5rem; flex-wrap: wrap;">
+        <canvas id="modal-coherence-radar" width="160" height="160" style="width:160px;height:160px;"></canvas>
+        <div class="radar-modal-stats" style="flex:1; display:flex; flex-direction:column; gap:8px; font-size:11px; font-family: var(--font);">
+          <div style="display:flex; justify-content:space-between;"><strong style="color:var(--text-dim)">CNS (Consistency):</strong> <span id="modal-val-cns" style="font-weight:bold;">0%</span></div>
+          <div style="display:flex; justify-content:space-between;"><strong style="color:var(--text-dim)">RIG (Rigor):</strong> <span id="modal-val-rig" style="font-weight:bold;">0%</span></div>
+          <div style="display:flex; justify-content:space-between;"><strong style="color:var(--text-dim)">FOC (Focus):</strong> <span id="modal-val-foc" style="font-weight:bold;">0%</span></div>
+          <div style="display:flex; justify-content:space-between;"><strong style="color:var(--text-dim)">RUT (Routines):</strong> <span id="modal-val-rut" style="font-weight:bold;">0%</span></div>
+          <div style="display:flex; justify-content:space-between;"><strong style="color:var(--text-dim)">STM (Stamina):</strong> <span id="modal-val-stm" style="font-weight:bold;">0%</span></div>
+          <div style="border-top:1px dashed var(--border); padding-top:6px; margin-top:4px; display:flex; justify-content:space-between;">
+            <strong style="color:var(--text-dim)">STATE:</strong> <span id="modal-val-state" style="font-weight:bold;">DEEP_SYNC</span>
+          </div>
+          <div style="display:flex; justify-content:space-between;">
+            <strong style="color:var(--text-dim)">BUFF:</strong> <span id="modal-val-buff" style="color:var(--accent);">x1.2 Flow Buff</span>
+          </div>
+        </div>
+      </div>
+      <div id="modal-val-critique" style="font-size:11px; color:var(--text-dim); border-top:1px dashed var(--border); padding-top:8px; line-height:1.5; margin-bottom:1.5rem; font-family: var(--font);">
+        // Critique
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="radar-modal-close-btn" onclick="document.getElementById('radar-modal-overlay').classList.remove('open')">dismiss --session</button>
       </div>
     </div>
   </div>
