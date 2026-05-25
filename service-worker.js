@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ethos-init-v2.7.1';
+const CACHE_NAME = 'ethos-init-v2.7.2';
 const ASSETS = [
   './',
   './index.html',
