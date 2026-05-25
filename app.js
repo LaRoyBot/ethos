@@ -1918,6 +1918,86 @@ function handleCommand(cmd) {
           }
         }, true, true);
       }
+    } else if (sub === 'diag') {
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        printTerm('Not authenticated.', 'err');
+      } else {
+        printTerm('Fetching cloud state diagnostics...', 'info');
+        firebase.auth().currentUser.getIdToken(false)
+          .then(idToken => {
+            const restUrl = firebaseConfig.databaseURL + '/sync/' + user.uid + '.json?auth=' + encodeURIComponent(idToken);
+            return fetch(restUrl, {
+              method: 'GET',
+              headers: { 'Accept': 'application/json' },
+              cache: 'no-store'
+            });
+          })
+          .then(response => {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            return response.json();
+          })
+          .then(val => {
+            if (!val || !val.state) {
+              printTerm('Cloud Diagnostics: No cloud state found (val/val.state is null).', 'warn');
+              return;
+            }
+            const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+            const cloudPushCount = val.pushCount || val.state.pushCount || 0;
+            const localTime = S.lastUpdated || 0;
+            const localPushCount = S.pushCount || 0;
+
+            let cloudDoneCount = 0;
+            let cloudEthe = [];
+            if (val.state.routines) {
+              val.state.routines.forEach(r => {
+                if (r.ethe) {
+                  r.ethe.forEach(e => {
+                    cloudEthe.push(e);
+                    if (e.done) cloudDoneCount++;
+                  });
+                }
+              });
+            }
+
+            let localDoneCount = 0;
+            if (S.routines) {
+              S.routines.forEach(r => {
+                if (r.ethe) {
+                  r.ethe.forEach(e => {
+                    if (e.done) localDoneCount++;
+                  });
+                }
+              });
+            }
+
+            let eDetails = '';
+            cloudEthe.slice(0, 15).forEach(e => {
+              eDetails += `  - [${e.done ? 'x' : ' '}] ${e.name} (${e.groupId})<br>`;
+            });
+            if (cloudEthe.length > 15) {
+              eDetails += `  - ... and ${cloudEthe.length - 15} more<br>`;
+            }
+
+            printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLOUD SYNC DIAGNOSTICS ===</span><br>' +
+                      '<b>Cloud state:</b><br>' +
+                      '  lastUpdated: ' + new Date(cloudTime).toLocaleString() + ' (' + cloudTime + ')<br>' +
+                      '  pushCount: ' + cloudPushCount + '<br>' +
+                      '  done habits count: ' + cloudDoneCount + '/' + cloudEthe.length + '<br>' +
+                      '<b>Local state:</b><br>' +
+                      '  lastUpdated: ' + new Date(localTime).toLocaleString() + ' (' + localTime + ')<br>' +
+                      '  pushCount: ' + localPushCount + '<br>' +
+                      '  done habits count: ' + localDoneCount + '/' + getAllEthe().length + '<br>' +
+                      '<b>Comparison:</b><br>' +
+                      '  Cloud is newer: ' + (cloudTime > localTime || (cloudTime === localTime && cloudPushCount > localPushCount)) + '<br>' +
+                      '  Local is newer: ' + (localTime > cloudTime || (localTime === cloudTime && localPushCount > cloudPushCount)) + '<br>' +
+                      '  Sizes: Cloud ' + JSON.stringify(val.state).length + ' chars | Local ' + JSON.stringify(S).length + ' chars<br>' +
+                      '<b>First 15 habits in cloud state:</b><br>' + eDetails, 'info');
+          })
+          .catch(err => {
+            printTerm('Diagnostics failed: ' + err.message, 'err');
+          });
+      }
     } else {
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SECURITY CONTROL ===</span><br>' +
                 'Usage:<br>' +
@@ -1927,6 +2007,7 @@ function handleCommand(cmd) {
                 '  auth push                     Force push local state to the cloud<br>' +
                 '  auth pull                     Force pull cloud state to local (overwrites)<br>' +
                 '  auth rest-pull                Direct REST API pull (bypasses WebSocket)<br>' +
+                '  auth diag                     Fetch and compare cloud vs local state details<br>' +
                 '  auth logout                   Deauthorize current terminal session', 'info');
     }
   } else if (action === 'logout') {
