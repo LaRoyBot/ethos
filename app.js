@@ -2075,12 +2075,77 @@ function render() {
   renderPapers(); renderLog(); renderPhases(); renderThemes();
   renderExpectations(); renderSwimTab(); renderBiometrics();
   renderSyncPanel();
+  renderEcreMemoryDashboard();
   if (typeof renderCOHERENCE === 'function') renderCOHERENCE();
   if (typeof updateOracleKeyStatus === 'function') updateOracleKeyStatus();
   var n = document.getElementById('today-note');
   var p = document.getElementById('paper-note');
   if (n && document.activeElement !== n) n.value = S.todayNote || '';
   if (p && document.activeElement !== p) p.value = S.paperNote || '';
+}
+
+function renderEcreMemoryDashboard() {
+  const promisesList = document.getElementById('ecre-promises-list');
+  const questionsList = document.getElementById('ecre-questions-list');
+  const patternsList = document.getElementById('ecre-patterns-list');
+  if (!promisesList || !questionsList || !patternsList) return;
+
+  promisesList.innerHTML = '';
+  questionsList.innerHTML = '';
+  patternsList.innerHTML = '';
+
+  const memory = S.ecreMemory || { lastObservations: [], namedPatterns: [], openQuestions: [], userPromises: [], sessionCount: 0 };
+
+  // 1. Render Promises
+  const activePromises = (memory.userPromises || []).filter(p => !p.fulfilled);
+  if (activePromises.length === 0) {
+    promisesList.innerHTML = '<div class="ecre-empty-msg">// No active commitments.</div>';
+  } else {
+    activePromises.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'ecre-mem-chip';
+      chip.style.borderLeft = '2px solid var(--accent)';
+      chip.innerHTML = `
+        <div>${escapeHtml(p.promise)}</div>
+        <div class="ecre-chip-meta">Target: [${escapeHtml(p.targetGroup || 'any')}] | Date: ${escapeHtml(p.date || 'unknown')}</div>
+      `;
+      promisesList.appendChild(chip);
+    });
+  }
+
+  // 2. Render Unanswered Questions
+  const unansweredQuestions = (memory.openQuestions || []).filter(q => q.answer === null);
+  if (unansweredQuestions.length === 0) {
+    questionsList.innerHTML = '<div class="ecre-empty-msg">// No open questions.</div>';
+  } else {
+    unansweredQuestions.forEach(q => {
+      const chip = document.createElement('div');
+      chip.className = 'ecre-mem-chip';
+      chip.style.borderLeft = '2px solid var(--red)';
+      chip.innerHTML = `
+        <div style="color:var(--text);">${escapeHtml(q.question)}</div>
+        <div class="ecre-chip-meta">Session: #${q.sessionAsked} | XP_LOCK active</div>
+      `;
+      questionsList.appendChild(chip);
+    });
+  }
+
+  // 3. Render Patterns
+  const patterns = memory.namedPatterns || [];
+  if (patterns.length === 0) {
+    patternsList.innerHTML = '<div class="ecre-empty-msg">// Listening for anomalies...</div>';
+  } else {
+    patterns.forEach(p => {
+      const chip = document.createElement('div');
+      chip.className = 'ecre-mem-chip';
+      chip.style.borderLeft = '2px solid var(--amber)';
+      chip.innerHTML = `
+        <div>${escapeHtml(p)}</div>
+        <div class="ecre-chip-meta">Pattern: active alert</div>
+      `;
+      patternsList.appendChild(chip);
+    });
+  }
 }
 
 function getAllEthe() {

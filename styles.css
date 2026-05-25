@@ -1129,3 +1129,83 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); font-si
   box-shadow: 0 0 10px var(--accent-faint);
 }
 
+/* ═══ ECRE NEURAL MEMORY DASHBOARD ═══ */
+.ecre-memory-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1rem;
+  font-family: var(--font);
+  font-size: 11px;
+}
+.ecre-mem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px dashed var(--border2);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+.ecre-mem-title {
+  color: var(--accent);
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+.ecre-mem-status {
+  font-size: 9px;
+  color: var(--accent);
+  background: var(--accent-faint);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid var(--accent);
+}
+.ecre-mem-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.ecre-mem-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 80px;
+}
+.ecre-col-title {
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 8px;
+}
+.ecre-col-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ecre-empty-msg {
+  color: var(--text-faint);
+  font-style: italic;
+  font-size: 10px;
+}
+.ecre-mem-chip {
+  background: var(--bg);
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  padding: 6px 8px;
+  line-height: 1.4;
+  color: var(--text-dim);
+  transition: all 0.2s;
+}
+.ecre-mem-chip:hover {
+  border-color: var(--border);
+  color: var(--text);
+  background: var(--bg3);
+}
+.ecre-chip-meta {
+  font-size: 8px;
+  color: var(--text-faint);
+  margin-top: 4px;
+  text-transform: uppercase;
+}
+

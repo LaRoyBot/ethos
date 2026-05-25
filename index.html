@@ -133,6 +133,38 @@
       <div class="xp-sublabel">// next: <span id="xp-next-title">Linear Algebra Apprentice</span></div>
     </div>
 
+    <!-- ECRE NEURAL MEMORY MONITOR -->
+    <div class="section-cmd" style="margin-top:1.5rem">$ <span>cat ecre_memory.db | jq .</span></div>
+    <div class="ecre-memory-card" id="ecre-memory-dashboard" style="margin-bottom:1.5rem">
+      <div class="ecre-mem-header">
+        <span class="ecre-mem-title">// ECRE NEURAL MEMORY PROFILE</span>
+        <span class="ecre-mem-status blinking" id="ecre-mem-pulse">SYNC_OK</span>
+      </div>
+      
+      <div class="ecre-mem-grid">
+        <div class="ecre-mem-col">
+          <div class="ecre-col-title">🟢 ACTIVE COMMITMENTS (PROMISES)</div>
+          <div class="ecre-col-list" id="ecre-promises-list">
+            <div class="ecre-empty-msg">// No active commitments.</div>
+          </div>
+        </div>
+        
+        <div class="ecre-mem-col">
+          <div class="ecre-col-title">🔴 OPEN QUESTIONS (XP_LOCK)</div>
+          <div class="ecre-col-list" id="ecre-questions-list">
+            <div class="ecre-empty-msg">// No open questions.</div>
+          </div>
+        </div>
+        
+        <div class="ecre-mem-col">
+          <div class="ecre-col-title">🟡 DETECTED PATTERNS</div>
+          <div class="ecre-col-list" id="ecre-patterns-list">
+            <div class="ecre-empty-msg">// Listening for behavioral anomalies...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Visual Heatmap and Radar telemetry -->
     <div class="dashboard-visuals">
       <!-- Contribution Graph -->
