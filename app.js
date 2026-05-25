@@ -168,6 +168,7 @@ if (S.authUsername === undefined) S.authUsername = '';
 if (S.lastUpdated === undefined) S.lastUpdated = 0;
 if (S.pushCount === undefined) S.pushCount = 0;
 if (S.customSyncProxy === undefined) S.customSyncProxy = '';
+if (S.customSyncKey === undefined) S.customSyncKey = '';
 
 // PWA & Reminders migrations
 if (!S.reminders) S.reminders = [];
@@ -263,6 +264,43 @@ function firebaseRestPush(uid, callback) {
     if (callback) callback(false, 'No proxy configured');
     return;
   }
+  
+  if (S.customSyncProxy && S.customSyncKey) {
+    const host = S.customSyncProxy.replace(/\/$/, '');
+    const restUrl = host + '/sync/' + uid + '.json';
+    
+    S.pushCount = (S.pushCount || 0) + 1;
+    const syncableState = Object.assign({}, S);
+    delete syncableState.cmdHistory;
+    
+    fetch(restUrl, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'x-sync-key': S.customSyncKey
+      },
+      body: JSON.stringify({
+        state: syncableState,
+        lastUpdated: S.lastUpdated,
+        pushCount: S.pushCount
+      })
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Proxy push returned HTTP ' + response.status);
+      return response.json();
+    })
+    .then(data => {
+      console.log('[Sync] Proxy REST push succeeded:', data);
+      if (callback) callback(true, 'pushed');
+    })
+    .catch(err => {
+      console.error('[Sync] Proxy REST push failed:', err);
+      if (callback) callback(false, err);
+    });
+    return;
+  }
+
   const user = firebase.auth().currentUser;
   if (!user) {
     if (callback) callback(false, 'User not authenticated');
@@ -405,6 +443,39 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
     if (statusEl) statusEl.textContent = 'Status: WebSocket timed out, trying REST API...';
     addLog('warn', 'Cloud sync: WebSocket hung — falling back to REST API.');
     console.warn('[Sync] WebSocket once(value) timed out. Using REST API fallback.');
+  }
+
+  if (S.customSyncProxy && S.customSyncKey) {
+    const host = S.customSyncProxy.replace(/\/$/, '');
+    const restUrl = host + '/sync/' + uid + '.json';
+    
+    fetch(restUrl, {
+      method: 'GET',
+      headers: { 
+        'Accept': 'application/json',
+        'x-sync-key': S.customSyncKey
+      },
+      cache: 'no-store'
+    })
+    .then(response => {
+      if (!response.ok) throw new Error('Proxy returned HTTP ' + response.status);
+      return response.json();
+    })
+    .then(val => {
+      console.log('[Sync] Proxy REST pull succeeded:', val ? 'data found' : 'no data');
+      applyCloudState(val, forcePull, callback);
+    })
+    .catch(err => {
+      console.error('[Sync] Proxy REST pull failed:', err);
+      if (statusEl) statusEl.textContent = 'Status: sync error (Proxy failed) - ' + err.message;
+      unlockBootSync();
+      if (callback) callback(false, err);
+      if (isDirectCall) {
+        const tip = getNetworkErrorTip(err);
+        if (tip) printTerm(tip, 'info');
+      }
+    });
+    return;
   }
 
   firebase.auth().currentUser.getIdToken(false)
@@ -1998,10 +2069,95 @@ function handleCommand(cmd) {
       }
     } else if (sub === 'diag') {
       const user = firebase.auth().currentUser;
+      const uid = user ? user.uid : (S.authUsername || 'default_user');
+      
+      printTerm('Fetching cloud state diagnostics...', 'info');
+      
+      if (S.customSyncProxy && S.customSyncKey) {
+        const host = S.customSyncProxy.replace(/\/$/, '');
+        const restUrl = host + '/sync/' + uid + '.json';
+        
+        fetch(restUrl, {
+          method: 'GET',
+          headers: { 
+            'Accept': 'application/json',
+            'x-sync-key': S.customSyncKey
+          },
+          cache: 'no-store'
+        })
+        .then(response => {
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          return response.json();
+        })
+        .then(val => {
+          if (!val || !val.state) {
+            printTerm('Cloud Diagnostics: No cloud state found (val/val.state is null).', 'warn');
+            return;
+          }
+          const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+          const cloudPushCount = val.pushCount || val.state.pushCount || 0;
+          const localTime = S.lastUpdated || 0;
+          const localPushCount = S.pushCount || 0;
+
+          let cloudDoneCount = 0;
+          let cloudEthe = [];
+          if (val.state.routines) {
+            val.state.routines.forEach(r => {
+              if (r.ethe) {
+                r.ethe.forEach(e => {
+                  cloudEthe.push(e);
+                  if (e.done) cloudDoneCount++;
+                });
+              }
+            });
+          }
+
+          let localDoneCount = 0;
+          if (S.routines) {
+            S.routines.forEach(r => {
+              if (r.ethe) {
+                r.ethe.forEach(e => {
+                  if (e.done) localDoneCount++;
+                });
+              }
+            });
+          }
+
+          let eDetails = '';
+          cloudEthe.slice(0, 15).forEach(e => {
+            eDetails += `  - [${e.done ? 'x' : ' '}] ${e.name} (${e.groupId})<br>`;
+          });
+          if (cloudEthe.length > 15) {
+            eDetails += `  - ... and ${cloudEthe.length - 15} more<br>`;
+          }
+
+          printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLOUD SYNC DIAGNOSTICS (PROXY ACTIVE) ===</span><br>' +
+                    '<b>Cloud state:</b><br>' +
+                    '  lastUpdated: ' + new Date(cloudTime).toLocaleString() + ' (' + cloudTime + ')<br>' +
+                    '  pushCount: ' + cloudPushCount + '<br>' +
+                    '  done habits count: ' + cloudDoneCount + '/' + cloudEthe.length + '<br>' +
+                    '<b>Local state:</b><br>' +
+                    '  lastUpdated: ' + new Date(localTime).toLocaleString() + ' (' + localTime + ')<br>' +
+                    '  pushCount: ' + localPushCount + '<br>' +
+                    '  done habits count: ' + localDoneCount + '/' + getAllEthe().length + '<br>' +
+                    '<b>Comparison:</b><br>' +
+                    '  Cloud is newer: ' + (cloudTime > localTime || (cloudTime === localTime && cloudPushCount > localPushCount)) + '<br>' +
+                    '  Local is newer: ' + (localTime > cloudTime || (localTime === cloudTime && localPushCount > cloudPushCount)) + '<br>' +
+                    '  Sizes: Cloud ' + JSON.stringify(val.state).length + ' chars | Local ' + JSON.stringify(S).length + ' chars<br>' +
+                    '<b>First 15 habits in cloud state:</b><br>' + eDetails, 'info');
+        })
+        .catch(err => {
+          printTerm('Diagnostics failed: ' + err.message, 'err');
+          const tip = getNetworkErrorTip(err);
+          if (tip) printTerm(tip, 'info');
+        });
+        
+        return;
+      }
+
       if (!user) {
         printTerm('Not authenticated.', 'err');
       } else {
-        printTerm('Fetching cloud state diagnostics...', 'info');
         firebase.auth().currentUser.getIdToken(false)
           .then(idToken => {
             const host = S.customSyncProxy ? S.customSyncProxy.replace(/\/$/, '') : firebaseConfig.databaseURL;
@@ -2081,24 +2237,33 @@ function handleCommand(cmd) {
       }
     } else if (sub === 'proxy') {
       const pUrl = args[2] ? args[2].trim() : '';
+      const pKey = args[3] ? args[3].trim() : '';
       if (!pUrl) {
         if (S.customSyncProxy) {
           printTerm('Active sync proxy: ' + S.customSyncProxy, 'info');
+          if (S.customSyncKey) {
+            printTerm('Active proxy key: registered (hidden)', 'info');
+          }
         } else {
           printTerm('No custom sync proxy configured. Using default Firebase connection.', 'info');
         }
-        printTerm('Usage: auth proxy &lt;url&gt; (or "auth proxy clear" to disable)', 'info');
+        printTerm('Usage: auth proxy &lt;url&gt; [&lt;key&gt;] (or "auth proxy clear" to disable)', 'info');
       } else if (pUrl.toLowerCase() === 'clear') {
         S.customSyncProxy = '';
+        S.customSyncKey = '';
         ss();
-        printTerm('Custom sync proxy cleared. Reverted to default Firebase connection.', 'ok');
+        printTerm('Custom sync proxy and key cleared. Reverted to default Firebase connection.', 'ok');
       } else {
         if (!pUrl.startsWith('http://') && !pUrl.startsWith('https://')) {
           printTerm('Invalid URL. Proxy URL must start with http:// or https://', 'err');
         } else {
           S.customSyncProxy = pUrl;
+          S.customSyncKey = pKey;
           ss();
           printTerm('Custom sync proxy successfully configured to: ' + S.customSyncProxy, 'ok');
+          if (S.customSyncKey) {
+            printTerm('Edge authentication key successfully registered.', 'ok');
+          }
           printTerm('// All subsequent pulls and pushes will route through this gateway to bypass blocks.', 'info');
         }
       }
@@ -2112,7 +2277,7 @@ function handleCommand(cmd) {
                 '  auth pull                     Force pull cloud state to local (overwrites)<br>' +
                 '  auth rest-pull                Direct REST API pull (bypasses WebSocket)<br>' +
                 '  auth diag                     Fetch and compare cloud vs local state details<br>' +
-                '  auth proxy &lt;url&gt;             Configure first-party serverless sync proxy<br>' +
+                '  auth proxy &lt;url&gt; [&lt;key&gt;]       Configure first-party serverless sync proxy<br>' +
                 '  auth logout                   Deauthorize current terminal session', 'info');
     }
   } else if (action === 'logout') {
