@@ -294,7 +294,8 @@ function applyCloudState(val, forcePull, callback) {
       S.authUsername = prevAuthUsername;
       S.cmdHistory = prevCmdHistory;
 
-      checkDailyReset(true);
+      // DO NOT run checkDailyReset here — the cloud state's done flags
+      // are the source of truth. Running daily reset would wipe them.
       ss(true);
       render();
       addLog('info', 'Cloud sync: Pulled state from cloud.');
@@ -322,11 +323,16 @@ function applyCloudState(val, forcePull, callback) {
 }
 
 // REST API fallback — bypasses WebSocket entirely, uses plain HTTPS fetch.
-function firebaseRestPull(uid, callback, forcePull) {
+function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
   const statusEl = document.getElementById('auth-sync-status');
-  if (statusEl) statusEl.textContent = 'Status: WebSocket timed out, trying REST API...';
-  addLog('warn', 'Cloud sync: WebSocket hung — falling back to REST API.');
-  console.warn('[Sync] WebSocket once(value) timed out. Using REST API fallback.');
+  if (isDirectCall) {
+    if (statusEl) statusEl.textContent = 'Status: pulling via REST API...';
+    console.log('[Sync] Direct REST API pull initiated.');
+  } else {
+    if (statusEl) statusEl.textContent = 'Status: WebSocket timed out, trying REST API...';
+    addLog('warn', 'Cloud sync: WebSocket hung — falling back to REST API.');
+    console.warn('[Sync] WebSocket once(value) timed out. Using REST API fallback.');
+  }
 
   firebase.auth().currentUser.getIdToken(false)
     .then(idToken => {
@@ -867,7 +873,7 @@ if (typeof firebase !== 'undefined') {
             S.authUsername = prevAuthUsername;
             S.cmdHistory = prevCmdHistory;
             
-            checkDailyReset(true);
+            // DO NOT run checkDailyReset here — cloud state done flags are truth.
             ss(true);
             render();
             
@@ -1910,7 +1916,7 @@ function handleCommand(cmd) {
           } else {
             printTerm('REST pull failed: ' + result, 'err');
           }
-        }, true);
+        }, true, true);
       }
     } else {
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SECURITY CONTROL ===</span><br>' +
