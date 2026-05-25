@@ -1121,3 +1121,11 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); font-si
   }
 }
 
+/* ═══ BACKUP & RESTORE DIODE ═══ */
+#import-drag-zone:hover, #import-drag-zone.dragover {
+  border-color: var(--accent) !important;
+  color: var(--text) !important;
+  background: var(--bg3) !important;
+  box-shadow: 0 0 10px var(--accent-faint);
+}
+

@@ -847,6 +847,115 @@ function initButtons() {
     };
   }
 
+  // Backup & Restore settings bindings
+  const backupBtn = document.getElementById('backup-btn');
+  if (backupBtn) {
+    backupBtn.onclick = exportStateData;
+  }
+
+  const restoreImportBtn = document.getElementById('restore-import-btn');
+  if (restoreImportBtn) {
+    restoreImportBtn.onclick = () => {
+      const importModal = document.getElementById('import-modal');
+      if (importModal) {
+        importModal.style.display = 'flex';
+        importModal.classList.add('open');
+        const errDisplay = document.getElementById('import-error-display');
+        if (errDisplay) {
+          errDisplay.style.display = 'none';
+          errDisplay.textContent = '';
+        }
+        const ta = document.getElementById('import-text-area');
+        if (ta) {
+          ta.value = '';
+          ta.focus();
+        }
+      }
+    };
+  }
+
+  const importCancelBtn = document.getElementById('import-cancel-btn');
+  if (importCancelBtn) {
+    importCancelBtn.onclick = () => {
+      const importModal = document.getElementById('import-modal');
+      if (importModal) {
+        importModal.style.display = 'none';
+        importModal.classList.remove('open');
+      }
+    };
+  }
+
+  const importConfirmBtn = document.getElementById('import-confirm-btn');
+  if (importConfirmBtn) {
+    importConfirmBtn.onclick = () => {
+      const ta = document.getElementById('import-text-area');
+      if (ta) {
+        importStateData(ta.value);
+      }
+    };
+  }
+
+  const dragZone = document.getElementById('import-drag-zone');
+  const fileInput = document.getElementById('import-file-input');
+  const ta = document.getElementById('import-text-area');
+  const errDisplay = document.getElementById('import-error-display');
+
+  if (dragZone && fileInput) {
+    dragZone.onclick = () => fileInput.click();
+
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        if (ta) ta.value = evt.target.result;
+        if (errDisplay) {
+          errDisplay.style.display = 'none';
+          errDisplay.textContent = '';
+        }
+      };
+      reader.onerror = () => {
+        if (errDisplay) {
+          errDisplay.style.display = 'block';
+          errDisplay.textContent = '// ERROR: Failed to read file.';
+        }
+      };
+      reader.readAsText(file);
+    };
+
+    // Drag over highlights
+    dragZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dragZone.classList.add('dragover');
+    });
+
+    dragZone.addEventListener('dragleave', () => {
+      dragZone.classList.remove('dragover');
+    });
+
+    dragZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dragZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        if (ta) ta.value = evt.target.result;
+        if (errDisplay) {
+          errDisplay.style.display = 'none';
+          errDisplay.textContent = '';
+        }
+      };
+      reader.onerror = () => {
+        if (errDisplay) {
+          errDisplay.style.display = 'block';
+          errDisplay.textContent = '// ERROR: Failed to read file.';
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+
   // Interactive terminal
   const termBtn = document.getElementById('open-term-btn');
   if (termBtn) {
@@ -871,7 +980,7 @@ function initButtons() {
   }
   const tvInput = document.getElementById('tv-input');
   if (tvInput) {
-    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','auth','logout','demo'];
+    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','auth','logout','demo','backup','export','restore','import'];
     tvInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         var val = tvInput.value.trim();
@@ -1122,7 +1231,7 @@ function handleCommand(cmd) {
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
-    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- oracle [query|--key|--clear] : converse with retro-cyberpunk LLM math tutor<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
+    printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- oracle [query|--key|--clear] : converse with retro-cyberpunk LLM math tutor<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- backup / export : backup state data to file and clipboard<br>- restore / import : open restoration/import dialog<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
   } else if (action === 'stats') {
     var level = 0, cum = 0;
     for (var i = 0; i < LEVELS.length - 1; i++) { if (S.xp >= cum + LEVELS[i].next) { cum += LEVELS[i].next; level++; } else break; }
@@ -1544,6 +1653,25 @@ function handleCommand(cmd) {
         queryOracle(query);
       }
     }
+  } else if (action === 'backup' || action === 'export') {
+    exportStateData();
+  } else if (action === 'restore' || action === 'import') {
+    const importModal = document.getElementById('import-modal');
+    if (importModal) {
+      importModal.style.display = 'flex';
+      importModal.classList.add('open');
+      const errDisplay = document.getElementById('import-error-display');
+      if (errDisplay) {
+        errDisplay.style.display = 'none';
+        errDisplay.textContent = '';
+      }
+      const ta = document.getElementById('import-text-area');
+      if (ta) {
+        ta.value = '';
+        ta.focus();
+      }
+    }
+    printTerm('Opening restore/import modal overlay...', 'info');
   } else {
     // Fallback: The terminal IS ECRE. Unrecognized commands are treated as freeform ECRE chat!
     if (!S.geminiKey) {
@@ -3113,6 +3241,93 @@ function addManualLog() {
 
 function resetAll() {
   if (confirm('erase ALL data? this cannot be undone.')) { localStorage.removeItem('mathInit_state'); localStorage.removeItem('mathInit'); location.reload(); }
+}
+
+function exportStateData() {
+  try {
+    const dataStr = JSON.stringify(S, null, 2);
+    // 1. Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(dataStr)
+        .then(() => {
+          addLog('ok', 'Data backup successfully copied to clipboard.');
+          printTerm('Data backup successfully copied to clipboard.', 'ok');
+        })
+        .catch(err => {
+          console.warn('Clipboard write failed:', err);
+        });
+    }
+
+    // 2. Trigger file download
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", url);
+    dlAnchorElem.setAttribute("download", `ethos_backup_${new Date().toISOString().split('T')[0]}.json`);
+    document.body.appendChild(dlAnchorElem);
+    dlAnchorElem.click();
+    document.body.removeChild(dlAnchorElem);
+    URL.revokeObjectURL(url);
+
+    addLog('ok', 'Data backup exported successfully (JSON download initiated).');
+    printTerm('Data backup exported successfully (JSON download initiated).', 'ok');
+  } catch (e) {
+    console.error('Backup failed:', e);
+    addLog('warn', 'Backup export encountered an error: ' + e.message);
+    printTerm('Backup export failed: ' + e.message, 'err');
+  }
+}
+
+function importStateData(rawString) {
+  const errDisplay = document.getElementById('import-error-display');
+  if (errDisplay) {
+    errDisplay.style.display = 'none';
+    errDisplay.textContent = '';
+  }
+
+  try {
+    const parsed = JSON.parse(rawString.trim());
+    if (!parsed || typeof parsed !== 'object') {
+      throw new Error('Backup data must be a valid JSON object.');
+    }
+    
+    // Strict schema verification
+    const criticalKeys = ['routines', 'history', 'xp', 'streak'];
+    const missingKeys = criticalKeys.filter(k => parsed[k] === undefined);
+    if (missingKeys.length > 0) {
+      throw new Error('Invalid backup schema. Missing keys: ' + missingKeys.join(', '));
+    }
+
+    // Overwrite S, sanitize, save and reload
+    S = parsed;
+    sanitizeStateArrays(S);
+    ss(false); // save to localStorage and sync to Firebase
+
+    addLog('ok', 'System successfully restored from backup.');
+    printTerm('System successfully restored from backup.', 'ok');
+
+    // Show visual confirmation on modal
+    const confirmBtn = document.getElementById('import-confirm-btn');
+    if (confirmBtn) {
+      confirmBtn.textContent = 'RESTORED SUCCESSFULLY!';
+      confirmBtn.style.backgroundColor = 'var(--accent)';
+      confirmBtn.style.color = 'var(--bg)';
+    }
+
+    setTimeout(() => {
+      location.reload();
+    }, 1000);
+
+    return true;
+  } catch (e) {
+    console.error('Import failed:', e);
+    if (errDisplay) {
+      errDisplay.style.display = 'block';
+      errDisplay.textContent = '// ERROR: ' + e.message;
+    }
+    printTerm('Import failed: ' + e.message, 'err');
+    return false;
+  }
 }
 
 function flash(id) { var el = document.getElementById(id); if (!el) return; el.style.display = 'inline'; setTimeout(function() { el.style.display = 'none'; }, 2000); }
