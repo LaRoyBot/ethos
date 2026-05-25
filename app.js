@@ -81,6 +81,12 @@ function sanitizeStateArrays(state) {
       if (r) r.ethe = ensureArray(r.ethe);
     });
   }
+  
+  // Safeguards for empty objects stripped by Firebase
+  state.history = state.history || {};
+  state.skills = state.skills || {};
+  state.unlockedAchievements = state.unlockedAchievements || {};
+  state.notificationSettings = state.notificationSettings || { enabled: false, sound: 'cyber_pulse', volume: 0.6 };
 }
 sanitizeStateArrays(S);
 
