@@ -552,8 +552,66 @@ setTimeout(() => {
   tryDismissBoot();
 }, document.getElementById('boot') ? 2200 : 0);
 
+// Double-tap 't' to fast boot into terminal if authenticated
+let lastTKeyPress = 0;
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) {
+    return;
+  }
+  
+  if (e.key.toLowerCase() === 't') {
+    const now = Date.now();
+    if (now - lastTKeyPress < 500) {
+      if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+        bootFinished = true;
+        authStateFetched = true;
+        currentUser = firebase.auth().currentUser;
+        
+        // Remove boot gate immediately
+        const bootEl = document.getElementById('boot');
+        if (bootEl) {
+          bootEl.classList.add('done');
+          bootEl.remove();
+        }
+        
+        try {
+          init();
+        } catch (err) {
+          console.error("Downstream init failed during fast boot:", err);
+        }
+        
+        // Launch interactive terminal instantly
+        const terminalEl = document.getElementById('interactive-terminal');
+        if (terminalEl) {
+          terminalEl.classList.add('open');
+          const tvInput = document.getElementById('tv-input');
+          if (tvInput) tvInput.focus();
+          const outInner = document.getElementById('tv-output-inner');
+          if (outInner && outInner.innerHTML === '') {
+            var welcomeLogo = 
+              '<div style="font-family: monospace; white-space: pre; line-height: 1.4; color: var(--text-dim);">' +
+              '  ███████╗████████╗██╗  ██╗ ██████╗ ███████╗\n' +
+              '  ██╔════╝╚══██╔══╝██║  ██║██╔═══██╗██╔════╝\n' +
+              '  █████╗     ██║   ███████║██║   ██║███████╗\n' +
+              '  ██╔══╝     ██║   ██╔══██║██║   ██║╚════██║\n' +
+              '  ███████╗   ██║   ██║  ██║╚██████╔╝███████║\n' +
+              '  ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n' +
+              '</div>' +
+              '<div style="margin-top: 8px;">' + (S.japaneseMode ? '習性.初期化 v2.4.0 対話型モード。コマンド一覧を表示するには "help" と入力してください。' : 'ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
+            printTermTyped(welcomeLogo, 'sys');
+          }
+        }
+      }
+    }
+    lastTKeyPress = now;
+  }
+});
+
 // === INIT ===
+let initCalled = false;
 function init() {
+  if (initCalled) return;
+  initCalled = true;
   if (S.theme && S.theme !== 'default') document.documentElement.setAttribute('data-theme', S.theme);
   // CRT overlay init
   var crtEl = document.getElementById('crt-screen-effect');
