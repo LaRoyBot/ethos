@@ -238,6 +238,12 @@ function firebaseSyncPush() {
   const user = firebase.auth().currentUser;
   if (!user) return;
   
+  try {
+    firebase.database().goOnline();
+  } catch (e) {
+    console.warn("Firebase goOnline failed:", e);
+  }
+  
   S.pushCount = (S.pushCount || 0) + 1;
   
   try {
@@ -265,6 +271,12 @@ function firebaseSyncPull(callback, forcePull = false) {
   if (!user) {
     if (callback) callback(false, 'User not authenticated');
     return;
+  }
+  
+  try {
+    firebase.database().goOnline();
+  } catch (e) {
+    console.warn("Firebase goOnline failed:", e);
   }
   
   const statusEl = document.getElementById('auth-sync-status');
