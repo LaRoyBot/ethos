@@ -122,7 +122,7 @@ if (S.routines) {
   S.routines.forEach(r => {
     if (r.ethe) {
       r.ethe.forEach(e => {
-        if (e.id === 303 && (e.name === 'Cardio / aerobic conditioning' || e.name === 'Swimming')) {
+        if (Number(e.id) === 303 && (e.name === 'Cardio / aerobic conditioning' || e.name === 'Swimming')) {
           e.name = 'Swimming session (90 min)';
         }
       });
@@ -1699,7 +1699,7 @@ function renderProtocolCommand() {
     var pOrder = PROTOCOL_ORDER[pi];
     for (var ii = 0; ii < pOrder.ids.length; ii++) {
       var id = pOrder.ids[ii];
-      var ethos = allEthe.find(function(e) { return e.id === id; });
+      var ethos = allEthe.find(function(e) { return Number(e.id) === Number(id); });
       if (ethos) {
         var isOffDay = false;
         if (ethos.id === 203 && ![2, 4, 6].includes(dayOfWeek)) isOffDay = true;
@@ -1723,7 +1723,7 @@ function renderProtocolCommand() {
     var phaseActiveCount = 0;
 
     phaseOrder.ids.forEach(function(id) {
-      var ethos = allEthe.find(function(e) { return e.id === id; });
+      var ethos = allEthe.find(function(e) { return Number(e.id) === Number(id); });
       if (ethos) {
         var isOffDay = false;
         if (ethos.id === 203 && ![2, 4, 6].includes(dayOfWeek)) isOffDay = true;
@@ -1745,7 +1745,7 @@ function renderProtocolCommand() {
             '<span style="color:var(--text-faint)"> ─── ' + phaseDef.time + phaseProgressText + '</span>\n';
 
     phaseOrder.ids.forEach(function(id) {
-      var ethos = allEthe.find(function(e) { return e.id === id; });
+      var ethos = allEthe.find(function(e) { return Number(e.id) === Number(id); });
       if (ethos) {
         var isOffDay = false;
         if (ethos.id === 203 && ![2, 4, 6].includes(dayOfWeek)) isOffDay = true;
@@ -1755,7 +1755,7 @@ function renderProtocolCommand() {
 
         if (isOffDay) return;
 
-        var isCurrent = (currentActive && currentActive.id === ethos.id);
+        var isCurrent = (currentActive && Number(currentActive.id) === Number(ethos.id));
         var checkMark = ethos.done ? '[x]' : '[ ]';
         var indicator = isCurrent ? '<span style="color:var(--accent)">▸</span>' : ' ';
         var textStyle = ethos.done ? 'color:var(--text-faint); text-decoration:line-through;' : (isCurrent ? 'color:var(--text); font-weight:bold;' : 'color:var(--text-dim);');
@@ -2420,7 +2420,7 @@ function renderProtocolView() {
     var foundUnchecked = false;
     for (var ii = 0; ii < pOrder.ids.length; ii++) {
       var id = pOrder.ids[ii];
-      var e = allEthe.find(function(x) { return x.id === id; });
+      var e = allEthe.find(function(x) { return Number(x.id) === Number(id); });
       if (e) {
         var isOffDay = e.days && !e.days.includes(activeDay);
         var isHidden = S.todayOnlyToggle && isOffDay;
@@ -2443,7 +2443,7 @@ function renderProtocolView() {
     var phaseEthe = [];
 
     phaseOrder.ids.forEach(function(id) {
-      var e = allEthe.find(function(x) { return x.id === id; });
+      var e = allEthe.find(function(x) { return Number(x.id) === Number(id); });
       if (e) {
         var isOffDay = e.days && !e.days.includes(activeDay);
         var isHidden = S.todayOnlyToggle && isOffDay;
@@ -2486,7 +2486,7 @@ function renderProtocolView() {
       var e = itemInfo.ethos;
       var isOffDay = itemInfo.isOffDay;
       var isDone = e.done;
-      var isCurrent = e.id === currentActiveId;
+      var isCurrent = Number(e.id) === Number(currentActiveId);
 
       var stepNum = stepCounter++;
       var stepNumStr = String(stepNum).padStart(2, '0');
@@ -3973,7 +3973,7 @@ function logSwimSessionProgrammatic(date, time, duration, comment, laps, distanc
     // Auto-complete swim ethos (id 303)
     const historyDateKey = new Date(date + 'T00:00:00').toDateString();
     S.routines.forEach((r, rIdx) => {
-      const e = r.ethe.find(x => x.id === 303);
+      const e = r.ethe.find(x => Number(x.id) === 303);
       if (e) {
         if (!S.history[historyDateKey]) S.history[historyDateKey] = {};
         if (!S.history[historyDateKey][e.id]) {
@@ -4046,7 +4046,7 @@ function removeSwimDay(date) {
     
     const historyDateKey = new Date(date + 'T00:00:00').toDateString();
     S.routines.forEach(r => {
-      const e = r.ethe.find(x => x.id === 303);
+      const e = r.ethe.find(x => Number(x.id) === 303);
       if (e) {
         if (S.history[historyDateKey]) S.history[historyDateKey][e.id] = false;
         if (historyDateKey === S.activeDate) e.done = false;
