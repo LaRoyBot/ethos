@@ -1736,11 +1736,48 @@ function handleCommand(cmd) {
     } else if (sub === 'logout' || sub === 'deauthorize') {
       printTerm('Initiating session deauthorization...', 'info');
       handleLogout();
+    } else if (sub === 'sync') {
+      printTerm('Initiating safe database synchronization check...', 'info');
+      firebaseSyncPull((success, result) => {
+        if (success) {
+          if (result === 'pulled') {
+            printTerm('Sync complete: Pulled newer state from the cloud.', 'ok');
+          } else if (result === 'pushed') {
+            printTerm('Sync complete: Pushed newer local state to the cloud.', 'ok');
+          } else if (result === 'synced') {
+            printTerm('Sync complete: Local and cloud states are fully in sync.', 'ok');
+          } else {
+            printTerm('Sync complete: Status is ' + result, 'ok');
+          }
+        } else {
+          printTerm('Sync failed: ' + result, 'err');
+        }
+      }, false);
+    } else if (sub === 'push') {
+      printTerm('Forcing local state push to cloud database...', 'info');
+      try {
+        firebaseSyncPush();
+        printTerm('Local state successfully pushed to cloud database.', 'ok');
+      } catch (err) {
+        printTerm('Push failed: ' + err.message, 'err');
+      }
+    } else if (sub === 'pull') {
+      printTerm('Forcing cloud state pull (overwriting local)...', 'info');
+      firebaseSyncPull((success, result) => {
+        if (success) {
+          printTerm('Cloud state successfully pulled and applied.', 'ok');
+        } else {
+          printTerm('Pull failed: ' + result, 'err');
+        }
+      }, true);
     } else {
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SECURITY CONTROL ===</span><br>' +
                 'Usage:<br>' +
                 '  auth status                   Show current clearance status<br>' +
                 '  auth username &lt;new_handle&gt;  Update your active developer handle<br>' +
+                '  auth sync                     Run a safe timestamp-based sync check<br>' +
+                '  auth push                     Force push local state to the cloud<br>' +
+                '  auth pull                     Force pull cloud state to local (overwrites)<br>' +
                 '  auth logout                   Deauthorize current terminal session', 'info');
     }
   } else if (action === 'logout') {
