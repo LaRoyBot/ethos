@@ -328,7 +328,7 @@ function firebaseRestPull(uid, callback, forcePull) {
   addLog('warn', 'Cloud sync: WebSocket hung — falling back to REST API.');
   console.warn('[Sync] WebSocket once(value) timed out. Using REST API fallback.');
 
-  firebase.auth().currentUser.getIdToken(true)
+  firebase.auth().currentUser.getIdToken(false)
     .then(idToken => {
       const restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
       return fetch(restUrl, {
