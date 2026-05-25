@@ -220,6 +220,23 @@ function updateTodayDate() {
 }
 setInterval(updateTodayDate, 30000);
 
+function getNetworkErrorTip(err) {
+  const isNetworkErr = (err && (err.code === 'auth/network-request-failed' || 
+                                (err.message && err.message.toLowerCase().includes('network'))));
+  if (isNetworkErr) {
+    return '<div style="margin-top: 8px; padding: 10px; background: rgba(255, 68, 68, 0.08); border: 1px solid rgba(255, 68, 68, 0.3); border-radius: 4px; font-size: 11px; line-height: 1.4; color: var(--text);">' +
+           '<strong style="color:var(--red);">[NETWORK BLOCK DETECTED]</strong><br>' +
+           '// Connection to Firebase Auth servers (googleapis.com) was blocked.<br>' +
+           '<b>Probable Causes & Solutions:</b><br>' +
+           ' 1. <b>Ad Blockers / Privacy Shields:</b> Extensions like uBlock Origin, Privacy Badger, or Brave Shields often block googleapis.com. Disable them temporarily for this app.<br>' +
+           ' 2. <b>DNS Blockers:</b> Using custom DNS (AdGuard DNS, NextDNS, Pi-hole)? They might block googleapis.com. Try using standard DNS (e.g. 1.1.1.1 or 8.8.8.8) or cellular hotspot.<br>' +
+           ' 3. <b>Firewall / VPN:</b> A VPN or custom firewall rules might be filtering network traffic.<br>' +
+           ' 4. <b>Inspection:</b> Press F12 to open Developer Tools, click the "Console" or "Network" tab, and look for red failed connection logs to identify the exact blocked host.' +
+           '</div>';
+  }
+  return '';
+}
+
 // Run daily reset on boot locally without bumping timestamp
 checkDailyReset(true);
 
@@ -358,6 +375,10 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
       if (statusEl) statusEl.textContent = 'Status: sync error (both WebSocket & REST failed) - ' + err.message;
       unlockBootSync();
       if (callback) callback(false, err);
+      if (isDirectCall) {
+        const tip = getNetworkErrorTip(err);
+        if (tip) printTerm(tip, 'info');
+      }
     });
 }
 
@@ -1996,6 +2017,8 @@ function handleCommand(cmd) {
           })
           .catch(err => {
             printTerm('Diagnostics failed: ' + err.message, 'err');
+            const tip = getNetworkErrorTip(err);
+            if (tip) printTerm(tip, 'info');
           });
       }
     } else {
