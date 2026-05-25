@@ -1,4 +1,4 @@
-const CACHE_NAME = 'ethos-init-v2.7.4';
+const CACHE_NAME = 'ethos-init-v2.7.5';
 const ASSETS = [
   './',
   './index.html',
@@ -28,9 +28,13 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      return cachedResponse || fetch(event.request);
-    })
-  );
+  // Only intercept and handle requests for local static assets (same origin)
+  // to avoid interfering with external Firebase API or WebSocket requests.
+  if (event.request.url.startsWith(self.location.origin)) {
+    event.respondWith(
+      caches.match(event.request).then(cachedResponse => {
+        return cachedResponse || fetch(event.request);
+      })
+    );
+  }
 });
