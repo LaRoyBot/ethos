@@ -956,6 +956,28 @@ function initButtons() {
     });
   }
 
+  // Modal cancel / close programmatic event listeners (CSP Compliance Fix)
+  const ethosModalCancelBtn = document.getElementById('ethos-modal-cancel-btn');
+  if (ethosModalCancelBtn) {
+    ethosModalCancelBtn.onclick = () => {
+      document.getElementById('ethos-modal').classList.remove('open');
+    };
+  }
+
+  const routineModalCancelBtn = document.getElementById('routine-modal-cancel-btn');
+  if (routineModalCancelBtn) {
+    routineModalCancelBtn.onclick = () => {
+      document.getElementById('routine-modal').classList.remove('open');
+    };
+  }
+
+  const closeTermBtn = document.getElementById('close-term-btn');
+  if (closeTermBtn) {
+    closeTermBtn.onclick = () => {
+      document.getElementById('interactive-terminal').classList.remove('open');
+    };
+  }
+
   // Interactive terminal
   const termBtn = document.getElementById('open-term-btn');
   if (termBtn) {

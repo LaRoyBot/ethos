@@ -702,7 +702,7 @@
         </select>
       </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="document.getElementById('ethos-modal').classList.remove('open')">cancel</button>
+        <button class="btn btn-ghost" id="ethos-modal-cancel-btn">cancel</button>
         <button class="btn" id="hm-save">save</button>
       </div>
     </div>
@@ -716,7 +716,7 @@
         <input type="text" class="terminal-input" id="rm-name" placeholder="e.g. Morning Study">
       </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="document.getElementById('routine-modal').classList.remove('open')">cancel</button>
+        <button class="btn btn-ghost" id="routine-modal-cancel-btn">cancel</button>
         <button class="btn" id="rm-save">save</button>
       </div>
     </div>
@@ -746,7 +746,7 @@
         // Critique
       </div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" id="radar-modal-close-btn" onclick="document.getElementById('radar-modal-overlay').classList.remove('open')">dismiss --session</button>
+        <button class="btn btn-ghost" id="radar-modal-close-btn">dismiss --session</button>
       </div>
     </div>
   </div>
@@ -785,7 +785,7 @@
   <div class="terminal-view-overlay" id="interactive-terminal">
     <div class="tv-header">
       <div class="tv-title">ethos.init // interactive mode</div>
-      <button class="tv-close" id="close-term-btn" onclick="document.getElementById('interactive-terminal').classList.remove('open')">[x] exit</button>
+      <button class="tv-close" id="close-term-btn">[x] exit</button>
     </div>
     <div class="tv-output" id="tv-output">
       <div class="tv-output-inner" id="tv-output-inner"></div>
