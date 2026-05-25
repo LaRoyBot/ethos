@@ -268,6 +268,93 @@ function firebaseSyncPush() {
   }
 }
 
+// === ROBUST CLOUD PULL ENGINE ===
+// Applies cloud state to the local app. Shared by both WebSocket and REST paths.
+function applyCloudState(val, forcePull, callback) {
+  const statusEl = document.getElementById('auth-sync-status');
+  if (val && val.state) {
+    const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+    const cloudPushCount = val.pushCount || val.state.pushCount || 0;
+    const localTime = S.lastUpdated || 0;
+    const localPushCount = S.pushCount || 0;
+
+    const cloudIsNewer = cloudTime > localTime
+      || (cloudTime === localTime && cloudPushCount > localPushCount);
+    const localIsNewer = localTime > cloudTime
+      || (localTime === cloudTime && localPushCount > cloudPushCount);
+
+    if (forcePull || cloudIsNewer) {
+      const prevAuthEmail = S.authEmail;
+      const prevAuthUsername = S.authUsername;
+      const prevCmdHistory = S.cmdHistory || [];
+
+      S = val.state;
+      sanitizeStateArrays(S);
+      S.authEmail = prevAuthEmail;
+      S.authUsername = prevAuthUsername;
+      S.cmdHistory = prevCmdHistory;
+
+      checkDailyReset(true);
+      ss(true);
+      render();
+      addLog('info', 'Cloud sync: Pulled state from cloud.');
+      if (statusEl) statusEl.textContent = 'Status: synced (pulled cloud state)';
+      unlockBootSync();
+      if (callback) callback(true, 'pulled');
+    } else if (localIsNewer) {
+      firebaseSyncPush();
+      addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
+      if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
+      unlockBootSync();
+      if (callback) callback(true, 'pushed');
+    } else {
+      if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
+      unlockBootSync();
+      if (callback) callback(true, 'synced');
+    }
+  } else {
+    firebaseSyncPush();
+    addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
+    if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
+    unlockBootSync();
+    if (callback) callback(true, 'pushed_initial');
+  }
+}
+
+// REST API fallback — bypasses WebSocket entirely, uses plain HTTPS fetch.
+function firebaseRestPull(uid, callback, forcePull) {
+  const statusEl = document.getElementById('auth-sync-status');
+  if (statusEl) statusEl.textContent = 'Status: WebSocket timed out, trying REST API...';
+  addLog('warn', 'Cloud sync: WebSocket hung — falling back to REST API.');
+  console.warn('[Sync] WebSocket once(value) timed out. Using REST API fallback.');
+
+  firebase.auth().currentUser.getIdToken(true)
+    .then(idToken => {
+      const restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
+      return fetch(restUrl, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store'
+      });
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('REST API returned HTTP ' + response.status);
+      }
+      return response.json();
+    })
+    .then(val => {
+      console.log('[Sync] REST API pull succeeded:', val ? 'data found' : 'no data');
+      applyCloudState(val, forcePull, callback);
+    })
+    .catch(err => {
+      console.error('[Sync] REST API pull also failed:', err);
+      if (statusEl) statusEl.textContent = 'Status: sync error (both WebSocket & REST failed) - ' + err.message;
+      unlockBootSync();
+      if (callback) callback(false, err);
+    });
+}
+
 function firebaseSyncPull(callback, forcePull = false) {
   if (typeof firebase === 'undefined') {
     if (callback) callback(false, 'Firebase not loaded');
@@ -278,80 +365,43 @@ function firebaseSyncPull(callback, forcePull = false) {
     if (callback) callback(false, 'User not authenticated');
     return;
   }
-  
+
   try {
     firebase.database().goOnline();
   } catch (e) {
     console.warn("Firebase goOnline failed:", e);
   }
-  
+
   const statusEl = document.getElementById('auth-sync-status');
   if (statusEl) statusEl.textContent = 'Status: syncing with cloud...';
-  
+  console.log('[Sync] Starting pull — racing WebSocket vs 10s timeout...');
+
+  // Create a timeout promise that resolves with a sentinel value after 10 seconds
+  const SYNC_TIMEOUT_MS = 10000;
+  const TIMEOUT_SENTINEL = Symbol('TIMEOUT');
+  const timeoutPromise = new Promise(resolve => {
+    setTimeout(() => resolve(TIMEOUT_SENTINEL), SYNC_TIMEOUT_MS);
+  });
+
   try {
-    firebase.database().ref('sync/' + user.uid).once('value')
-      .then(snapshot => {
-        const val = snapshot.val();
-        if (val && val.state) {
-          const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
-          const cloudPushCount = val.pushCount || val.state.pushCount || 0;
-          const localTime = S.lastUpdated || 0;
-          const localPushCount = S.pushCount || 0;
-          
-          const cloudIsNewer = cloudTime > localTime
-            || (cloudTime === localTime && cloudPushCount > localPushCount);
-          const localIsNewer = localTime > cloudTime
-            || (localTime === cloudTime && localPushCount > cloudPushCount);
-          
-          if (forcePull || cloudIsNewer) {
-            // Cloud is newer OR we are forcing a pull (e.g. just logged in from guest state)
-            const prevAuthEmail = S.authEmail;
-            const prevAuthUsername = S.authUsername;
-            const prevCmdHistory = S.cmdHistory || [];
-            
-            // Overwrite S
-            S = val.state;
-            sanitizeStateArrays(S);
-            S.authEmail = prevAuthEmail;
-            S.authUsername = prevAuthUsername;
-            S.cmdHistory = prevCmdHistory;
-            
-            // Run daily reset on the pulled cloud state without bumping cloud timestamp
-            checkDailyReset(true);
-            
-            ss(true); // save locally without pushing back
-            render();
-            addLog('info', 'Cloud sync: Pulled state from cloud.');
-            if (statusEl) statusEl.textContent = 'Status: synced (pulled cloud state)';
-            unlockBootSync();
-            if (callback) callback(true, 'pulled');
-          } else if (localIsNewer) {
-            // Local is newer -> Push local to cloud
-            firebaseSyncPush();
-            addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
-            if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
-            unlockBootSync();
-            if (callback) callback(true, 'pushed');
-          } else {
-            // Equal -> Synced
-            if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
-            unlockBootSync();
-            if (callback) callback(true, 'synced');
-          }
+    const wsPromise = firebase.database().ref('sync/' + user.uid).once('value')
+      .then(snapshot => snapshot.val());
+
+    Promise.race([wsPromise, timeoutPromise])
+      .then(result => {
+        if (result === TIMEOUT_SENTINEL) {
+          // WebSocket hung — fall back to REST
+          console.warn('[Sync] WebSocket timed out after ' + SYNC_TIMEOUT_MS + 'ms');
+          firebaseRestPull(user.uid, callback, forcePull);
         } else {
-          // No cloud data -> Push current local state as initial
-          firebaseSyncPush();
-          addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
-          if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
-          unlockBootSync();
-          if (callback) callback(true, 'pushed_initial');
+          // WebSocket succeeded
+          console.log('[Sync] WebSocket pull succeeded');
+          applyCloudState(result, forcePull, callback);
         }
       })
       .catch(err => {
-        console.error("Firebase pull failed:", err);
-        if (statusEl) statusEl.textContent = 'Status: sync error - ' + err.message;
-        unlockBootSync();
-        if (callback) callback(false, err);
+        console.error('[Sync] WebSocket pull errored, trying REST:', err);
+        firebaseRestPull(user.uid, callback, forcePull);
       });
   } catch (err) {
     console.error("Firebase database pull initialization failed:", err);
@@ -1781,13 +1831,29 @@ function handleCommand(cmd) {
       }
     } else if (sub === 'pull') {
       printTerm('Forcing cloud state pull (overwriting local)...', 'info');
+      printTerm('<span style="color:var(--text-dim)">Trying WebSocket first, REST API fallback after 10s...</span>', 'info');
       firebaseSyncPull((success, result) => {
         if (success) {
-          printTerm('Cloud state successfully pulled and applied.', 'ok');
+          printTerm('Cloud state successfully pulled and applied. (' + result + ')', 'ok');
         } else {
           printTerm('Pull failed: ' + result, 'err');
         }
       }, true);
+    } else if (sub === 'rest-pull') {
+      // Direct REST API pull — bypasses WebSocket entirely
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        printTerm('Not authenticated.', 'err');
+      } else {
+        printTerm('Forcing direct REST API pull (bypassing WebSocket)...', 'info');
+        firebaseRestPull(user.uid, (success, result) => {
+          if (success) {
+            printTerm('REST pull succeeded: ' + result, 'ok');
+          } else {
+            printTerm('REST pull failed: ' + result, 'err');
+          }
+        }, true);
+      }
     } else {
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SECURITY CONTROL ===</span><br>' +
                 'Usage:<br>' +
@@ -1796,6 +1862,7 @@ function handleCommand(cmd) {
                 '  auth sync                     Run a safe timestamp-based sync check<br>' +
                 '  auth push                     Force push local state to the cloud<br>' +
                 '  auth pull                     Force pull cloud state to local (overwrites)<br>' +
+                '  auth rest-pull                Direct REST API pull (bypasses WebSocket)<br>' +
                 '  auth logout                   Deauthorize current terminal session', 'info');
     }
   } else if (action === 'logout') {
