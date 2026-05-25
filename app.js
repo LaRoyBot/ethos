@@ -160,6 +160,7 @@ if (!S.protocolCollapsed) S.protocolCollapsed = {};
 if (S.authEmail === undefined) S.authEmail = '';
 if (S.authUsername === undefined) S.authUsername = '';
 if (S.lastUpdated === undefined) S.lastUpdated = 0;
+if (S.pushCount === undefined) S.pushCount = 0;
 
 // PWA & Reminders migrations
 if (!S.reminders) S.reminders = [];
@@ -215,12 +216,18 @@ setInterval(updateTodayDate, 30000);
 
 // Run daily reset on boot locally without bumping timestamp
 checkDailyReset(true);
+
+let _bootSyncLocked = true; // Prevent ss() from bumping lastUpdated during boot pull
+function unlockBootSync() {
+  _bootSyncLocked = false;
+}
+
 function ss(skipFirebase = false) {
-  if (!skipFirebase) {
+  if (!skipFirebase && !_bootSyncLocked) {
     S.lastUpdated = Date.now();
   }
   save('mathInit_state', S);
-  if (!skipFirebase && typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+  if (!skipFirebase && !_bootSyncLocked && typeof firebase !== 'undefined' && firebase.auth().currentUser) {
     firebaseSyncPush();
   }
 }
@@ -231,13 +238,16 @@ function firebaseSyncPush() {
   const user = firebase.auth().currentUser;
   if (!user) return;
   
+  S.pushCount = (S.pushCount || 0) + 1;
+  
   try {
     const syncableState = Object.assign({}, S);
     delete syncableState.cmdHistory;
     
     firebase.database().ref('sync/' + user.uid).set({
       state: syncableState,
-      lastUpdated: S.lastUpdated
+      lastUpdated: S.lastUpdated,
+      pushCount: S.pushCount
     }).catch(err => {
       console.error("Firebase push failed:", err);
     });
@@ -266,9 +276,16 @@ function firebaseSyncPull(callback, forcePull = false) {
         const val = snapshot.val();
         if (val && val.state) {
           const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+          const cloudPushCount = val.pushCount || val.state.pushCount || 0;
           const localTime = S.lastUpdated || 0;
+          const localPushCount = S.pushCount || 0;
           
-          if (forcePull || cloudTime > localTime) {
+          const cloudIsNewer = cloudTime > localTime
+            || (cloudTime === localTime && cloudPushCount > localPushCount);
+          const localIsNewer = localTime > cloudTime
+            || (localTime === cloudTime && localPushCount > cloudPushCount);
+          
+          if (forcePull || cloudIsNewer) {
             // Cloud is newer OR we are forcing a pull (e.g. just logged in from guest state)
             const prevAuthEmail = S.authEmail;
             const prevAuthUsername = S.authUsername;
@@ -288,16 +305,19 @@ function firebaseSyncPull(callback, forcePull = false) {
             render();
             addLog('info', 'Cloud sync: Pulled state from cloud.');
             if (statusEl) statusEl.textContent = 'Status: synced (pulled cloud state)';
+            unlockBootSync();
             if (callback) callback(true, 'pulled');
-          } else if (localTime > cloudTime) {
+          } else if (localIsNewer) {
             // Local is newer -> Push local to cloud
             firebaseSyncPush();
             addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
             if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
+            unlockBootSync();
             if (callback) callback(true, 'pushed');
           } else {
             // Equal -> Synced
             if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
+            unlockBootSync();
             if (callback) callback(true, 'synced');
           }
         } else {
@@ -305,17 +325,20 @@ function firebaseSyncPull(callback, forcePull = false) {
           firebaseSyncPush();
           addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
           if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
+          unlockBootSync();
           if (callback) callback(true, 'pushed_initial');
         }
       })
       .catch(err => {
         console.error("Firebase pull failed:", err);
         if (statusEl) statusEl.textContent = 'Status: sync error - ' + err.message;
+        unlockBootSync();
         if (callback) callback(false, err);
       });
   } catch (err) {
     console.error("Firebase database pull initialization failed:", err);
     if (statusEl) statusEl.textContent = 'Status: database error - ' + err.message;
+    unlockBootSync();
     if (callback) callback(false, err);
   }
 }
@@ -398,6 +421,34 @@ if (!S.v22WaterSeeded) {
   S.waterLogs = Object.assign({}, DEFAULT_WATER_LOGS);
   S.v22WaterSeeded = true;
   ss();
+}
+
+// === v2.3.2 HISTORY KEY FORMAT MIGRATION ===
+if (!S.historyKeysMigrated) {
+  const isoRegex = /^\d{4}-\d{2}-\d{2}$/;
+  const newHistory = {};
+  Object.keys(S.history || {}).forEach(key => {
+    let normalizedKey = key;
+    if (isoRegex.test(key)) {
+      // Convert "2026-05-21" → "Thu May 21 2026"
+      const d = new Date(key + 'T00:00:00');
+      normalizedKey = d.toDateString();
+    }
+    if (!newHistory[normalizedKey]) {
+      newHistory[normalizedKey] = S.history[key];
+    } else {
+      // Merge: true wins over false
+      newHistory[normalizedKey] = Object.assign({}, newHistory[normalizedKey], S.history[key]);
+      Object.keys(S.history[key]).forEach(id => {
+        if (S.history[key][id] === true) {
+          newHistory[normalizedKey][id] = true;
+        }
+      });
+    }
+  });
+  S.history = newHistory;
+  S.historyKeysMigrated = true;
+  ss(true); // save locally, don't push yet
 }
 
 // === BOOT & AUTH GATEWAY CONTROL ===
@@ -671,9 +722,14 @@ if (typeof firebase !== 'undefined') {
         const val = snapshot.val();
         if (val && val.state) {
           const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
+          const cloudPushCount = val.pushCount || val.state.pushCount || 0;
           const localTime = S.lastUpdated || 0;
+          const localPushCount = S.pushCount || 0;
           
-          if (cloudTime > localTime) {
+          const cloudIsNewer = cloudTime > localTime
+            || (cloudTime === localTime && cloudPushCount > localPushCount);
+          
+          if (cloudIsNewer) {
             // Overwrite S and sync
             const prevAuthEmail = S.authEmail;
             const prevAuthUsername = S.authUsername;
@@ -709,6 +765,7 @@ if (typeof firebase !== 'undefined') {
         S.authUsername = '';
         tryDismissBoot();
       }
+      unlockBootSync();
     }
   });
 } else {
@@ -717,7 +774,19 @@ if (typeof firebase !== 'undefined') {
     currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
   }
   tryDismissBoot();
+  unlockBootSync();
 }
+
+// Force background sync pull on tab focus/visibility change
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const user = typeof firebase !== 'undefined' && firebase.auth().currentUser;
+    if (user) {
+      // Pull quietly without forcing (timestamp / pushCount still wins)
+      firebaseSyncPull(null, false);
+    }
+  }
+});
 
 function initTabs() {
   document.querySelectorAll('.nav-tab').forEach(btn => {
@@ -5793,7 +5862,7 @@ If the user's message indicates they completed, did, or undid any of these habit
 [COMMAND: uncheck <id>]
 
 If the user's message indicates they logged a swim or went swimming (e.g., "oracle i swam from 8pm to 10:10 pm, 25 laps, easy"), you MUST calculate the duration in minutes, extract the number of laps, determine the intensity (easy, moderate, or hard), and append a swim command:
-[COMMAND: swim duration=<duration_in_minutes> laps=<laps_count> intensity=<easy|moderate|hard> time="<time_range>" comment="<comment>"]
+[COMMAND: swim duration=<duration_in_minutes> laps=<laps_count> intensity=<easy|moderate|hard> time="<time_range>" comment="<comment>" date="<optional_YYYY-MM-DD_format_only_if_past_day>"]
 For example, for "swam from 8pm to 10:10 pm, 25 laps, easy", you should output:
 [COMMAND: swim duration=130 laps=25 intensity=easy time="8pm to 10:10 pm" comment="easy"]
 If they logged a swim, the system will automatically check off their Cardio habit (ID 303), so you do NOT need to also output a check command for habit 303.
@@ -5865,6 +5934,7 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
           let swimIntensity = 'moderate';
           let swimTime = '';
           let swimComment = '';
+          let swimDate = S.activeDate || TODAY;
           const attrStr = cmd.ethosId;
           const attrRegex = /(\w+)\s*=\s*(?:"([^"]*)"|(\S+))/g;
           let attrMatch;
@@ -5876,6 +5946,7 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
             else if (key === 'intensity') swimIntensity = val.toLowerCase();
             else if (key === 'time') swimTime = val;
             else if (key === 'comment') swimComment = val;
+            else if (key === 'date') swimDate = val;
           }
           
           const distance = swimLaps * 50;
@@ -5884,7 +5955,7 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
           else if (swimIntensity === 'hard' || swimIntensity === 'vigorous') calMultiplier = 11;
           const calories = swimDuration * calMultiplier;
           
-          logSwimSessionProgrammatic(TODAY, swimTime || '8pm', swimDuration, swimComment || swimIntensity, swimLaps, distance, calories);
+          logSwimSessionProgrammatic(swimDate, swimTime || '8pm', swimDuration, swimComment || swimIntensity, swimLaps, distance, calories);
           actionCount++;
           actionsTaken.push(`logged swim (${swimDuration} mins, ${swimLaps} laps)`);
         } else if (cmd.action === 'promise') {
