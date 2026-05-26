@@ -2,19 +2,36 @@
 
 > *"We are what we repeatedly do. Excellence, then, is not an act, but a habit."* — Aristotle, *Nicomachean Ethics*
 
-**ethos** is an ultra-lightweight, zero-dependency, terminal-aesthetic personal discipline compiler and life-curriculum tracker. It is engineered for developers, mathematicians, and self-directed researchers who demand extreme execution accountability without bloated frameworks, tracking cookies, or heavy database clients.
+**ethos** is an ultra-lightweight, zero-dependency, terminal-aesthetic **Cognitive Co-Processor and Life-Curriculum Compiler**. It is engineered for developers, AI researchers, and self-directed mathematicians who demand extreme execution accountability. 
+
+Bypassing the passive "checkbox checklists" of traditional habit trackers, `ethos` introduces an active **Epistemic Governor** powered by Google's state-of-the-art Gemini LLM architectures.
 
 **[→ Launch Interactive Terminal](https://ethos-jet.vercel.app)**
 
 ---
 
-## 🛠️ The Technical Spec
+## 🧠 Core Innovation: ECRE (Ethos Cognitive Reflection Engine)
+
+Traditional tracking tools assume humans are rational actors who simply "forgot" to do a task. `ethos` rejects this, introducing **ECRE**—an active **externalized cognitive governor** designed to combat cognitive friction, self-sabotage, and planning fallacies through deep LLM-driven behavioral alignment.
 
 ```
       +---------------------------------------------------------+
       |                      ethos PWA                          |
       |   (Vanilla JS Engine / CRT Terminal CLI / CSS Scanlines) |
       +----------------------------+----------------------------+
+                                   |
+                     [Freeform Interactive CLI]
+                                   |
+                                   v
+      +---------------------------------------------------------+
+      |            ECRE (Cognitive Reflection Engine)           |
+      |     (Appraisal Metrics / Coherence Waveforms / Radar)   |
+      +----------------------------+----------------------------+
+            |                      |                      |
+            v                      v                      v
+      [Active Promises]     [XP-Lock Questions]    [Stale Pull Refusals]
+            |                      |                      |
+            +----------------------+----------------------+
                                    |
                      [Dynamic Firebase IdToken]
                                    |
@@ -33,11 +50,20 @@
       +---------------------------------------------------------+
 ```
 
-*   **Runtime:** Pure 100% Vanilla ES5/ES6 JavaScript (zero-dependency app core).
-*   **Aesthetics:** High-refresh retro CRT simulation, scanline layer blending, neural boot sequences, and native audio oscillator reminder presets.
-*   **Database:** Decoupled dual-engine syncing (Vercel KV serverless Redis + Firebase Realtime Database fallbacks).
-*   **Security:** Cryptographically authenticated transactions via dynamic client-side Firebase Auth JSON Web Tokens (JWTs) bypassed through a same-origin reverse-proxy gateway.
-*   **Offline Capability:** Complete Progressive Web App (PWA) manifest with service-worker network-first caching, local backups, and offline notification scheduling.
+### 1. The Reflective Coherence Diagnostic (Radar Vector Map)
+ECRE compiles your habit compliance patterns into a spatial vector map. Clicking the **ECRE Radar Card** launches a high-fidelity **Reflective Coherence Diagnostic modal**, compiling compliance metrics (CNS vector coherence percentages) to dynamically gauge your behavioral velocity.
+
+### 2. State-Locking & Epistemic Open Questions (XP-Lock)
+When ECRE detects self-sabotage or broken promises, it doesn't just log it—it intervenes:
+*   **XP-Lock Questions:** ECRE generates context-aware, deep epistemic questions regarding your cognitive barriers (e.g. *"What specific cognitive friction prevents the initiation of your proof derivation protocol?"*).
+*   **The Governor:** These open questions actively lock down your session's XP and progress markers, forcing you to type a reflective response directly into the CRT terminal to clear the lock. It forces self-appraisal before you can continue.
+*   **Active Commitments (Promises):** Tracks exact commitments made under ECRE's appraisal to measure structural accountability over time.
+
+### 3. Unrecognized Command Freeform Reflection
+The `ethos` terminal treats commands as primary functions. However, **any unrecognized text entered into the terminal is automatically treated as freeform, inline therapeutic reflection with ECRE**. Powered by Gemini, ECRE dynamically assesses your state, checks your daily disciplines, and returns a detailed **ECRE Cognitive Appraisal** report.
+
+### 4. ECRE Telemetry Rewind (`auth rewind`)
+A high-concept temporal debugger: typing `auth rewind` initiates a complete replay of your historical database snapshots. It reconstructs past days chronologically, rendering active coherence waveforms and displaying ECRE compliance vectors dynamically across your history.
 
 ---
 
@@ -68,6 +94,7 @@ Type `help` inside your `ethos` console to interact with the system via its nati
 *   `auth proxy gateway` — Restructure your connection settings to bypass direct database blocks and sync quietly through your dynamic Firebase-token same-origin gateway.
 *   `auth status` — Fetch full telemetry on current database alignments, active paths, and state packet diagnostics.
 *   `auth push` / `auth pull` — Run full manual vector-clock sync updates. Prints a gorgeous, granular summary of all Streaks, XP values, completed habits, and routines directly in the terminal interface.
+*   `auth rewind` — Initiate a temporal rewind play of your history states and displaying ECRE compliance vectors dynamically.
 *   `remind [HH:MM] [Message]` — Add audio routine notifications using custom synthesized retro frequencies generated offline via standard browser AudioContext oscillators.
 *   `oracle [NL Query]` — Converse directly with Google's ultra-fast `gemini-2.5-flash` generative AI model.
 *   **Natural Language Habit Control:** Try talking to the oracle like a human:
