@@ -2053,15 +2053,21 @@ function handleCommand(cmd) {
         } else {
           printTerm('No custom sync proxy configured. Using default Firebase connection.', 'info');
         }
-        printTerm('Usage: auth proxy &lt;url&gt; [&lt;key&gt;] (or "auth proxy clear" to disable)', 'info');
+        printTerm('Usage: auth proxy gateway &lt;key&gt; (for same-origin) OR auth proxy &lt;url&gt; [&lt;key&gt;] (or "auth proxy clear" to disable)', 'info');
       } else if (pUrl.toLowerCase() === 'clear') {
         S.customSyncProxy = '';
         S.customSyncKey = '';
         ss();
         printTerm('Custom sync proxy and key cleared. Reverted to default Firebase connection.', 'ok');
+      } else if (pUrl.toLowerCase() === 'gateway' || pUrl.toLowerCase() === 'same-origin') {
+        S.customSyncProxy = '';
+        S.customSyncKey = pKey || '';
+        ss();
+        printTerm('Same-origin gateway key successfully registered.', 'ok');
+        printTerm('// All subsequent pulls and pushes will route through your Vercel KV same-origin gateway.', 'info');
       } else {
         if (!pUrl.startsWith('http://') && !pUrl.startsWith('https://')) {
-          printTerm('Invalid URL. Proxy URL must start with http:// or https://', 'err');
+          printTerm('Invalid URL. Proxy URL must start with http:// or https:// (or use "auth proxy gateway &lt;key&gt;" for same-origin)', 'err');
         } else {
           S.customSyncProxy = pUrl;
           S.customSyncKey = pKey;
