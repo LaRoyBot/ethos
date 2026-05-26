@@ -278,6 +278,19 @@ function getSyncGatewayUrl(uid) {
   return null;
 }
 
+function getSyncPathReport() {
+  var user = typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser;
+  var uid = user ? user.uid : '<not-authenticated>';
+  var gw = user ? getSyncGatewayUrl(uid) : null;
+  var cleanKey = getCleanSyncKey();
+  return {
+    uid: uid,
+    path: gw ? gw.type.toUpperCase() : 'DIRECT FIREBASE',
+    url: gw ? gw.url : firebaseConfig.databaseURL + '/sync/' + uid,
+    clientKeyLength: cleanKey.length
+  };
+}
+
 function probeGateway() {
   if (_vercelGatewayAvailable !== null) return Promise.resolve(_vercelGatewayAvailable);
   return fetch('/api/health', { method: 'GET', cache: 'no-store' })
@@ -1499,6 +1512,7 @@ function printTermTyped(html, type) {
 
 function getSyncDetailsReport(state) {
   if (!state) return '  No state data available.<br>';
+  var syncPath = getSyncPathReport();
   var ts = state.lastUpdated ? new Date(state.lastUpdated).toLocaleString() : 'N/A';
   var pushCount = state.pushCount || 0;
   var size = JSON.stringify(state).length;
@@ -1534,6 +1548,9 @@ function getSyncDetailsReport(state) {
   }
   
   var rpt = '  Timestamp: <span style="color:var(--accent)">' + ts + '</span><br>' +
+            '  Active Path: <span style="color:var(--accent)">' + syncPath.path + '</span><br>' +
+            '  UID: <span style="color:var(--accent)">' + syncPath.uid + '</span><br>' +
+            '  Client Sync Key: <span style="color:var(--accent)">' + syncPath.clientKeyLength + ' chars</span><br>' +
             '  Size: <span style="color:var(--accent)">' + (size / 1024).toFixed(2) + ' KB</span> (' + size + ' bytes)<br>' +
             '  Push Count: <span style="color:var(--accent)">' + pushCount + '</span><br>' +
             '  User: <span style="color:var(--accent)">' + username + ' (' + email + ')</span><br>' +
@@ -2112,7 +2129,11 @@ function handleCommand(cmd) {
           }
           rpt += '  Proxy override: ' + (S.customSyncProxy || '&lt;none&gt;') + '<br>';
           var gw = getSyncGatewayUrl(diagUid);
+          rpt += '  UID: <span style="color:var(--amber)">' + diagUid + '</span><br>';
           rpt += '  Active path: <span style="color:var(--amber)">' + (gw ? gw.type.toUpperCase() + ' \u2192 ' + gw.url.substring(0, 60) : 'DIRECT FIREBASE') + '</span>';
+          if (gwOk && health.sync_key_configured && !getCleanSyncKey()) {
+            rpt += '<br><span style="color:var(--red); font-weight:bold;">  WARNING: Gateway is configured on the server, but this device has no client sync key. This device will use DIRECT FIREBASE and will not see Vercel KV gateway data.</span>';
+          }
           printTerm(rpt, 'info');
           function showDiag(val) {
             if (!val || !val.state) { printTerm('Cloud: No state found.', 'warn'); return; }
@@ -7517,4 +7538,3 @@ function updateOracleKeyStatus() {
     inputEl.value = S.geminiKey;
   }
 }
-
