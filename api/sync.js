@@ -34,55 +34,73 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing required query parameter: uid' });
   }
 
-  const databaseUrl = process.env.FIREBASE_DATABASE_URL;
-  const databaseSecret = process.env.FIREBASE_DATABASE_SECRET;
+  const kvUrl = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
 
-  if (!databaseUrl || !databaseSecret) {
-    return res.status(500).json({ error: 'Server misconfigured: Firebase credentials not set' });
+  if (!kvUrl || !kvToken) {
+    return res.status(500).json({ error: 'Server misconfigured: Vercel KV credentials not set' });
   }
 
-  const firebaseEndpoint = `${databaseUrl}/sync/${uid}.json?auth=${databaseSecret}`;
+  const keyName = `sync:${uid}`;
 
   try {
     if (req.method === 'GET') {
-      const response = await fetch(firebaseEndpoint, {
-        method: 'GET',
-        headers: { 'Accept': 'application/json' },
+      const response = await fetch(kvUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${kvToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(['GET', keyName]),
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
         return res.status(response.status).json({
-          error: 'Firebase read failed',
+          error: 'Vercel KV read failed',
           status: response.status,
           detail: errorBody,
         });
       }
 
-      const data = await response.json();
-      return res.status(200).json(data);
+      const resData = await response.json();
+      const rawValue = resData.result; // Either a stringified JSON object or null
+
+      if (rawValue === null) {
+        return res.status(200).json(null);
+      }
+
+      try {
+        const parsed = JSON.parse(rawValue);
+        return res.status(200).json(parsed);
+      } catch (parseErr) {
+        return res.status(200).json(rawValue);
+      }
     }
 
     if (req.method === 'PUT') {
-      const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      const bodyString = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
 
-      const response = await fetch(firebaseEndpoint, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body,
+      const response = await fetch(kvUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${kvToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(['SET', keyName, bodyString]),
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
         return res.status(response.status).json({
-          error: 'Firebase write failed',
+          error: 'Vercel KV write failed',
           status: response.status,
           detail: errorBody,
         });
       }
 
-      const data = await response.json();
-      return res.status(200).json(data);
+      const parsedBody = JSON.parse(bodyString);
+      return res.status(200).json(parsedBody);
     }
   } catch (err) {
     return res.status(500).json({

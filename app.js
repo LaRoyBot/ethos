@@ -2000,7 +2000,9 @@ function handleCommand(cmd) {
           var rpt = '<span style="color:var(--accent); font-weight:bold;">--- GATEWAY HEALTH ---</span><br>' +
             '  /api/health: ' + (gwOk ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE</span> (' + (health.error || 'unknown') + ')') + '<br>';
           if (gwOk) {
-            rpt += '  Firebase configured: ' + (health.firebase_configured ? '<span style="color:var(--accent)">YES</span>' : '<span style="color:var(--red)">NO</span>') + '<br>';
+            var storageConfigured = health.kv_configured || health.firebase_configured;
+            var storageType = health.kv_configured ? 'Vercel KV' : (health.firebase_configured ? 'Firebase' : 'None');
+            rpt += '  Storage configured: ' + (storageConfigured ? '<span style="color:var(--accent)">YES</span> (' + storageType + ')' : '<span style="color:var(--red)">NO</span>') + '<br>';
             rpt += '  Sync key configured: ' + (health.sync_key_configured ? '<span style="color:var(--accent)">YES</span>' : '<span style="color:var(--red)">NO</span>') + '<br>';
           }
           rpt += '  Proxy override: ' + (S.customSyncProxy || '&lt;none&gt;') + '<br>';

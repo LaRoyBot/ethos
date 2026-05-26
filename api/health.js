@@ -11,11 +11,16 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const hasFirebase = !!(process.env.FIREBASE_DATABASE_URL && process.env.FIREBASE_DATABASE_SECRET);
+  const hasKv = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
+
   return res.status(200).json({
     status: 'ok',
     timestamp: Date.now(),
     service: 'ethos-sync-gateway',
-    firebase_configured: !!(process.env.FIREBASE_DATABASE_URL && process.env.FIREBASE_DATABASE_SECRET),
+    storage_type: hasKv ? 'vercel-kv' : (hasFirebase ? 'firebase' : 'unconfigured'),
+    firebase_configured: hasFirebase,
+    kv_configured: hasKv,
     sync_key_configured: !!process.env.SYNC_KEY,
   });
 }
