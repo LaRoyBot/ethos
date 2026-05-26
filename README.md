@@ -21,7 +21,7 @@ It is designed for developers, researchers, and self-directed learners who want 
 
 ## ⚡ Sync & Auth Architecture (Under the Hood)
 
-You built a highly robust, secure, and lightweight synchronization pipeline designed to keep your client bundle size absolutely minimal while maintaining complete multi-tenant database isolation.
+ethos implements a highly robust, secure, and lightweight same-origin synchronization pipeline designed to maintain zero-dependency client performance while ensuring absolute multi-tenant database isolation.
 
 ```
       +---------------------------------------------------------+
@@ -47,18 +47,18 @@ You built a highly robust, secure, and lightweight synchronization pipeline desi
 ```
 
 ### 1. Dynamic Firebase IdToken Authentication
-Instead of using leak-prone API tokens or manual 40-character sync keys, `ethos` integrates directly with your Firebase Auth session.
-* On every sync write (`PUT`) or fetch (`GET`), the app extracts your short-lived Firebase `IdToken` (JWT) dynamically in real-time from `firebase.auth().currentUser`.
-* This token is transmitted in the request headers (`Authorization: Bearer <token>`) to your server.
+Instead of using leak-prone API tokens or manual 40-character sync keys, `ethos` integrates directly with active Firebase Auth sessions.
+* On every sync write (`PUT`) or fetch (`GET`), the app extracts the short-lived Firebase `IdToken` (JWT) dynamically in real-time from `firebase.auth().currentUser`.
+* This token is transmitted in the request headers (`Authorization: Bearer <token>`) to the server.
 * The Serverless Gateway `/api/sync.js` validates the token cryptographically on Vercel's end before communicating with the database.
 
 ### 2. Zero-Dependency Serverless Proxy
-Instead of loading a heavy database SDK on the client, the app uses native `fetch()` calls to the same-origin `/api/sync` path. The serverless Vercel function translates these calls into TCP instructions for your serverless Upstash Redis database (Vercel KV), keeping your frontend bundle ultra-fast.
+Instead of loading a heavy database SDK on the client, the app uses native `fetch()` calls to the same-origin `/api/sync` path. The serverless Vercel function translates these calls into TCP instructions for the serverless Upstash Redis database (Vercel KV), keeping the frontend bundle ultra-fast.
 
 ### 3. Defensive Sync Safeguards
-*   **Pre-Replace Local Backups:** Before any cloud state overwrite is applied to your local memory, the app automatically takes a full snapshot of your current state and saves it in `localStorage` under `mathInit_state_backup_YYYY-MM-DD-HH-MM-SS-MS`. This acts as an instant local restore point.
-*   **Vector Clock Versioning & Pull Refusal:** The sync engine tracks incremental `pushCount` alongside the `lastUpdated` timestamp. If a forced cloud pull is triggered, the engine verifies the payload size and version vector. **If the remote state looks older or smaller than your local state, the engine actively refuses the pull to protect your local data.**
-*   **Dynamic WebSocket Detachment:** Running real-time WebSockets drains battery and throws connection errors in the console when Firebase is blocked. The moment a same-origin gateway becomes active, `ethos` **automatically detaches the background Firebase WebSocket listener** to clean up memory and sockets, dynamically re-binding only if you revert to default Firebase.
+*   **Pre-Replace Local Backups:** Before any cloud state overwrite is applied to local memory, the app automatically takes a full snapshot of the current state and saves it in `localStorage` under `mathInit_state_backup_YYYY-MM-DD-HH-MM-SS-MS`. This acts as an instant local restore point.
+*   **Vector Clock Versioning & Pull Refusal:** The sync engine tracks incremental `pushCount` alongside the `lastUpdated` timestamp. If a forced cloud pull is triggered, the engine verifies the payload size and version vector. **If the remote state looks older or smaller than the local state, the engine actively refuses the pull to protect local data.**
+*   **Dynamic WebSocket Detachment:** Running real-time WebSockets drains battery and throws connection errors in the console when Firebase is blocked. The moment a same-origin gateway becomes active, `ethos` **automatically detaches the background Firebase WebSocket listener** to clean up memory and sockets, dynamically re-binding only if default Firebase is restored.
 
 ---
 
@@ -66,24 +66,24 @@ Instead of loading a heavy database SDK on the client, the app uses native `fetc
 
 `ethos` goes beyond a standard passive tracker by introducing **ECRE**—a reflective memory profile system that uses Google's `gemini-2.5-flash` model to analyze scheduling failures and enforce cognitive accountability.
 
-*   **Reflective Coherence Diagnostics (Radar Card):** Clicking the **ECRE Radar Card** launches a coherence diagnostic modal, compiling CNS vector compliance percentages to measure your behavioral consistency.
-*   **XP-Lock Questions:** ECRE tracks your active commitments (promises) and generates context-aware, deep questions about your cognitive barriers (e.g. *"What specific cognitive friction prevents the initiation of your proof derivation protocol?"*). These questions **actively lock down your session XP gains** until you type a reflective response directly into the CRT terminal to clear the lock.
+*   **Reflective Coherence Diagnostics (Radar Card):** Clicking the **ECRE Radar Card** launches a coherence diagnostic modal, compiling CNS vector compliance percentages to measure behavioral consistency.
+*   **XP-Lock Questions:** ECRE tracks active commitments (promises) and generates context-aware, deep questions about cognitive barriers (e.g. *"What specific cognitive friction prevents the initiation of the proof derivation protocol?"*). These questions **actively lock down session XP gains** until a reflective response is typed directly into the CRT terminal to clear the lock.
 *   **Reflective Command Routing:** Any unrecognized terminal input is automatically routed as a reflection prompt to ECRE. Powered by Gemini, ECRE returns a detailed, structured **ECRE Cognitive Appraisal** directly in the terminal log.
-*   **Temporal Rewind Telemetry (`auth rewind`):** Replays your historical database snapshots chronologically, displaying coherence compliance states step-by-step.
+*   **Temporal Rewind Telemetry (`auth rewind`):** Replays historical database snapshots chronologically, displaying coherence compliance states step-by-step.
 
 ---
 
 ## ⌨️ CRT Terminal CLI Command Spec
 
-Type `help` inside your `ethos` terminal to see available actions.
+Type `help` inside the `ethos` terminal to see available actions.
 
-*   `auth proxy gateway` — Switch your connection settings to sync quietly through your dynamic Firebase-token same-origin gateway.
+*   `auth proxy gateway` — Switch connection settings to sync quietly through the dynamic Firebase-token same-origin gateway.
 *   `auth status` — Fetch full telemetry on current database alignments, active paths, and state packet diagnostics.
 *   `auth push` / `auth pull` — Run manual sync updates. Prints a detailed summary of all Streaks, XP values, completed habits, and routines (names, timestamps, and sizes) directly in the terminal interface.
-*   `auth rewind` — Initiate a temporal rewind replay of your history states and ECRE compliance metrics.
+*   `auth rewind` — Initiate a temporal rewind replay of history states and ECRE compliance metrics.
 *   `remind [HH:MM] [Message]` — Schedule routine notifications using custom synthesized retro frequencies generated offline via browser AudioContext oscillators.
 *   `oracle [NL Query]` — Converse directly with Google's `gemini-2.5-flash` AI model.
-*   **Natural Language Habit Control:** Tell the Oracle what you completed in plain English:
+*   **Natural Language Habit Control:** Tell the Oracle what was completed in plain English:
     `$ oracle I completed my linear algebra routine and did body exercises today`
     The Oracle parses the request, toggles the correct ethe, updates streaks, grants XP, and commits a quiet state sync automatically.
 
