@@ -23,9 +23,12 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Authenticate via x-sync-key header
+  // Authenticate via x-sync-key header (self-healing comparison)
   const syncKey = req.headers['x-sync-key'];
-  if (!syncKey || syncKey !== process.env.SYNC_KEY) {
+  const cleanServerKey = (process.env.SYNC_KEY || '').trim().replace(/^["']|["']$/g, '');
+  const cleanClientKey = (syncKey || '').trim().replace(/^["']|["']$/g, '');
+
+  if (!cleanClientKey || cleanClientKey !== cleanServerKey) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 

@@ -2004,6 +2004,17 @@ function handleCommand(cmd) {
             var storageType = health.kv_configured ? 'Vercel KV' : (health.firebase_configured ? 'Firebase' : 'None');
             rpt += '  Storage configured: ' + (storageConfigured ? '<span style="color:var(--accent)">YES</span> (' + storageType + ')' : '<span style="color:var(--red)">NO</span>') + '<br>';
             rpt += '  Sync key configured: ' + (health.sync_key_configured ? '<span style="color:var(--accent)">YES</span>' : '<span style="color:var(--red)">NO</span>') + '<br>';
+            if (health.sync_key_debug) {
+              rpt += '  Server Key: len=' + health.sync_key_debug.raw_length + ' (clean=' + health.sync_key_debug.clean_length + ')' +
+                     (health.sync_key_debug.has_whitespace ? ' <span style="color:var(--red); font-weight:bold;">[HAS WHITESPACE]</span>' : '') +
+                     (health.sync_key_debug.has_quotes ? ' <span style="color:var(--red); font-weight:bold;">[HAS QUOTES]</span>' : '') + '<br>';
+            }
+            if (typeof S.customSyncKey === 'string') {
+              var clKey = S.customSyncKey.trim().replace(/^["']|["']$/g, '');
+              rpt += '  Client Key: len=' + S.customSyncKey.length + ' (clean=' + clKey.length + ')' +
+                     (S.customSyncKey.trim() !== S.customSyncKey ? ' <span style="color:var(--red); font-weight:bold;">[HAS WHITESPACE]</span>' : '') +
+                     ((S.customSyncKey.startsWith('"') || S.customSyncKey.startsWith("'")) ? ' <span style="color:var(--red); font-weight:bold;">[HAS QUOTES]</span>' : '') + '<br>';
+            }
           }
           rpt += '  Proxy override: ' + (S.customSyncProxy || '&lt;none&gt;') + '<br>';
           var gw = getSyncGatewayUrl(diagUid);
