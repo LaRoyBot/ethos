@@ -313,20 +313,21 @@ function firebaseRestPush(uid, callback) {
     .catch(function(err) { console.error('[Sync] Direct REST push failed:', err); if (callback) callback(false, err); });
 }
 
-function firebaseSyncPush() {
-  if (typeof firebase === 'undefined') return;
+function firebaseSyncPush(callback) {
+  if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
   var user = firebase.auth().currentUser;
-  if (!user) return;
+  if (!user) { if (callback) callback(false, 'User not authenticated'); return; }
   var gw = getSyncGatewayUrl(user.uid);
-  if (gw) { firebaseRestPush(user.uid); return; }
+  if (gw) { firebaseRestPush(user.uid, callback); return; }
   try { firebase.database().goOnline(); } catch (e) { console.warn("Firebase goOnline failed:", e); }
   S.pushCount = (S.pushCount || 0) + 1;
   try {
     var syncableState = Object.assign({}, S);
     delete syncableState.cmdHistory;
     firebase.database().ref('sync/' + user.uid).set({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount })
-      .catch(function(err) { console.error("Firebase push failed:", err); });
-  } catch (err) { console.error("Firebase database push initialization failed:", err); }
+      .then(function() { if (callback) callback(true, 'pushed'); })
+      .catch(function(err) { console.error("Firebase push failed:", err); if (callback) callback(false, err); });
+  } catch (err) { console.error("Firebase database push initialization failed:", err); if (callback) callback(false, err); }
 }
 
 // === ROBUST CLOUD PULL ENGINE ===
@@ -438,6 +439,13 @@ function firebaseSyncPull(callback, forcePull = false) {
   const user = firebase.auth().currentUser;
   if (!user) {
     if (callback) callback(false, 'User not authenticated');
+    return;
+  }
+
+  // Bypasses direct Firebase WebSocket check entirely if Same-Origin Gateway is active
+  var gw = getSyncGatewayUrl(user.uid);
+  if (gw) {
+    firebaseRestPull(user.uid, callback, forcePull, true);
     return;
   }
 
@@ -1956,20 +1964,27 @@ function handleCommand(cmd) {
       }, false);
     } else if (sub === 'push') {
       printTerm('Forcing local state push to cloud database...', 'info');
-      try {
-        firebaseSyncPush();
-        printTerm('Local state successfully pushed to cloud database.', 'ok');
-      } catch (err) {
-        printTerm('Push failed: ' + err.message, 'err');
-      }
+      firebaseSyncPush((success, result) => {
+        if (success) {
+          printTerm('Local state successfully pushed to cloud database.', 'ok');
+        } else {
+          printTerm('Push failed: ' + (result.message || result), 'err');
+        }
+      });
     } else if (sub === 'pull') {
       printTerm('Forcing cloud state pull (overwriting local)...', 'info');
-      printTerm('<span style="color:var(--text-dim)">Trying WebSocket first, REST API fallback after 10s...</span>', 'info');
+      const user = typeof firebase !== 'undefined' && firebase.auth().currentUser;
+      const gw = user && getSyncGatewayUrl(user.uid);
+      if (gw) {
+        printTerm('<span style="color:var(--text-dim)">Pulling directly from Vercel sync gateway...</span>', 'info');
+      } else {
+        printTerm('<span style="color:var(--text-dim)">Trying WebSocket first, REST API fallback after 10s...</span>', 'info');
+      }
       firebaseSyncPull((success, result) => {
         if (success) {
           printTerm('Cloud state successfully pulled and applied. (' + result + ')', 'ok');
         } else {
-          printTerm('Pull failed: ' + result, 'err');
+          printTerm('Pull failed: ' + (result.message || result), 'err');
         }
       }, true);
     } else if (sub === 'rest-pull') {
