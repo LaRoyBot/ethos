@@ -380,8 +380,8 @@ function firebaseRestPush(uid, callback) {
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' push HTTP ' + response.status); return response.json(); })
     .then(function(data) { console.log('[Sync] ' + gw.type + ' push succeeded:', data); if (callback) callback(true, 'pushed'); })
     .catch(function(err) {
-      console.error('[Sync] ' + gw.type + ' push failed, falling back to direct Firebase REST:', err);
-      firebaseDirectRestPush(uid, callback);
+      console.error('[Sync] ' + gw.type + ' push failed:', err);
+      if (callback) callback(false, err);
     });
     return;
   }
@@ -495,9 +495,10 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' HTTP ' + response.status); return response.json(); })
     .then(function(val) { console.log('[Sync] ' + gw.type + ' pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
     .catch(function(err) {
-      console.error('[Sync] ' + gw.type + ' pull failed, falling back to direct Firebase REST:', err);
-      if (statusEl) statusEl.textContent = 'Status: ' + gw.type + ' failed, trying direct Firebase REST...';
-      firebaseDirectRestPull(uid, callback, forcePull, isDirectCall);
+      console.error('[Sync] ' + gw.type + ' pull failed:', err);
+      if (statusEl) statusEl.textContent = 'Status: sync error (' + gw.type + ' failed) - ' + err.message;
+      unlockBootSync();
+      if (callback) callback(false, err);
     });
     return;
   }
@@ -1623,6 +1624,14 @@ function attachFirebaseWebSocketListener(user) {
   try {
     activeSyncRef = firebase.database().ref('sync/' + user.uid);
     activeSyncRef.on('value', snapshot => {
+      if (getSyncGatewayUrl(user.uid)) {
+        console.log("[Sync] Gateway became active; detaching stale Firebase WebSocket listener.");
+        if (activeSyncRef) {
+          activeSyncRef.off();
+          activeSyncRef = null;
+        }
+        return;
+      }
       const val = snapshot.val();
       if (val && val.state) {
         const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
@@ -2241,6 +2250,10 @@ function handleCommand(cmd) {
         S.customSyncProxy = '';
         S.customSyncKey = pKey || '';
         ss(true);
+        if (activeSyncRef) {
+          activeSyncRef.off();
+          activeSyncRef = null;
+        }
         printTerm('Same-origin gateway key successfully registered.', 'ok');
         printTerm('<span style="color:var(--text-dim)">Forcing cloud pull to retrieve existing state...</span>', 'info');
         firebaseSyncPull(function(success, result) {
@@ -2258,6 +2271,10 @@ function handleCommand(cmd) {
           S.customSyncProxy = pUrl;
           S.customSyncKey = pKey;
           ss(true);
+          if (activeSyncRef) {
+            activeSyncRef.off();
+            activeSyncRef = null;
+          }
           printTerm('Custom sync proxy successfully configured to: ' + S.customSyncProxy, 'ok');
           if (S.customSyncKey) {
             printTerm('Edge authentication key successfully registered.', 'ok');
