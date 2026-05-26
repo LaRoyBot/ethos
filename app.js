@@ -257,6 +257,33 @@ function ss(skipFirebase = false) {
   }
 }
 
+function getStateStats(state) {
+  var routines = Array.isArray(state && state.routines) ? state.routines : [];
+  var etheCount = 0;
+  routines.forEach(function(r) {
+    if (r && Array.isArray(r.ethe)) etheCount += r.ethe.length;
+  });
+  return {
+    pushCount: (state && state.pushCount) || 0,
+    xp: (state && state.xp) || 0,
+    etheCount: etheCount,
+    size: state ? JSON.stringify(state).length : 0
+  };
+}
+
+function backupLocalStateBeforeCloudReplace(reason) {
+  try {
+    var stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    localStorage.setItem('mathInit_state_backup_' + stamp, JSON.stringify({
+      reason: reason || 'cloud_replace',
+      savedAt: Date.now(),
+      state: S
+    }));
+  } catch (e) {
+    console.warn('[Sync] Could not save pre-replace local backup:', e);
+  }
+}
+
 // === FIREBASE CLOUD SYNC CORE ===
 // Same-origin Vercel API gateway: the best sync path.
 // Priority: 1) /api/sync (same domain, zero CORS) → 2) customSyncProxy → 3) direct Firebase REST → 4) Firebase WebSocket
@@ -397,12 +424,31 @@ function applyCloudState(val, forcePull, callback) {
       const prevAuthEmail = S.authEmail;
       const prevAuthUsername = S.authUsername;
       const prevCmdHistory = S.cmdHistory || [];
+      const prevCustomSyncProxy = S.customSyncProxy || '';
+      const prevCustomSyncKey = S.customSyncKey || '';
+      const prevGeminiKey = S.geminiKey || '';
+      const localStats = getStateStats(S);
+      const cloudStats = getStateStats(val.state);
 
+      if (forcePull && localStats.pushCount > cloudStats.pushCount && localStats.size > cloudStats.size) {
+        const msg = 'Refused forced cloud pull because remote state looks older/smaller than local. Local pushCount=' + localStats.pushCount + ', remote pushCount=' + cloudStats.pushCount + '.';
+        console.warn('[Sync] ' + msg);
+        addLog('warn', 'Cloud sync: ' + msg);
+        if (statusEl) statusEl.textContent = 'Status: pull refused (remote state looks stale)';
+        unlockBootSync();
+        if (callback) callback(false, msg);
+        return;
+      }
+
+      backupLocalStateBeforeCloudReplace(forcePull ? 'force_pull' : 'cloud_newer');
       S = val.state;
       sanitizeStateArrays(S);
       S.authEmail = prevAuthEmail;
       S.authUsername = prevAuthUsername;
       S.cmdHistory = prevCmdHistory;
+      S.customSyncProxy = prevCustomSyncProxy;
+      S.customSyncKey = prevCustomSyncKey;
+      S.geminiKey = prevGeminiKey || S.geminiKey || '';
 
       // DO NOT run checkDailyReset here — the cloud state's done flags
       // are the source of truth. Running daily reset would wipe them.
@@ -946,8 +992,10 @@ if (typeof firebase !== 'undefined') {
       // Dismiss boot gate immediately for snappy responsiveness
       tryDismissBoot();
       
-      // Sync from cloud in the background, forcing a pull if we were a guest
-      firebaseSyncPull(null, wasGuest);
+      // Sync from cloud in the background. Do not force-pull on reload:
+      // a missing local auth marker or missing gateway key can otherwise
+      // overwrite a rich local state with a stale/default cloud record.
+      firebaseSyncPull(null, false);
       
       // Real-time synchronization across devices (Issue 8/8)
       attachFirebaseWebSocketListener(user);
