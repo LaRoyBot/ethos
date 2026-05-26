@@ -2,36 +2,32 @@
 
 > *"We are what we repeatedly do. Excellence, then, is not an act, but a habit."* — Aristotle, *Nicomachean Ethics*
 
-**ethos** is an ultra-lightweight, zero-dependency, terminal-aesthetic **Cognitive Co-Processor and Life-Curriculum Compiler**. It is engineered for developers, AI researchers, and self-directed mathematicians who demand extreme execution accountability. 
+**ethos** is an open-source, zero-dependency, terminal-aesthetic life tracker built around a single idea: tracking the daily disciplines (ἤθη, *ethe*) that build character. 
 
-Bypassing the passive "checkbox checklists" of traditional habit trackers, `ethos` introduces an active **Epistemic Governor** powered by Google's state-of-the-art Gemini LLM architectures.
+It is designed for developers, researchers, and self-directed learners who want a lightweight, distraction-free CRT terminal interface to track their daily routines, log research papers, earn XP, and sync records seamlessly in the cloud.
 
-**[→ Launch Interactive Terminal](https://ethos-jet.vercel.app)**
+**[→ Launch Live App](https://ethos-jet.vercel.app)**
 
 ---
 
-## 🧠 Core Innovation: ECRE (Ethos Cognitive Reflection Engine)
+## 🛠️ Tech Stack & Philosophy
 
-Traditional tracking tools assume humans are rational actors who simply "forgot" to do a task. `ethos` rejects this, introducing **ECRE**—an active **externalized cognitive governor** designed to combat cognitive friction, self-sabotage, and planning fallacies through deep LLM-driven behavioral alignment.
+*   **Frontend:** Pure HTML5, CSS3 (retro scanline shading, visual coherence waves), and Vanilla ES5/ES6 JavaScript. No npm packages, no bundler, no build steps. 
+*   **Database:** Decoupled dual-engine syncing (Vercel KV serverless Redis + Firebase Realtime Database direct connection fallback).
+*   **Fonts:** JetBrains Mono (via Google Fonts CDN).
+*   **Hosting:** Vercel serverless.
+
+---
+
+## ⚡ Sync & Auth Architecture (Under the Hood)
+
+You built a highly robust, secure, and lightweight synchronization pipeline designed to keep your client bundle size absolutely minimal while maintaining complete multi-tenant database isolation.
 
 ```
       +---------------------------------------------------------+
       |                      ethos PWA                          |
       |   (Vanilla JS Engine / CRT Terminal CLI / CSS Scanlines) |
       +----------------------------+----------------------------+
-                                   |
-                     [Freeform Interactive CLI]
-                                   |
-                                   v
-      +---------------------------------------------------------+
-      |            ECRE (Cognitive Reflection Engine)           |
-      |     (Appraisal Metrics / Coherence Waveforms / Radar)   |
-      +----------------------------+----------------------------+
-            |                      |                      |
-            v                      v                      v
-      [Active Promises]     [XP-Lock Questions]    [Stale Pull Refusals]
-            |                      |                      |
-            +----------------------+----------------------+
                                    |
                      [Dynamic Firebase IdToken]
                                    |
@@ -50,68 +46,46 @@ Traditional tracking tools assume humans are rational actors who simply "forgot"
       +---------------------------------------------------------+
 ```
 
-### 1. The Reflective Coherence Diagnostic (Radar Vector Map)
-ECRE compiles your habit compliance patterns into a spatial vector map. Clicking the **ECRE Radar Card** launches a high-fidelity **Reflective Coherence Diagnostic modal**, compiling compliance metrics (CNS vector coherence percentages) to dynamically gauge your behavioral velocity.
+### 1. Dynamic Firebase IdToken Authentication
+Instead of using leak-prone API tokens or manual 40-character sync keys, `ethos` integrates directly with your Firebase Auth session.
+* On every sync write (`PUT`) or fetch (`GET`), the app extracts your short-lived Firebase `IdToken` (JWT) dynamically in real-time from `firebase.auth().currentUser`.
+* This token is transmitted in the request headers (`Authorization: Bearer <token>`) to your server.
+* The Serverless Gateway `/api/sync.js` validates the token cryptographically on Vercel's end before communicating with the database.
 
-### 2. State-Locking & Epistemic Open Questions (XP-Lock)
-When ECRE detects self-sabotage or broken promises, it doesn't just log it—it intervenes:
-*   **XP-Lock Questions:** ECRE generates context-aware, deep epistemic questions regarding your cognitive barriers (e.g. *"What specific cognitive friction prevents the initiation of your proof derivation protocol?"*).
-*   **The Governor:** These open questions actively lock down your session's XP and progress markers, forcing you to type a reflective response directly into the CRT terminal to clear the lock. It forces self-appraisal before you can continue.
-*   **Active Commitments (Promises):** Tracks exact commitments made under ECRE's appraisal to measure structural accountability over time.
+### 2. Zero-Dependency Serverless Proxy
+Instead of loading a heavy database SDK on the client, the app uses native `fetch()` calls to the same-origin `/api/sync` path. The serverless Vercel function translates these calls into TCP instructions for your serverless Upstash Redis database (Vercel KV), keeping your frontend bundle ultra-fast.
 
-### 3. Unrecognized Command Freeform Reflection
-The `ethos` terminal treats commands as primary functions. However, **any unrecognized text entered into the terminal is automatically treated as freeform, inline therapeutic reflection with ECRE**. Powered by Gemini, ECRE dynamically assesses your state, checks your daily disciplines, and returns a detailed **ECRE Cognitive Appraisal** report.
-
-### 4. ECRE Telemetry Rewind (`auth rewind`)
-A high-concept temporal debugger: typing `auth rewind` initiates a complete replay of your historical database snapshots. It reconstructs past days chronologically, rendering active coherence waveforms and displaying ECRE compliance vectors dynamically across your history.
+### 3. Defensive Sync Safeguards
+*   **Pre-Replace Local Backups:** Before any cloud state overwrite is applied to your local memory, the app automatically takes a full snapshot of your current state and saves it in `localStorage` under `mathInit_state_backup_YYYY-MM-DD-HH-MM-SS-MS`. This acts as an instant local restore point.
+*   **Vector Clock Versioning & Pull Refusal:** The sync engine tracks incremental `pushCount` alongside the `lastUpdated` timestamp. If a forced cloud pull is triggered, the engine verifies the payload size and version vector. **If the remote state looks older or smaller than your local state, the engine actively refuses the pull to protect your local data.**
+*   **Dynamic WebSocket Detachment:** Running real-time WebSockets drains battery and throws connection errors in the console when Firebase is blocked. The moment a same-origin gateway becomes active, `ethos` **automatically detaches the background Firebase WebSocket listener** to clean up memory and sockets, dynamically re-binding only if you revert to default Firebase.
 
 ---
 
-## ⚡ Sync Gateway Architecture (Our Pride & Joy)
+## 🧠 ECRE (Ethos Cognitive Reflection Engine)
 
-Under the hood, **ethos** implements a state-of-the-art serverless synchronization pipeline that achieves secure, real-time database state replication with **zero external node dependencies** on the client.
+`ethos` goes beyond a standard passive tracker by introducing **ECRE**—a reflective memory profile system that uses Google's `gemini-2.5-flash` model to analyze scheduling failures and enforce cognitive accountability.
 
-### 1. Dynamic JWT Token Authentication
-Rather than using static, leak-prone API tokens or manual 40-character sync keys, `ethos` binds securely to your Firebase Auth session. 
-* On every sync payload write (`PUT`) or fetch (`GET`), the app extracts your short-lived Firebase `IdToken` (JWT) directly from `firebase.auth().currentUser`.
-* This token is transmitted in the request headers (`Authorization: Bearer <token>`) to Vercel.
-* The Serverless Gateway `/api/sync.js` extracts and validates the JWT cryptographically, ensuring absolute multi-tenant database isolation.
-
-### 2. Zero-Dependency Serverless Proxy
-Instead of pulling massive, CPU-hogging client libraries, the client speaks native, lightweight `fetch()` directly to the same-origin `/api/sync` gateway. The Vercel function translates standard REST calls into high-performance Upstash Redis TCP instructions, keeping bundle sizes strictly minimal.
-
-### 3. Defensive Sync Safeguards (Bulletproof Execution)
-*   **Pre-Replace Local Snapshotting:** Before any cloud state pull is applied to the local memory, the app automatically takes a full local backup and commits it to `localStorage` under `mathInit_state_backup_YYYY-MM-DD-HH-MM-SS-MS`. If a cloud state was corrupted or stale, you are exactly one command away from an instant local restore.
-*   **Vector Clock Versioning & Pull Refusal:** The sync engine maintains an incremental `pushCount` alongside the `lastUpdated` timestamp. If a forced cloud pull is initiated, the engine verifies the payload size and version vector. **If the remote state is smaller and older than your local state, the engine actively refuses the pull to safeguard your hard-earned local data.**
-*   **Active WebSocket Detachment:** Running WebSockets in the background drains mobile batteries and triggers console connection alerts when Firebase is blocked. The moment `ethos` detects your same-origin gateway key is configured, it **instantly detaches the Firebase Realtime WebSocket listener** to clean up socket allocations, dynamically re-binding only if you choose to revert to Firebase.
+*   **Reflective Coherence Diagnostics (Radar Card):** Clicking the **ECRE Radar Card** launches a coherence diagnostic modal, compiling CNS vector compliance percentages to measure your behavioral consistency.
+*   **XP-Lock Questions:** ECRE tracks your active commitments (promises) and generates context-aware, deep questions about your cognitive barriers (e.g. *"What specific cognitive friction prevents the initiation of your proof derivation protocol?"*). These questions **actively lock down your session XP gains** until you type a reflective response directly into the CRT terminal to clear the lock.
+*   **Reflective Command Routing:** Any unrecognized terminal input is automatically routed as a reflection prompt to ECRE. Powered by Gemini, ECRE returns a detailed, structured **ECRE Cognitive Appraisal** directly in the terminal log.
+*   **Temporal Rewind Telemetry (`auth rewind`):** Replays your historical database snapshots chronologically, displaying coherence compliance states step-by-step.
 
 ---
 
 ## ⌨️ CRT Terminal CLI Command Spec
 
-Type `help` inside your `ethos` console to interact with the system via its native terminal engine.
+Type `help` inside your `ethos` terminal to see available actions.
 
-*   `auth proxy gateway` — Restructure your connection settings to bypass direct database blocks and sync quietly through your dynamic Firebase-token same-origin gateway.
+*   `auth proxy gateway` — Switch your connection settings to sync quietly through your dynamic Firebase-token same-origin gateway.
 *   `auth status` — Fetch full telemetry on current database alignments, active paths, and state packet diagnostics.
-*   `auth push` / `auth pull` — Run full manual vector-clock sync updates. Prints a gorgeous, granular summary of all Streaks, XP values, completed habits, and routines directly in the terminal interface.
-*   `auth rewind` — Initiate a temporal rewind play of your history states and displaying ECRE compliance vectors dynamically.
-*   `remind [HH:MM] [Message]` — Add audio routine notifications using custom synthesized retro frequencies generated offline via standard browser AudioContext oscillators.
-*   `oracle [NL Query]` — Converse directly with Google's ultra-fast `gemini-2.5-flash` generative AI model.
-*   **Natural Language Habit Control:** Try talking to the oracle like a human:
-    `$ oracle I crushed my linear algebra and body exercises today`
-    The Oracle parses your request, cross-checks your daily disciplines, automatically toggles the correct ethe, updates streaks, grants XP, and commits a quiet state sync!
-
----
-
-## 🏛️ Aristotle's Core Philosophy
-
-In Aristotle's philosophy, **ἤθη** (ethe, plural of *ethos*) are not mechanical "habits" you perform blindly. They are the deliberate customs and practices you choose to embody to forge your character. 
-
-The tracker is organized into explicit life domains:
-*   `[math]` — Foundations of the future. Track Linear Algebra, Probability, Attention Mechanics, and LoRA parameters.
-*   `[body]` — The physical vessel. Manage routines, sleep, hydration, and active rehabilitation.
-*   `[mind]` — Focus, contemplation, and literature. Log books, research papers, and self-reflections.
-*   `[build]` — Compiling ideas into production systems.
+*   `auth push` / `auth pull` — Run manual sync updates. Prints a detailed summary of all Streaks, XP values, completed habits, and routines (names, timestamps, and sizes) directly in the terminal interface.
+*   `auth rewind` — Initiate a temporal rewind replay of your history states and ECRE compliance metrics.
+*   `remind [HH:MM] [Message]` — Schedule routine notifications using custom synthesized retro frequencies generated offline via browser AudioContext oscillators.
+*   `oracle [NL Query]` — Converse directly with Google's `gemini-2.5-flash` AI model.
+*   **Natural Language Habit Control:** Tell the Oracle what you completed in plain English:
+    `$ oracle I completed my linear algebra routine and did body exercises today`
+    The Oracle parses the request, toggles the correct ethe, updates streaks, grants XP, and commits a quiet state sync automatically.
 
 ---
 
@@ -133,4 +107,4 @@ vercel
 
 ---
 
-*Built by [@LaRoyBot](https://github.com/LaRoyBot) as part of a self-directed math-to-LLM curriculum. The tracker started as a way to stay accountability to the curriculum. Then it became the thing.*
+*Built by [@LaRoyBot](https://github.com/LaRoyBot) as part of a self-directed math-to-LLM curriculum. The tracker started as a way to stay accountable to the curriculum. Then it became the thing.*
