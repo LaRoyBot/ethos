@@ -253,8 +253,17 @@ function ss(skipFirebase = false) {
   }
   save('mathInit_state', S);
   if (!skipFirebase && !_bootSyncLocked && typeof firebase !== 'undefined' && firebase.auth().currentUser) {
-    firebaseSyncPush();
+    queueFirebaseSyncPush();
   }
+}
+
+let _syncPushTimer = null;
+function queueFirebaseSyncPush() {
+  if (_syncPushTimer) clearTimeout(_syncPushTimer);
+  _syncPushTimer = setTimeout(function() {
+    _syncPushTimer = null;
+    firebaseSyncPush();
+  }, 1200);
 }
 
 function getStateStats(state) {
@@ -295,14 +304,26 @@ function getCleanSyncKey() {
 
 function getSyncGatewayUrl(uid) {
   const cleanKey = getCleanSyncKey();
-  if (_vercelGatewayAvailable === true && cleanKey) {
-    return { url: '/api/sync?uid=' + encodeURIComponent(uid), type: 'gateway', headers: { 'x-sync-key': cleanKey } };
+  if (_vercelGatewayAvailable !== false) {
+    return { url: '/api/sync', type: 'gateway', headers: {} };
   }
   if (S.customSyncProxy && cleanKey) {
     var host = S.customSyncProxy.replace(/\/$/, '');
     return { url: host + '/sync/' + uid + '.json', type: 'proxy', headers: { 'x-sync-key': cleanKey } };
   }
   return null;
+}
+
+function getSyncRequestHeaders(gw) {
+  var baseHeaders = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
+  if (gw && gw.type === 'gateway') {
+    var user = typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser;
+    if (!user) return Promise.reject(new Error('User not authenticated'));
+    return user.getIdToken(false).then(function(token) {
+      return Object.assign(baseHeaders, { 'Authorization': 'Bearer ' + token });
+    });
+  }
+  return Promise.resolve(Object.assign(baseHeaders, gw ? gw.headers : {}));
 }
 
 function getSyncPathReport() {
@@ -314,8 +335,17 @@ function getSyncPathReport() {
     uid: uid,
     path: gw ? gw.type.toUpperCase() : 'DIRECT FIREBASE',
     url: gw ? gw.url : firebaseConfig.databaseURL + '/sync/' + uid,
-    clientKeyLength: cleanKey.length
+    clientKeyLength: cleanKey.length,
+    auth: gw && gw.type === 'gateway' ? 'Firebase ID token' : (cleanKey ? 'sync key' : 'Firebase direct')
   };
+}
+
+function getSyncErrorMessage(err) {
+  var msg = (err && err.message) ? err.message : String(err);
+  if (msg.indexOf('HTTP 401') !== -1) {
+    return msg + '. The sync gateway rejected the Firebase login token. Sign out, sign back in, then try sync again.';
+  }
+  return msg;
 }
 
 function probeGateway() {
@@ -372,16 +402,18 @@ function firebaseRestPush(uid, callback) {
     S.pushCount = (S.pushCount || 0) + 1;
     var syncableState = Object.assign({}, S);
     delete syncableState.cmdHistory;
-    fetch(gw.url, {
-      method: 'PUT',
-      headers: Object.assign({ 'Content-Type': 'application/json', 'Accept': 'application/json' }, gw.headers),
-      body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount })
+    getSyncRequestHeaders(gw).then(function(headers) {
+      return fetch(gw.url, {
+        method: 'PUT',
+        headers: headers,
+        body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount })
+      });
     })
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' push HTTP ' + response.status); return response.json(); })
     .then(function(data) { console.log('[Sync] ' + gw.type + ' push succeeded:', data); if (callback) callback(true, 'pushed'); })
     .catch(function(err) {
       console.error('[Sync] ' + gw.type + ' push failed:', err);
-      if (callback) callback(false, err);
+      if (callback) callback(false, getSyncErrorMessage(err));
     });
     return;
   }
@@ -491,14 +523,17 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
   }
   var gw = getSyncGatewayUrl(uid);
   if (gw) {
-    fetch(gw.url, { method: 'GET', headers: Object.assign({ 'Accept': 'application/json' }, gw.headers), cache: 'no-store' })
+    getSyncRequestHeaders(gw).then(function(headers) {
+      delete headers['Content-Type'];
+      return fetch(gw.url, { method: 'GET', headers: headers, cache: 'no-store' });
+    })
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' HTTP ' + response.status); return response.json(); })
     .then(function(val) { console.log('[Sync] ' + gw.type + ' pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
     .catch(function(err) {
       console.error('[Sync] ' + gw.type + ' pull failed:', err);
       if (statusEl) statusEl.textContent = 'Status: sync error (' + gw.type + ' failed) - ' + err.message;
       unlockBootSync();
-      if (callback) callback(false, err);
+      if (callback) callback(false, getSyncErrorMessage(err));
     });
     return;
   }
@@ -1599,7 +1634,7 @@ function getSyncDetailsReport(state) {
   var rpt = '  Timestamp: <span style="color:var(--accent)">' + ts + '</span><br>' +
             '  Active Path: <span style="color:var(--accent)">' + syncPath.path + '</span><br>' +
             '  UID: <span style="color:var(--accent)">' + syncPath.uid + '</span><br>' +
-            '  Client Sync Key: <span style="color:var(--accent)">' + syncPath.clientKeyLength + ' chars</span><br>' +
+            '  Auth: <span style="color:var(--accent)">' + syncPath.auth + '</span><br>' +
             '  Size: <span style="color:var(--accent)">' + (size / 1024).toFixed(2) + ' KB</span> (' + size + ' bytes)<br>' +
             '  Push Count: <span style="color:var(--accent)">' + pushCount + '</span><br>' +
             '  User: <span style="color:var(--accent)">' + username + ' (' + email + ')</span><br>' +
@@ -2171,26 +2206,12 @@ function handleCommand(cmd) {
             var storageConfigured = health.kv_configured || health.firebase_configured;
             var storageType = health.kv_configured ? 'Vercel KV' : (health.firebase_configured ? 'Firebase' : 'None');
             rpt += '  Storage configured: ' + (storageConfigured ? '<span style="color:var(--accent)">YES</span> (' + storageType + ')' : '<span style="color:var(--red)">NO</span>') + '<br>';
-            rpt += '  Sync key configured: ' + (health.sync_key_configured ? '<span style="color:var(--accent)">YES</span>' : '<span style="color:var(--red)">NO</span>') + '<br>';
-            if (health.sync_key_debug) {
-              rpt += '  Server Key: len=' + health.sync_key_debug.raw_length + ' (clean=' + health.sync_key_debug.clean_length + ')' +
-                     (health.sync_key_debug.has_whitespace ? ' <span style="color:var(--red); font-weight:bold;">[HAS WHITESPACE]</span>' : '') +
-                     (health.sync_key_debug.has_quotes ? ' <span style="color:var(--red); font-weight:bold;">[HAS QUOTES]</span>' : '') + '<br>';
-            }
-            if (typeof S.customSyncKey === 'string') {
-              var clKey = S.customSyncKey.trim().replace(/^["']|["']$/g, '');
-              rpt += '  Client Key: len=' + S.customSyncKey.length + ' (clean=' + clKey.length + ')' +
-                     (S.customSyncKey.trim() !== S.customSyncKey ? ' <span style="color:var(--red); font-weight:bold;">[HAS WHITESPACE]</span>' : '') +
-                     ((S.customSyncKey.startsWith('"') || S.customSyncKey.startsWith("'")) ? ' <span style="color:var(--red); font-weight:bold;">[HAS QUOTES]</span>' : '') + '<br>';
-            }
+            rpt += '  Auth mode: <span style="color:var(--accent)">' + (health.auth_type || 'firebase-id-token') + '</span><br>';
           }
           rpt += '  Proxy override: ' + (S.customSyncProxy || '&lt;none&gt;') + '<br>';
           var gw = getSyncGatewayUrl(diagUid);
           rpt += '  UID: <span style="color:var(--amber)">' + diagUid + '</span><br>';
           rpt += '  Active path: <span style="color:var(--amber)">' + (gw ? gw.type.toUpperCase() + ' \u2192 ' + gw.url.substring(0, 60) : 'DIRECT FIREBASE') + '</span>';
-          if (gwOk && health.sync_key_configured && !getCleanSyncKey()) {
-            rpt += '<br><span style="color:var(--red); font-weight:bold;">  WARNING: Gateway is configured on the server, but this device has no client sync key. This device will use DIRECT FIREBASE and will not see Vercel KV gateway data.</span>';
-          }
           printTerm(rpt, 'info');
           function showDiag(val) {
             if (!val || !val.state) { printTerm('Cloud: No state found.', 'warn'); return; }
@@ -2210,7 +2231,10 @@ function handleCommand(cmd) {
               '<b>First 15 cloud ethe:</b><br>' + eD, 'info');
           }
           if (gw) {
-            fetch(gw.url, { method: 'GET', headers: Object.assign({ 'Accept': 'application/json' }, gw.headers), cache: 'no-store' })
+            getSyncRequestHeaders(gw).then(function(headers) {
+              delete headers['Content-Type'];
+              return fetch(gw.url, { method: 'GET', headers: headers, cache: 'no-store' });
+            })
               .then(function(r) { if (!r.ok) throw new Error(gw.type + ' HTTP ' + r.status); return r.json(); })
               .then(function(v) { showDiag(v); })
               .catch(function(e) { printTerm('Diag fetch failed (' + gw.type + '): ' + e.message, 'err'); });
@@ -2236,37 +2260,33 @@ function handleCommand(cmd) {
         } else {
           printTerm('No custom sync proxy configured. Using default Firebase connection.', 'info');
         }
-        printTerm('Usage: auth proxy gateway &lt;key&gt; (for same-origin) OR auth proxy &lt;url&gt; [&lt;key&gt;] (or "auth proxy clear" to disable)', 'info');
+        printTerm('Usage: auth proxy gateway (same-origin token sync) OR auth proxy &lt;url&gt; [&lt;key&gt;] (legacy external proxy) OR auth proxy clear', 'info');
       } else if (pUrl.toLowerCase() === 'clear') {
         S.customSyncProxy = '';
         S.customSyncKey = '';
         ss(true);
-        printTerm('Custom sync proxy and key cleared. Reverted to default Firebase connection.', 'ok');
-        const user = typeof firebase !== 'undefined' && firebase.auth().currentUser;
-        if (user) {
-          attachFirebaseWebSocketListener(user);
-        }
+        printTerm('Custom sync proxy and key cleared. Using same-origin Firebase-token gateway.', 'ok');
       } else if (pUrl.toLowerCase() === 'gateway' || pUrl.toLowerCase() === 'same-origin') {
         S.customSyncProxy = '';
-        S.customSyncKey = pKey || '';
+        S.customSyncKey = '';
         ss(true);
         if (activeSyncRef) {
           activeSyncRef.off();
           activeSyncRef = null;
         }
-        printTerm('Same-origin gateway key successfully registered.', 'ok');
-        printTerm('<span style="color:var(--text-dim)">Forcing cloud pull to retrieve existing state...</span>', 'info');
+        printTerm('Same-origin gateway selected. Firebase login token will be used automatically.', 'ok');
+        printTerm('<span style="color:var(--text-dim)">Checking cloud for latest state...</span>', 'info');
         firebaseSyncPull(function(success, result) {
           if (success) {
             printTerm('Cloud state successfully retrieved and applied.', 'ok');
             printTerm('<span style="color:var(--accent); font-weight:bold;">--- PULL SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
           } else {
-            printTerm('Initial pull failed: ' + (result.message || result) + ' (you may need to run "auth push" from your active device first)', 'warn');
+            printTerm('Initial pull failed: ' + (result.message || result), 'warn');
           }
-        }, true);
+        }, false);
       } else {
         if (!pUrl.startsWith('http://') && !pUrl.startsWith('https://')) {
-          printTerm('Invalid URL. Proxy URL must start with http:// or https:// (or use "auth proxy gateway &lt;key&gt;" for same-origin)', 'err');
+          printTerm('Invalid URL. Proxy URL must start with http:// or https:// (or use "auth proxy gateway" for same-origin token sync)', 'err');
         } else {
           S.customSyncProxy = pUrl;
           S.customSyncKey = pKey;
