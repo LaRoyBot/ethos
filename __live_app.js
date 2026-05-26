@@ -1522,7 +1522,7 @@ function getSyncDetailsReport(state) {
           }
         });
       }
-      routinesList.push(r.title + ' (' + rDone + '/' + rTotal + ')');
+      routinesList.push(r.label + ' (' + rDone + '/' + rTotal + ')');
     });
   }
   
@@ -1543,6 +1543,7 @@ function getSyncDetailsReport(state) {
             '  Routines: ' + (routinesList.length ? routinesList.join(', ') : 'none') + '<br>';
   return rpt;
 }
+
 
 function attachFirebaseWebSocketListener(user) {
   if (activeSyncRef) {
@@ -1870,7 +1871,7 @@ function handleCommand(cmd) {
     var txt = '<div style="font-family: monospace; line-height: 1.4; color: var(--text); width: 100%; box-sizing: border-box;">';
     txt += '  <div style="color: var(--accent); font-weight: bold; text-align: center; margin-bottom: 16px;">\n';
     if (S.japaneseMode) {
-      txt += '    /// 帝国アカデミー功績実績デック ///\n';
+      txt += '    /// 帝国アカデミー功績実績��ック ///\n';
       txt += '    =====================================\n';
     } else {
       txt += '    /// IMPERIAL ACADEMY ACHIEVEMENT DECK ///\n';
@@ -2177,7 +2178,6 @@ function handleCommand(cmd) {
         firebaseSyncPull(function(success, result) {
           if (success) {
             printTerm('Cloud state successfully retrieved and applied.', 'ok');
-            printTerm('<span style="color:var(--accent); font-weight:bold;">--- PULL SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
           } else {
             printTerm('Initial pull failed: ' + (result.message || result) + ' (you may need to run "auth push" from your active device first)', 'warn');
           }
@@ -2197,7 +2197,6 @@ function handleCommand(cmd) {
           firebaseSyncPull(function(success, result) {
             if (success) {
               printTerm('Cloud state successfully retrieved and applied.', 'ok');
-              printTerm('<span style="color:var(--accent); font-weight:bold;">--- PULL SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
             } else {
               printTerm('Initial pull failed: ' + (result.message || result), 'warn');
             }
@@ -3336,7 +3335,7 @@ function translateStaticDOM() {
     logTabResetBtn.textContent = isJp ? 'すべてのデータを消去' : 'erase all data';
     const logTabResetDesc = logTabResetBtn.nextElementSibling;
     if (logTabResetDesc && logTabResetDesc.classList.contains('log-msg')) {
-      logTabResetDesc.textContent = isJp ? '// この操作によりすべてのデータが削除されます。取り消しはできません。' : '// this will delete everything. no undo.';
+      logTabResetDesc.textContent = isJp ? '// この操作により��べてのデータが削除されます。取り消しはできません。' : '// this will delete everything. no undo.';
     }
   }
   const logTabOpenTermBtn = document.getElementById('open-term-btn');
