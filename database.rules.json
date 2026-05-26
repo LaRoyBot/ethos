@@ -1,20 +1,19 @@
 {
   "rules": {
+    ".read": false,
+    ".write": false,
     "sync": {
       "$uid": {
-        // Only allow users to read/write their own data
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
       }
     },
     "usernames": {
-      // Denying parent read blocks mass enumeration/listing of all emails
       ".read": false,
       "$username": {
-        // Allow single handle lookups during authentication
         ".read": true,
-        // Allow writing only if the username is unclaimed OR if the logged-in user is claiming/updating their own mapped email
-        ".write": "!data.exists() || data.val() === auth.token.email"
+        ".write": "auth != null && auth.token.email != null && newData.isString() && newData.val() === auth.token.email && (!data.exists() || data.val() === auth.token.email)",
+        ".validate": "auth != null && auth.token.email != null && newData.isString() && newData.val() === auth.token.email"
       }
     }
   }

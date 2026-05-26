@@ -262,13 +262,18 @@ function ss(skipFirebase = false) {
 // Priority: 1) /api/sync (same domain, zero CORS) → 2) customSyncProxy → 3) direct Firebase REST → 4) Firebase WebSocket
 let _vercelGatewayAvailable = null; // null = untested, true/false = cached probe result
 
+function getCleanSyncKey() {
+  return (S.customSyncKey || '').trim().replace(/^["']|["']$/g, '');
+}
+
 function getSyncGatewayUrl(uid) {
-  if (_vercelGatewayAvailable === true) {
-    return { url: '/api/sync?uid=' + encodeURIComponent(uid), type: 'gateway', headers: { 'x-sync-key': S.customSyncKey || '' } };
+  const cleanKey = getCleanSyncKey();
+  if (_vercelGatewayAvailable === true && cleanKey) {
+    return { url: '/api/sync?uid=' + encodeURIComponent(uid), type: 'gateway', headers: { 'x-sync-key': cleanKey } };
   }
-  if (S.customSyncProxy && S.customSyncKey) {
+  if (S.customSyncProxy && cleanKey) {
     var host = S.customSyncProxy.replace(/\/$/, '');
-    return { url: host + '/sync/' + uid + '.json', type: 'proxy', headers: { 'x-sync-key': S.customSyncKey } };
+    return { url: host + '/sync/' + uid + '.json', type: 'proxy', headers: { 'x-sync-key': cleanKey } };
   }
   return null;
 }
@@ -280,6 +285,46 @@ function probeGateway() {
     .catch(function() { _vercelGatewayAvailable = false; console.log('[Sync] Gateway probe: NOT AVAILABLE (fetch error)'); return false; });
 }
 probeGateway();
+
+function firebaseDirectRestPush(uid, callback) {
+  if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
+  if (!firebase.auth().currentUser) { if (callback) callback(false, 'User not authenticated'); return; }
+  S.pushCount = (S.pushCount || 0) + 1;
+  firebase.auth().currentUser.getIdToken(false)
+    .then(function(idToken) {
+      var restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
+      var syncableState = Object.assign({}, S);
+      delete syncableState.cmdHistory;
+      return fetch(restUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount }) });
+    })
+    .then(function(response) { if (!response.ok) throw new Error('Direct REST push HTTP ' + response.status); return response.json(); })
+    .then(function(data) { console.log('[Sync] Direct REST push succeeded:', data); if (callback) callback(true, 'pushed'); })
+    .catch(function(err) { console.error('[Sync] Direct REST push failed:', err); if (callback) callback(false, err); });
+}
+
+function firebaseDirectRestPull(uid, callback, forcePull, isDirectCall) {
+  var statusEl = document.getElementById('auth-sync-status');
+  if (typeof firebase === 'undefined' || !firebase.auth().currentUser) {
+    if (statusEl) statusEl.textContent = 'Status: not authenticated';
+    unlockBootSync();
+    if (callback) callback(false, 'Not authenticated');
+    return;
+  }
+  firebase.auth().currentUser.getIdToken(false)
+    .then(function(idToken) {
+      var restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
+      return fetch(restUrl, { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-store' });
+    })
+    .then(function(response) { if (!response.ok) throw new Error('Direct REST HTTP ' + response.status); return response.json(); })
+    .then(function(val) { console.log('[Sync] Direct REST pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
+    .catch(function(err) {
+      console.error('[Sync] Direct REST pull failed:', err);
+      if (statusEl) statusEl.textContent = 'Status: sync error (REST failed) - ' + err.message;
+      unlockBootSync();
+      if (callback) callback(false, err);
+      if (isDirectCall) { var tip = getNetworkErrorTip(err); if (tip) printTerm(tip, 'info'); }
+    });
+}
 
 function firebaseRestPush(uid, callback) {
   var gw = getSyncGatewayUrl(uid);
@@ -294,23 +339,13 @@ function firebaseRestPush(uid, callback) {
     })
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' push HTTP ' + response.status); return response.json(); })
     .then(function(data) { console.log('[Sync] ' + gw.type + ' push succeeded:', data); if (callback) callback(true, 'pushed'); })
-    .catch(function(err) { console.error('[Sync] ' + gw.type + ' push failed:', err); if (callback) callback(false, err); });
+    .catch(function(err) {
+      console.error('[Sync] ' + gw.type + ' push failed, falling back to direct Firebase REST:', err);
+      firebaseDirectRestPush(uid, callback);
+    });
     return;
   }
-  if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
-  var user = firebase.auth().currentUser;
-  if (!user) { if (callback) callback(false, 'User not authenticated'); return; }
-  S.pushCount = (S.pushCount || 0) + 1;
-  firebase.auth().currentUser.getIdToken(false)
-    .then(function(idToken) {
-      var restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
-      var syncableState = Object.assign({}, S);
-      delete syncableState.cmdHistory;
-      return fetch(restUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount }) });
-    })
-    .then(function(response) { if (!response.ok) throw new Error('Direct REST push HTTP ' + response.status); return response.json(); })
-    .then(function(data) { console.log('[Sync] Direct REST push succeeded:', data); if (callback) callback(true, 'pushed'); })
-    .catch(function(err) { console.error('[Sync] Direct REST push failed:', err); if (callback) callback(false, err); });
+  firebaseDirectRestPush(uid, callback);
 }
 
 function firebaseSyncPush(callback) {
@@ -401,34 +436,13 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' HTTP ' + response.status); return response.json(); })
     .then(function(val) { console.log('[Sync] ' + gw.type + ' pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
     .catch(function(err) {
-      console.error('[Sync] ' + gw.type + ' pull failed:', err);
-      if (statusEl) statusEl.textContent = 'Status: sync error (' + gw.type + ' failed) - ' + err.message;
-      unlockBootSync();
-      if (callback) callback(false, err);
-      if (isDirectCall) { var tip = getNetworkErrorTip(err); if (tip) printTerm(tip, 'info'); }
+      console.error('[Sync] ' + gw.type + ' pull failed, falling back to direct Firebase REST:', err);
+      if (statusEl) statusEl.textContent = 'Status: ' + gw.type + ' failed, trying direct Firebase REST...';
+      firebaseDirectRestPull(uid, callback, forcePull, isDirectCall);
     });
     return;
   }
-  if (typeof firebase === 'undefined' || !firebase.auth().currentUser) {
-    if (statusEl) statusEl.textContent = 'Status: not authenticated';
-    unlockBootSync();
-    if (callback) callback(false, 'Not authenticated');
-    return;
-  }
-  firebase.auth().currentUser.getIdToken(false)
-    .then(function(idToken) {
-      var restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
-      return fetch(restUrl, { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-store' });
-    })
-    .then(function(response) { if (!response.ok) throw new Error('Direct REST HTTP ' + response.status); return response.json(); })
-    .then(function(val) { console.log('[Sync] Direct REST pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
-    .catch(function(err) {
-      console.error('[Sync] Direct REST pull failed:', err);
-      if (statusEl) statusEl.textContent = 'Status: sync error (REST failed) - ' + err.message;
-      unlockBootSync();
-      if (callback) callback(false, err);
-      if (isDirectCall) { var tip = getNetworkErrorTip(err); if (tip) printTerm(tip, 'info'); }
-    });
+  firebaseDirectRestPull(uid, callback, forcePull, isDirectCall);
 }
 
 function firebaseSyncPull(callback, forcePull = false) {
