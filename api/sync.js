@@ -1,4 +1,4 @@
-const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY || 'AIzaSyCOQmc-GacWr2OrGqRKaU3Na4NAePe7_T4';
+const FIREBASE_WEB_API_KEY = process.env.FIREBASE_WEB_API_KEY;
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +13,12 @@ function setCors(res) {
 }
 
 async function verifyFirebaseUser(req) {
+  if (!FIREBASE_WEB_API_KEY) {
+    const err = new Error('Server misconfigured: FIREBASE_WEB_API_KEY is not set');
+    err.statusCode = 500;
+    throw err;
+  }
+
   const authHeader = req.headers.authorization || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
   if (!match) {

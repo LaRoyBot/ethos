@@ -2679,11 +2679,7 @@ function getAllEthe() {
   return S.routines.reduce(function(a, r) { return a.concat(r.ethe); }, []);
 }
 
-function getFilteredEthe() {
-  var all = getAllEthe();
-  if (S.activeGroupFilter === 'all') return all;
-  return all.filter(function(e) { return e.groupId === S.activeGroupFilter; });
-}
+
 
 function renderStats() {
   var all = getAllEthe(), done = all.filter(function(e) { return e.done; }).length;
@@ -3862,14 +3858,7 @@ function updatePaperStatus(id, status) {
   ss(); render();
 }
 
-function updateSkill() {
-  var skill = document.getElementById('skill-select').value;
-  var val = Math.max(0, Math.min(100, parseInt(document.getElementById('skill-value').value) || 0));
-  S.skills[skill] = val;
-  document.getElementById('skill-value').value = '';
-  addLog('info', 'skill updated: ' + skill + ' \u2192 ' + val + '%');
-  ss(); render();
-}
+
 
 function logHours() {
   var hrs = parseFloat(document.getElementById('hours-input').value);
