@@ -694,7 +694,7 @@ document.addEventListener('keydown', function(e) {
               '  ███████╗   ██║   ██║  ██║╚██████╔╝███████║\n' +
               '  ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n' +
               '</div>' +
-              '<div style="margin-top: 8px;">' + (false ? '習性.初期化 v2.4.0 対話型モード。コマンド一覧を表示するには "help" と入力してください。' : 'ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
+              '<div style="margin-top: 8px;">' + ('ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
             printTermTyped(welcomeLogo, 'sys');
           }
         }
@@ -1251,7 +1251,7 @@ function initButtons() {
           '  ███████╗   ██║   ██║  ██║╚██████╔╝███████║\n' +
           '  ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n' +
           '</div>' +
-          '<div style="margin-top: 8px;">' + (false ? '習性.初期化 v2.4.0 対話型モード。コマンド一覧を表示するには "help" と入力してください。' : 'ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
+          '<div style="margin-top: 8px;">' + ('ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
         printTermTyped(welcomeLogo, 'sys');
       }
     };
@@ -1608,31 +1608,9 @@ function handleCommand(cmd) {
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
-    if (false) {
-      printTerm('習性.初期化 コマンド一覧:<br>' +
-                '- check [習慣名] : 習慣を完了としてマーク<br>' +
-                '- uncheck [習慣名] : 習慣を未完了としてマーク<br>' +
-                '- log [時間] : 学習時間を記録<br>' +
-                '- stats : 現在の統計を表示<br>' +
-                '- groups : グループごとの概要を表示<br>' +
-                '- theme [テーマ名] : テーマを変更<br>' +
-                '- skills : 有機的数学知識マトリクスを表示<br>' +
-                '- focus [分|pause|resume|abort] : 内蔵ポモドーロ集中タイマー<br>' +
-                '- remind [list|test|sound|delete|時間] : レトロタスク＆アラーム設定<br>' +
-                '- oracle [質問|--key|--clear] : レトロサイバーパンクAI数学指導教官との対話<br>' +
-                '- achievements : 獲得した実績やバッジを表示<br>' +
-                '- protocol : 日次の段階的ガイド付きフローチェックリストを表示<br>' +
-                '- crt [on|off|toggle] : CRTスキャンライン重ね合わせの切り替え<br>' +
-                '- auth [status|logout] : ターミナルセキュリティ認証コントロール<br>' +
-                '- backup / export : 状態データをファイルおよびクリップボードにバックアップ<br>' +
-                '- restore / import : 復元/インポートダイアログを開く<br>' +
-                '- logout : アクティブセッションからログアウト<br>' +
-                '- sysinfo / neofetch : システム情報ダッシュボードを表示<br>' +
-                '- clear : ターミナル画面をクリア<br>' +
-                '- exit : ターミナルを閉じる');
-    } else {
+    
       printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- oracle [query|--key|--clear] : converse with retro-cyberpunk LLM math tutor<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- backup / export : backup state data to file and clipboard<br>- restore / import : open restoration/import dialog<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
-    }
+    
   } else if (action === 'stats') {
     var level = 0, cum = 0;
     for (var i = 0; i < LEVELS.length - 1; i++) { if (S.xp >= cum + LEVELS[i].next) { cum += LEVELS[i].next; level++; } else break; }
@@ -1769,9 +1747,9 @@ function handleCommand(cmd) {
     S.ethosGroups.forEach(g => {
       const all = getAllEthe().filter(e => e.groupId === g.id);
       const done = all.filter(e => e.done).length;
-      const label = false ? (groupLabels[g.id] || g.label) : g.label;
-      const doneLabel = false ? `達成: ${done}/${all.length}` : `done:${done}/${all.length}`;
-      const streakLabel = false ? `継続: ${g.streak}日` : `streak:${g.streak}`;
+      const label = g.label;
+      const doneLabel = `done:${done}/${all.length}`;
+      const streakLabel = `streak:${g.streak}`;
       printTerm(`${label} | ${streakLabel} | ${doneLabel}`, 'ok');
     });
   } else if (action === 'theme') {
@@ -1782,38 +1760,35 @@ function handleCommand(cmd) {
         document.documentElement.setAttribute('data-theme', t.id === 'default' ? '' : t.id); 
         ss(); 
         renderThemes(); 
-        printTerm(false ? 'テーマを ' + t.name + ' に設定しました。' : 'theme set to ' + t.name, 'ok'); 
+        printTerm('theme set to ' + t.name, 'ok'); 
       }
-      else printTerm(false ? 'テーマが見つかりません。利用可能: ' + THEMES.map(x => x.id).join(', ') : 'theme not found. available: ' + THEMES.map(x => x.id).join(', '), 'err');
-    } else printTerm(false ? '使用方法: theme [テーマ名]' : 'usage: theme [name]', 'err');
+      else printTerm('theme not found. available: ' + THEMES.map(x => x.id).join(', '), 'err');
+    } else printTerm('usage: theme [name]', 'err');
   } else if (action === 'log') {
     const hrs = parseFloat(args[1]);
-    if (isNaN(hrs)) printTerm(false ? '使用方法: log [時間]' : 'usage: log [hours]', 'err');
+    if (isNaN(hrs)) printTerm('usage: log [hours]', 'err');
     else { 
       document.getElementById('hours-input').value = hrs; 
       logHours(); 
-      printTerm(false ? `${hrs} 時間を記録しました。累計: ${(Math.round(S.totalHours * 10) / 10)}時間` : 'logged ' + hrs + ' hours. total: ' + (Math.round(S.totalHours * 10) / 10) + 'h', 'ok'); 
+      printTerm('logged ' + hrs + ' hours. total: ' + (Math.round(S.totalHours * 10) / 10) + 'h', 'ok'); 
     }
   } else if (action === 'check' || action === 'uncheck') {
     const query = args.slice(1).join(' ').toLowerCase();
-    if (!query) { printTerm(false ? '使用方法: ' + action + ' [習慣名]' : 'usage: ' + action + ' [ethos name]', 'err'); return; }
+    if (!query) { printTerm('usage: ' + action + ' [ethos name]', 'err'); return; }
     var target = null, targetRIdx = -1;
     S.routines.forEach(function(r, rIdx) { r.ethe.forEach(function(e) { if (e.name.toLowerCase().includes(query)) { target = e; targetRIdx = rIdx; } }); });
     if (target) {
       if (action === 'check' && !target.done) toggleEthos(targetRIdx, target.id);
       else if (action === 'uncheck' && target.done) toggleEthos(targetRIdx, target.id);
-      const actionText = action === 'check' ? (false ? '完了' : 'checked') : (false ? '未完了' : 'unchecked');
+      const actionText = action === 'check' ? ('checked') : ('unchecked');
       printTerm(`${actionText}: ${target.name}`, 'ok');
-    } else printTerm(false ? `"${query}" に一致する習慣が見つかりません。` : 'ethos not found matching "' + query + '"', 'err');
+    } else printTerm('ethos not found matching "' + query + '"', 'err');
   } else if (action === 'skills') {
     var txt = '<div style="font-family: monospace; white-space: pre; line-height: 1.25; color: var(--accent);">';
-    if (false) {
-      txt += '           知識マトリクス (スキルツリー)\n';
-      txt += '           =============================\n\n';
-    } else {
+    
       txt += '           KNOWLEDGE MATRIX (SKILL TREE)\n';
       txt += '           =============================\n\n';
-    }
+    
     
     var getBar = function(key) {
       var v = S.skills[key] || 0;
@@ -1821,24 +1796,7 @@ function handleCommand(cmd) {
       return '[' + '█'.repeat(blocks) + '░'.repeat(10 - blocks) + '] ' + (v < 100 ? ' ' + v : v) + '%';
     };
     
-    if (false) {
-      txt += '┌─────────────────┐\n';
-      txt += '│    線形代数     │ ─┐\n';
-      txt += '│ ' + getBar('linear_algebra') + ' │  │   ┌─────────────────┐\n';
-      txt += '└─────────────────┘  ├──>│   最適化理論    │ ─┐\n';
-      txt += '┌─────────────────┐  │   │ ' + getBar('optimization') + ' │  │\n';
-      txt += '│   多変数微積分  │ ─┘   └─────────────────┘  │\n';
-      txt += '│ ' + getBar('mv_calc') + ' │                           │   ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐\n';
-      txt += '└─────────────────┘                           ├──>│  アテンション   │ ───>  │   Transformer   │ ───>  │   LoRA微調整    │\n';
-      txt += '┌─────────────────┐                           │   │ ' + getBar('attention') + ' │       │ ' + getBar('transformer') + ' │       │ ' + getBar('lora') + ' │\n';
-      txt += '│   誤差逆伝播    │ ──────────────────────────┘   └─────────────────┘       └─────────────────┘       └─────────────────┘\n';
-      txt += '│ ' + getBar('backprop') + ' │\n';
-      txt += '└─────────────────┘\n';
-      txt += '┌─────────────────┐\n';
-      txt += '│    確率・統計   │ ────────────────────────────────────────────────────────┐\n';
-      txt += '│ ' + getBar('probability') + ' │                                                         v\n';
-      txt += '└─────────────────┘                                                [マスターレベルロジック]\n';
-    } else {
+    
       txt += '┌─────────────────┐\n';
       txt += '│ linear_algebra  │ ─┐\n';
       txt += '│ ' + getBar('linear_algebra') + ' │  │   ┌─────────────────┐\n';
@@ -1855,19 +1813,16 @@ function handleCommand(cmd) {
       txt += '│   probability   │ ────────────────────────────────────────────────────────┐\n';
       txt += '│ ' + getBar('probability') + ' │                                                         v\n';
       txt += '└─────────────────┘                                                [MASTER LEVEL LOGIC]\n';
-    }
+    
     txt += '</div>';
     printTermTyped(txt, 'sys');
   } else if (action === 'ranks' || action === 'achievements') {
     var txt = '<div style="font-family: monospace; line-height: 1.4; color: var(--text); width: 100%; box-sizing: border-box;">';
     txt += '  <div style="color: var(--accent); font-weight: bold; text-align: center; margin-bottom: 16px;">\n';
-    if (false) {
-      txt += '    /// 帝国アカデミー功績実績��ック ///\n';
-      txt += '    =====================================\n';
-    } else {
+    
       txt += '    /// IMPERIAL ACADEMY ACHIEVEMENT DECK ///\n';
       txt += '    =========================================\n';
-    }
+    
     txt += '  </div>\n\n';
     txt += '  <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; box-sizing: border-box;">\n';
     
@@ -1880,11 +1835,11 @@ function handleCommand(cmd) {
       const bgCol = isUnlocked ? 'var(--accent-faint)' : 'var(--bg2)';
       const shadow = isUnlocked ? 'box-shadow: 0 0 8px var(--accent-faint);' : '';
       
-      const aName = false ? (achNamesJp[a.name] || a.name) : a.name;
-      const aDesc = false ? (achDescsJp[a.desc] || a.desc) : a.desc;
+      const aName = a.name;
+      const aDesc = a.desc;
       const dateText = isUnlocked 
-        ? (false ? '✓ 解除済み (' + unlockedDate + ')' : '✓ UNLOCKED (' + unlockedDate + ')')
-        : (false ? '[ ロック中 ]' : '[ LOCKED ]');
+        ? ('✓ UNLOCKED (' + unlockedDate + ')')
+        : ('[ LOCKED ]');
 
       txt += '    <div style="flex: 1 1 200px; max-width: 250px; border: 1px solid ' + borderCol + '; border-radius: 4px; padding: 12px; background: ' + bgCol + '; color: ' + col + '; ' + shadow + ' display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; min-height: 200px;">\n';
       txt += '      <div>\n';
@@ -2474,23 +2429,7 @@ function renderSysinfoCommand() {
   ];
 
   var props = [];
-  if (false) {
-    props = [
-      ['システム',     '習性.初期化 v2.3.1'],
-      ['シェル',       '対話型 / JetBrains Mono'],
-      ['開発者ID',     (S.authUsername ? '@' + S.authUsername : '') + (S.authEmail ? ' (' + S.authEmail + ')' : '<未設定>')],
-      ['稼働日数',     uptimeDays + ' 日'],
-      ['テーマ',       themeName],
-      ['ランク',       'レベル ' + (level + 1) + ' / ' + (levelTitlesJp[lvl.title] || lvl.title)],
-      ['経験値',       S.xp + ' / ' + nextXp],
-      ['習慣継続',     S.streak + ' 日'],
-      ['水泳継続',     swimStreak + ' 日 🏊'],
-      ['水分補給',     waterToday.toFixed(1) + 'L / 4.0L 💧'],
-      ['CRTモード',    S.crtEnabled ? '有効' : '無効'],
-      ['モジュール',   modules.length + ' 件ロード済み'],
-      ['メモリ',       lsSize]
-    ];
-  } else {
+  
     props = [
       ['OS',          'ethos.init v2.3.1'],
       ['Shell',       'interactive / JetBrains Mono'],
@@ -2506,7 +2445,7 @@ function renderSysinfoCommand() {
       ['Modules',     modules.length + ' loaded'],
       ['Memory',      lsSize]
     ];
-  }
+  
 
   // Color palette
   var colors = ['var(--accent)', 'var(--amber)', 'var(--red)', 'var(--blue)', 'var(--purple)', '#22d3ee', '#f472b6'];
@@ -2536,798 +2475,11 @@ function renderSysinfoCommand() {
   printTermTyped(html, 'sys');
 }
 
-function translateStaticDOM() {
-  const isJp = false;
-  
-  // Site Desc
-  const siteDesc = document.querySelector('.site-header .site-desc');
-  if (siteDesc) {
-    siteDesc.innerHTML = isJp ? '// LLM数学マスターの軌跡 — ターミナル版' : '// llm math mastery tracker — terminal edition';
-  }
-  
-  // Nav Tabs
-  const navTabs = document.querySelectorAll('#tab-nav .nav-tab');
-  navTabs.forEach(tab => {
-    const dataTab = tab.getAttribute('data-tab');
-    if (dataTab === 'dashboard') tab.textContent = isJp ? 'ダッシュボード' : 'dashboard';
-    else if (dataTab === 'ethe') tab.textContent = isJp ? '習慣 (ἤθη)' : 'ἤθη';
-    else if (dataTab === 'swim') tab.textContent = isJp ? '水泳' : 'swimming';
-    else if (dataTab === 'progress') tab.textContent = isJp ? '進捗' : 'progress';
-    else if (dataTab === 'papers') tab.textContent = isJp ? '論文' : 'papers';
-    else if (dataTab === 'focus') tab.textContent = isJp ? '集中' : 'focus';
-    else if (dataTab === 'log') tab.textContent = isJp ? 'ログ' : 'log';
-  });
-  
-  // Stat Card Labels & Units
-  const statCards = document.querySelectorAll('.stat-card');
-  if (statCards.length >= 4) {
-    // Current Streak Card
-    statCards[0].querySelector('.stat-label').textContent = isJp ? '現在の継続日数' : 'current streak';
-    statCards[0].querySelector('.stat-unit').textContent = isJp ? '日' : 'days';
-    
-    // Total XP Card
-    statCards[1].querySelector('.stat-label').textContent = isJp ? '累計経験値' : 'total XP';
-    statCards[1].querySelector('.stat-unit').textContent = isJp ? 'ポイント' : 'points';
-    
-    // Study Hours Card
-    statCards[2].querySelector('.stat-label').textContent = isJp ? '学習時間' : 'study hours';
-    statCards[2].querySelector('.stat-unit').textContent = isJp ? '累計時間' : 'total hrs';
-    
-    // Ethe Done Card
-    statCards[3].querySelector('.stat-label').textContent = isJp ? '習慣達成数' : 'ἤθη done';
-    statCards[3].querySelector('.stat-unit').textContent = isJp ? '本日' : 'today';
-  }
-  
-  // Section Headers
-  const sectionCmds = document.querySelectorAll('.section-cmd span');
-  sectionCmds.forEach(span => {
-    const text = span.textContent.trim();
-    if (isJp) {
-      if (text === 'cat stats.json' || text === '統計表示 stats.json') span.textContent = '統計表示 stats.json';
-      else if (text === 'cat training_expectations.json' || text === 'マスター要件 training_expectations.json') span.textContent = 'マスター要件 training_expectations.json';
-      else if (text === 'cat groups.json' || text === 'グループ要約 groups.json') span.textContent = 'グループ要約 groups.json';
-      else if (text === 'cat achievements.db' || text === '功績実績 cat achievements.db') span.textContent = '功績実績 cat achievements.db';
-      else if (text === 'cat biometrics.db' || text === '生体データ cat biometrics.db') span.textContent = '生体データ cat biometrics.db';
-      else if (text === 'log --hours' || text === '学習時間記録 log --hours') span.textContent = '学習時間記録 log --hours';
-      else if (text === 'cat papers.log' || text === '論文購読履歴 cat papers.log') span.textContent = '論文購読履歴 cat papers.log';
-      else if (text === 'papers --insight' || text === '今日の学び papers --insight') span.textContent = '今日の学び papers --insight';
-      else if (text === 'sysctl --focus --enable' || text === 'ポモドーロ集中タイマー focus --enable') span.textContent = 'ポモドーロ集中タイマー focus --enable';
-      else if (text === 'tail -f system.log' || text === 'システムログ tail -f system.log') span.textContent = 'システムログ tail -f system.log';
-      else if (text === 'log --manual' || text === '手動ログ記録 log --manual') span.textContent = '手動ログ記録 log --manual';
-      else if (text === 'term --interactive' || text === '対話型ターミナル term --interactive') span.textContent = '対話型ターミナル term --interactive';
-      else if (text === 'config --theme' || text === 'テーマ切り替え config --theme') span.textContent = 'テーマ切り替え config --theme';
-      else if (text === 'auth --status' || text === '認証ステータス auth --status') span.textContent = '認証ステータス auth --status';
-      else if (text === 'reset --hard' || text === 'データ初期化 reset --hard') span.textContent = 'データ初期化 reset --hard';
-      else if (text === 'cat ecre_memory.db | jq .' || text === 'メモリデータ ecre_memory.db') span.textContent = 'メモリデータ ecre_memory.db';
-      else if (text === 'tail -f swim.log' || text === '水泳ログ記録 tail -f swim.log') span.textContent = '水泳ログ記録 tail -f swim.log';
-      else if (text === 'swim --log' || text === '水泳記録 swim --log') span.textContent = '水泳記録 swim --log';
-      else if (text === 'tail -f today.log' || text === '本日ログ today.log') span.textContent = '本日ログ today.log';
-      else if (text === 'cat progress.json | jq .' || text === '進捗表示 progress.json') span.textContent = '進捗表示 progress.json';
-      else if (text === 'cat skill_matrix.json' || text === 'スキルマトリクス skill_matrix.json') span.textContent = 'スキルマトリクス skill_matrix.json';
-      else if (text === 'reminders --config' || text === 'アラーム設定 reminders --config') span.textContent = 'アラーム設定 reminders --config';
-      else if (text === 'oracle --status' || text === 'AIコア設定 oracle --status') span.textContent = 'AIコア設定 oracle --status';
-      else if (text === 'backup --diode' || text === 'バックアップ backup --diode') span.textContent = 'バックアップ backup --diode';
-    } else {
-      if (text === '統計表示 stats.json') span.textContent = 'cat stats.json';
-      else if (text === 'マスター要件 training_expectations.json') span.textContent = 'cat training_expectations.json';
-      else if (text === 'グループ要約 groups.json') span.textContent = 'cat groups.json';
-      else if (text === '功績実績 cat achievements.db') span.textContent = 'cat achievements.db';
-      else if (text === '生体データ cat biometrics.db') span.textContent = 'cat biometrics.db';
-      else if (text === '学習時間記録 log --hours') span.textContent = 'log --hours';
-      else if (text === '論文購読履歴 cat papers.log') span.textContent = 'cat papers.log';
-      else if (text === '今日の学び papers --insight') span.textContent = 'papers --insight';
-      else if (text === 'ポモドーロ集中タイマー focus --enable') span.textContent = 'sysctl --focus --enable';
-      else if (text === 'システムログ tail -f system.log') span.textContent = 'tail -f system.log';
-      else if (text === '手動ログ記録 log --manual') span.textContent = 'log --manual';
-      else if (text === '対話型ターミナル term --interactive') span.textContent = 'term --interactive';
-      else if (text === 'テーマ切り替え config --theme') span.textContent = 'config --theme';
-      else if (text === '認証ステータス auth --status') span.textContent = 'auth --status';
-      else if (text === 'データ初期化 reset --hard') span.textContent = 'reset --hard';
-      else if (text === 'メモリデータ ecre_memory.db') span.textContent = 'cat ecre_memory.db | jq .';
-      else if (text === '水泳ログ記録 tail -f swim.log') span.textContent = 'tail -f swim.log';
-      else if (text === '水泳記録 swim --log') span.textContent = 'swim --log';
-      else if (text === '本日ログ today.log') span.textContent = 'tail -f today.log';
-      else if (text === '進捗表示 progress.json') span.textContent = 'cat progress.json | jq .';
-      else if (text === 'スキルマトリクス skill_matrix.json') span.textContent = 'cat skill_matrix.json';
-      else if (text === 'アラーム設定 reminders --config') span.textContent = 'reminders --config';
-      else if (text === 'AIコア設定 oracle --status') span.textContent = 'oracle --status';
-      else if (text === 'バックアップ backup --diode') span.textContent = 'backup --diode';
-    }
-  });
 
-  // Logos
-  const bootTitle = document.querySelector('#boot .boot-title');
-  if (bootTitle) {
-    bootTitle.innerHTML = isJp ? '習性<span>.</span>初期化' : 'ethos<span>.</span>init';
-  }
-  const siteTitle = document.querySelector('.site-header .site-title');
-  if (siteTitle) {
-    siteTitle.innerHTML = isJp ? '習性<span>.</span>初期化' : 'ethos<span>.</span>init';
-  }
-  const footerSpan = document.querySelector('.site-footer span');
-  if (footerSpan) {
-    footerSpan.textContent = isJp ? '習性.初期化 v2.3.1 — LLM習得向け設計' : 'ethos.init v2.3.1 — built for llm mastery';
-  }
-  const tvTitle = document.querySelector('.tv-title');
-  if (tvTitle) {
-    tvTitle.textContent = isJp ? '習性.初期化 // 対話型モード' : 'ethos.init // interactive mode';
-  }
-  const tvPromptAccent = document.querySelector('.tv-prompt span[style*="var(--accent)"]');
-  if (tvPromptAccent) {
-    tvPromptAccent.textContent = isJp ? '習性.初期化' : 'ethos.init';
-  }
-  const hpHost = document.querySelector('.hp-host');
-  if (hpHost) {
-    hpHost.textContent = isJp ? '習性.初期化' : 'ethos.init';
-  }
-
-  // Boot lines
-  const bootLines = document.querySelectorAll('#boot .boot-line');
-  if (bootLines.length >= 7) {
-    bootLines[0].textContent = isJp ? 'ἤθη モジュールをロード中' : 'loading ἤθη module';
-    bootLines[1].textContent = isJp ? '継続日数エンジンをロード中' : 'loading streaks engine';
-    bootLines[2].textContent = isJp ? '経験値システムをロード中' : 'loading xp system';
-    bootLines[3].textContent = isJp ? '進捗トラッカーをロード中' : 'loading progress tracker';
-    bootLines[4].textContent = isJp ? '論文ログをロード中' : 'loading paper log';
-    bootLines[5].textContent = isJp ? 'ユーザープロファイルをロード中' : 'loading user profile';
-    bootLines[6].textContent = isJp ? 'システム準備完了' : 'system ready';
-  }
-
-  // Auth gate
-  const authTitle = document.querySelector('#auth-gate > div');
-  if (authTitle) {
-    authTitle.textContent = isJp ? ':: セキュリティ認証が必要です ::' : ':: SECURITY AUTHORIZATION REQUIRED ::';
-  }
-  const toggleDesc = document.getElementById('auth-toggle-desc');
-  const submitBtn = document.getElementById('auth-submit-btn');
-  const switchBtn = document.getElementById('auth-switch-btn');
-  if (toggleDesc && submitBtn && switchBtn) {
-    if (isSignUpMode) {
-      submitBtn.textContent = isJp ? 'アカウント登録 --新規' : 'register --account';
-      switchBtn.textContent = isJp ? '[ログインへ]' : '[sign in]';
-      toggleDesc.textContent = isJp ? '// 新しいセキュリティプロファイルを設定するには、有効なメールと新しいパスフレーズを入力してください。' : '// Enter a valid email and new passphrase to provision a new security profile.';
-    } else {
-      submitBtn.textContent = isJp ? '認証開始 --セッション' : 'authorize --session';
-      switchBtn.textContent = isJp ? '[新規登録へ]' : '[register]';
-      toggleDesc.textContent = isJp ? '// 数学マスタリーレコードを同期するには認証情報が必要です。' : '// Authentication credentials required to synchronize mathematical mastery records.';
-    }
-  }
-  const modalLabels = document.querySelectorAll('#auth-gate .modal-label');
-  if (modalLabels.length >= 3) {
-    modalLabels[0].textContent = isJp ? 'ユーザーID (ユーザー名またはメールアドレス)' : 'user_identity (username or email)';
-    modalLabels[1].textContent = isJp ? 'ユーザーハンドル (ユーザー名)' : 'user_handle (username)';
-    modalLabels[2].textContent = isJp ? 'セキュリティパスフレーズ (パスワード)' : 'security_passphrase (password)';
-  }
-  const emailInput = document.getElementById('auth-email');
-  if (emailInput) {
-    emailInput.placeholder = isJp ? '例: meletus または calculus@ethos.io' : 'e.g. meletus or calculus@ethos.io';
-  }
-
-  // Input Fields Placeholders & Button Labels
-  const hoursInput = document.getElementById('hours-input');
-  if (hoursInput) hoursInput.placeholder = isJp ? '本日の学習時間（時間）を入力...' : 'hours studied today';
-  const logHoursBtn = document.getElementById('log-hours-btn');
-  if (logHoursBtn) logHoursBtn.textContent = isJp ? '記録する' : 'log';
-
-  const newPaperInput = document.getElementById('new-paper-input');
-  if (newPaperInput) newPaperInput.placeholder = isJp ? '論文タイトル (例: \'Attention Is All You Need\')' : 'paper title (e.g. \'Attention Is All You Need\')';
-  const addPaperBtn = document.getElementById('add-paper-btn');
-  if (addPaperBtn) addPaperBtn.textContent = isJp ? '+ 追加' : '+ add';
-
-  const paperNote = document.getElementById('paper-note');
-  if (paperNote) paperNote.placeholder = isJp ? '// 今日の論文から学んだ数式や知見...\n// 例: Attention(Q,K,V) = softmax(QKᵀ/√dₖ)·V' : '// key equation from today\'s paper reading...\n// e.g. Attention(Q,K,V) = softmax(QKᵀ/√dₖ)·V';
-  const savePaperNoteBtn = document.getElementById('save-paper-note-btn');
-  if (savePaperNoteBtn) savePaperNoteBtn.textContent = isJp ? '知見を保存' : 'save insight';
-
-  const manualLogInput = document.getElementById('manual-log-input');
-  if (manualLogInput) manualLogInput.placeholder = isJp ? 'ログを入力してください...' : 'write a log entry...';
-  const addLogBtn = document.getElementById('add-log-btn');
-  if (addLogBtn) addLogBtn.textContent = isJp ? '書き込み' : 'write';
-
-  const openTermBtn = document.getElementById('open-term-btn');
-  if (openTermBtn) openTermBtn.textContent = isJp ? '対話型ターミナルを起動' : 'launch interactive terminal';
-
-  const resetBtn = document.getElementById('reset-btn');
-  if (resetBtn) resetBtn.textContent = isJp ? 'すべてのデータを消去' : 'erase all data';
-  const resetMsg = document.querySelector('#tab-log .log-msg');
-  if (resetMsg && resetMsg.textContent.indexOf('reset --hard') === -1) {
-    resetMsg.textContent = isJp ? '// すべてのデータが削除されます。元に戻せません。' : '// this will delete everything. no undo.';
-  }
-
-  // Pomodoro timer buttons
-  const startBtn = document.getElementById('focus-start-btn');
-  if (startBtn) startBtn.textContent = isJp ? 'タイマー開始' : 'start --session';
-  const pauseBtn = document.getElementById('focus-pause-btn');
-  if (pauseBtn) pauseBtn.textContent = isJp ? '一時停止' : 'pause';
-  const abortBtn = document.getElementById('focus-abort-btn');
-  if (abortBtn) abortBtn.textContent = isJp ? '強制終了' : 'abort --kill';
-
-  // Pomodoro clock labels
-  const sessionType = document.getElementById('focus-session-type');
-  if (sessionType) {
-    const stVal = sessionType.textContent.trim();
-    if (isJp) {
-      if (stVal === '// TASK_IDLE') sessionType.textContent = '// 待機中';
-      else if (stVal === '// FOCUS_SESSION') sessionType.textContent = '// 集中中';
-      else if (stVal === '// BREAK_SESSION') sessionType.textContent = '// 休憩中';
-    } else {
-      if (stVal === '// 待機中') sessionType.textContent = '// TASK_IDLE';
-      else if (stVal === '// 集中中') sessionType.textContent = '// FOCUS_SESSION';
-      else if (stVal === '// 休憩中') sessionType.textContent = '// BREAK_SESSION';
-    }
-  }
-
-  const statusTag = document.getElementById('focus-status-tag');
-  if (statusTag) {
-    const tagVal = statusTag.textContent.trim();
-    if (isJp) {
-      if (tagVal === 'IDLE') statusTag.textContent = '待機中';
-      else if (tagVal === 'FOCUS') statusTag.textContent = '集中中';
-      else if (tagVal === 'BREAK') statusTag.textContent = '休憩中';
-    } else {
-      if (tagVal === '待機中') statusTag.textContent = 'IDLE';
-      else if (tagVal === '集中中') statusTag.textContent = 'FOCUS';
-      else if (tagVal === '休憩中') statusTag.textContent = 'BREAK';
-    }
-  }
-
-  // Identity / Auth sync panel text
-  const authUsernameLabel = document.getElementById('auth-sync-status');
-  if (authUsernameLabel) {
-    authUsernameLabel.textContent = isJp ? 'ステータス: 同期エンジンオンライン' : 'Status: sync engine online';
-  }
-  const syncDesc = document.querySelector('.sync-panel > div');
-  if (syncDesc) {
-    syncDesc.textContent = isJp ? '// 高セキュリティセッションの自動同期が有効です。' : '// Automatic high-security session synchronization is active on your profile.';
-  }
-  const authProfileUser = document.getElementById('auth-profile-username');
-  if (authProfileUser && authProfileUser.parentNode) {
-    const label = authProfileUser.parentNode;
-    const textNode = Array.from(label.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (textNode) {
-      textNode.nodeValue = isJp ? 'ID: ' : 'Identity: ';
-    }
-  }
-  const authLogoutBtn = document.getElementById('auth-logout-btn');
-  if (authLogoutBtn) {
-    authLogoutBtn.textContent = isJp ? '認証解除 --ログアウト' : 'deauthorize --logout';
-  }
-
-  // Biometrics Placeholders & Buttons & Table Headers
-  const bioWeight = document.getElementById('bio-weight');
-  if (bioWeight) bioWeight.placeholder = isJp ? '体重 (kg)' : 'weight (kg)';
-  const bioUric = document.getElementById('bio-uric');
-  if (bioUric) bioUric.placeholder = isJp ? '尿酸値' : 'uric acid';
-  const bioHdl = document.getElementById('bio-hdl');
-  if (bioHdl) bioHdl.placeholder = isJp ? 'HDL' : 'hdl';
-  const bioEosin = document.getElementById('bio-eosin');
-  if (bioEosin) bioEosin.placeholder = isJp ? '好酸球' : 'eosinophils';
-  const bioLogBtn = document.getElementById('bio-log-btn');
-  if (bioLogBtn) bioLogBtn.textContent = isJp ? '+ データを記録' : '+ log metrics';
-
-  const tables = document.querySelectorAll('.biometrics-history-container table');
-  if (tables.length >= 2) {
-    // Table 0: Biometrics
-    const bioHeaders = tables[0].querySelectorAll('th');
-    if (bioHeaders.length >= 6) {
-      bioHeaders[0].textContent = isJp ? '日付' : 'DATE';
-      bioHeaders[1].textContent = isJp ? '体重' : 'WEIGHT';
-      bioHeaders[2].textContent = isJp ? '尿酸値' : 'URIC ACID';
-      bioHeaders[3].textContent = isJp ? 'HDL' : 'HDL';
-      bioHeaders[4].textContent = isJp ? '好酸球' : 'EOSINOPHILS';
-      bioHeaders[5].textContent = isJp ? '操作' : 'ACTION';
-    }
-    
-    // Table 1: Alarms
-    const alarmHeaders = tables[1].querySelectorAll('th');
-    if (alarmHeaders.length >= 4) {
-      alarmHeaders[0].textContent = isJp ? '時間' : 'TIME';
-      alarmHeaders[1].textContent = isJp ? 'メッセージ' : 'MESSAGE';
-      alarmHeaders[2].textContent = isJp ? '状態' : 'STATUS';
-      alarmHeaders[3].textContent = isJp ? '操作' : 'ACTION';
-    }
-  }
-
-  // Notifications & Alarms Config
-  const pwaStatusSpan = document.getElementById('pwa-notif-status');
-  if (pwaStatusSpan && pwaStatusSpan.parentNode) {
-    const label = pwaStatusSpan.parentNode;
-    const textNode = Array.from(label.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (textNode) {
-      textNode.nodeValue = isJp ? 'アラートエンジン: ' : 'Alert Engine: ';
-    }
-  }
-  const pwaRequestBtn = document.getElementById('pwa-request-btn');
-  if (pwaRequestBtn) {
-    pwaRequestBtn.textContent = isJp ? '[通知を有効化]' : '[enable notifications]';
-  }
-  const soundSelect = document.getElementById('notif-sound-preset');
-  if (soundSelect) {
-    const opts = soundSelect.options;
-    if (opts.length >= 4) {
-      opts[0].textContent = isJp ? 'プリセット: チャイム' : 'Preset: Chime';
-      opts[1].textContent = isJp ? 'プリセット: パルス' : 'Preset: Pulse';
-      opts[2].textContent = isJp ? 'プリセット: レーダー' : 'Preset: Radar';
-      opts[3].textContent = isJp ? 'サウンド: オフ' : 'Sound: Off';
-    }
-  }
-  const volSlider = document.getElementById('notif-vol-slider');
-  if (volSlider && volSlider.parentNode) {
-    const label = volSlider.parentNode;
-    const textNode = Array.from(label.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (textNode) {
-      textNode.nodeValue = isJp ? '音量: ' : 'Volume: ';
-    }
-  }
-  const notifTestBtn = document.getElementById('notif-test-btn');
-  if (notifTestBtn) {
-    notifTestBtn.textContent = isJp ? '[テスト]' : '[test]';
-  }
-  const remMsgInput = document.getElementById('rem-msg-input');
-  if (remMsgInput) {
-    remMsgInput.placeholder = isJp ? 'アラート名 (例: 朝の学習ルーティン)' : 'Alert label (e.g. Morning Study routine)';
-  }
-  const remSaveBtn = document.getElementById('rem-save-btn');
-  if (remSaveBtn) {
-    remSaveBtn.textContent = isJp ? '+ アラーム追加' : '+ add alarm';
-  }
-
-  // AI Core config
-  const aiCoreSpan = document.querySelector('.oracle-config-box span[style*="font-family"]');
-  if (aiCoreSpan) {
-    const textNode = Array.from(aiCoreSpan.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (textNode) {
-      textNode.nodeValue = isJp ? 'AIコアステータス: ' : 'AI Core Status: ';
-    }
-  }
-  const keyStatus = document.getElementById('oracle-key-status');
-  if (keyStatus) {
-    if (keyStatus.textContent === 'OFFLINE' || keyStatus.textContent === 'オフライン') {
-      keyStatus.textContent = isJp ? 'オフライン' : 'OFFLINE';
-    } else if (keyStatus.textContent === 'ONLINE' || keyStatus.textContent === 'オンライン') {
-      keyStatus.textContent = isJp ? 'オンライン' : 'ONLINE';
-    }
-  }
-  const freeKeyLink = document.querySelector('.oracle-config-box a');
-  if (freeKeyLink) {
-    freeKeyLink.textContent = isJp ? '[無料のGeminiキーを取得]' : '[Get free Gemini Key]';
-  }
-  const keyInput = document.getElementById('oracle-key-input');
-  if (keyInput) {
-    keyInput.placeholder = isJp ? 'Gemini APIキーをここに貼り付け...' : 'Paste your Gemini API key here...';
-  }
-  const keySaveBtn = document.getElementById('oracle-save-btn');
-  if (keySaveBtn) {
-    keySaveBtn.textContent = isJp ? 'キーを保存' : 'save key';
-  }
-
-  // Backup & Import
-  const backupBtn = document.getElementById('backup-btn');
-  if (backupBtn) {
-    backupBtn.textContent = isJp ? 'バックアップ書き出し' : 'export --backup';
-  }
-  const restoreBtn = document.getElementById('restore-import-btn');
-  if (restoreBtn) {
-    restoreBtn.textContent = isJp ? '[バックアップ取り込み]' : '[import --restore]';
-  }
-
-  // ECRE Headers
-  const ecreMemTitle = document.querySelector('.ecre-mem-title');
-  if (ecreMemTitle) {
-    ecreMemTitle.textContent = isJp ? '// ECRE ニューラルメモリプロファイル' : '// ECRE NEURAL MEMORY PROFILE';
-  }
-  const ecrePulse = document.getElementById('ecre-mem-pulse');
-  if (ecrePulse) {
-    ecrePulse.textContent = isJp ? '同期完了' : 'SYNC_OK';
-  }
-  const ecreTitles = document.querySelectorAll('.ecre-col-title');
-  if (ecreTitles.length >= 3) {
-    ecreTitles[0].textContent = isJp ? '🟢 実行中の約束 (コミットメント)' : '🟢 ACTIVE COMMITMENTS (PROMISES)';
-    ecreTitles[1].textContent = isJp ? '🔴 未解決の質問 (XP_LOCK)' : '🔴 OPEN QUESTIONS (XP_LOCK)';
-    ecreTitles[2].textContent = isJp ? '🟡 検知されたパターン' : '🟡 DETECTED PATTERNS';
-  }
-  const radarLabel = document.querySelector('.radar-label');
-  if (radarLabel) {
-    radarLabel.textContent = isJp ? '// 習性認知リフレクションエンジン (ecre)' : '// ethos cognitive reflection engine (ecre)';
-  }
-  const contribLabel = document.querySelector('.contrib-label');
-  if (contribLabel) {
-    contribLabel.textContent = isJp ? '// アクティビティグラフ — 過去30週間' : '// activity graph — last 30 weeks';
-  }
-
-  // Skill matrix node headers
-  const colHeaders = document.querySelectorAll('.sm-col-header');
-  if (colHeaders.length >= 3) {
-    colHeaders[0].textContent = isJp ? '// レベル0_基礎数学' : '// level_0_foundations';
-    colHeaders[1].textContent = isJp ? '// レベル1_中核理論' : '// level_1_core_science';
-    colHeaders[2].textContent = isJp ? '// レベル2_応用マスタリー' : '// level_2_mastery';
-  }
-
-  // Skill Matrix node titles
-  const updateSkillTitle = (id, en, jp) => {
-    const node = document.getElementById(id);
-    if (node) {
-      const title = node.querySelector('.sn-title');
-      if (title) title.textContent = isJp ? jp : en;
-    }
-  };
-  updateSkillTitle('sn-linear_algebra', 'Linear Algebra', '線形代数');
-  updateSkillTitle('sn-mv_calc', 'Multivariable Calc', '多変数微積分');
-  updateSkillTitle('sn-probability', 'Probability / Stats', '確率・統計');
-  updateSkillTitle('sn-optimization', 'Optimization Theory', '最適化理論');
-  updateSkillTitle('sn-backprop', 'Backpropagation', '誤差逆伝播法');
-  updateSkillTitle('sn-attention', 'Attention Mechanism', 'アテンション機構');
-  updateSkillTitle('sn-transformer', 'Transformer Arch', 'Transformer構造');
-  updateSkillTitle('sn-lora', 'Fine-Tuning / LoRA', '微調整 / LoRA');
-
-  // Selected skill HUD
-  if (!window.selectedSkillKey) {
-    const shTitle = document.getElementById('sh-title');
-    if (shTitle) shTitle.textContent = isJp ? '上のスキルノードを選択してください' : 'Select a skill node above';
-    const shDesc = document.getElementById('sh-desc');
-    if (shDesc) shDesc.textContent = isJp ? '診断ノードパラメータの検査中... 上記のスキルブロックをクリックして検査またはレベルアップしてください。' : 'Inspecting diagnostic node parameters... Click on any skill block above to inspect/level up.';
-  }
-  const shInputVal = document.getElementById('sh-input-val');
-  if (shInputVal) {
-    shInputVal.placeholder = isJp ? 'レベル設定 0-100' : 'Set level 0-100';
-  }
-  const shUpdateBtn = document.getElementById('sh-update-btn');
-  if (shUpdateBtn) {
-    shUpdateBtn.textContent = isJp ? 'レベル更新' : 'update --level';
-  }
-
-  // Ethe page Date only checkbox
-  const checkboxBox = document.querySelector('.checkbox-box');
-  if (checkboxBox) {
-    checkboxBox.textContent = isJp ? '[ ] 本日のみ' : '[ ] today only';
-  }
-
-  // Progress Phase Cards
-  const phaseNames = document.querySelectorAll('.phase-name');
-  if (phaseNames.length >= 3) {
-    phaseNames[0].textContent = isJp ? 'フェーズ1 — 基礎数学 (線形代数、微積分、確率統計)' : 'Phase 1 — Foundation (Linear Algebra, Calculus, Probability)';
-    phaseNames[1].textContent = isJp ? 'フェーズ2 — 機械学習核心理論 (最適化、誤差逆伝播、行列微積分)' : 'Phase 2 — Core ML (Optimization, Backprop, Matrix Calc)';
-    phaseNames[2].textContent = isJp ? 'フェーズ3 — LLM数理 (アテンション、埋め込み、RLHF、LoRA)' : 'Phase 3 — LLM Math (Attention, Embeddings, RLHF, LoRA)';
-  }
-  const phaseWeeks = document.querySelectorAll('.phase-weeks');
-  if (phaseWeeks.length >= 3) {
-    phaseWeeks[0].textContent = isJp ? '1〜6週目' : 'wks 1–6';
-    phaseWeeks[1].textContent = isJp ? '7〜14週目' : 'wks 7–14';
-    phaseWeeks[2].textContent = isJp ? '15〜24週目' : 'wks 15–24';
-  }
-
-  // Modals & Dynamic Overlays Translation
-  // 1. document.title
-  if (isJp) {
-    if (typeof focusSession !== 'undefined') {
-      if (!focusSession.active && !focusSession.paused) {
-        document.title = '習性.初期化 — LLM数学学習トラッカー';
-      } else if (focusSession.active) {
-        const clockVal = document.getElementById('focus-clock-time')?.textContent || '25:00';
-        document.title = '[' + clockVal + '] 集中.初期化';
-      } else if (focusSession.paused) {
-        document.title = '一時停止 集中.初期化';
-      }
-    } else {
-      document.title = '習性.初期化 — LLM数学学習トラッカー';
-    }
-  } else {
-    if (typeof focusSession !== 'undefined') {
-      if (!focusSession.active && !focusSession.paused) {
-        document.title = 'ethos.init — LLM Math Mastery Tracker';
-      } else if (focusSession.active) {
-        const clockVal = document.getElementById('focus-clock-time')?.textContent || '25:00';
-        document.title = '[' + clockVal + '] focus.init';
-      } else if (focusSession.paused) {
-        document.title = 'paused focus.init';
-      }
-    } else {
-      document.title = 'ethos.init — LLM Math Mastery Tracker';
-    }
-  }
-
-  // 2. Auth Gate Labels
-  const emailLabel = document.querySelector('#auth-email')?.previousElementSibling;
-  if (emailLabel) emailLabel.textContent = isJp ? 'ユーザー識別子 (ユーザー名またはメールアドレス)' : 'user_identity (username or email)';
-  const userLabel = document.querySelector('#auth-username')?.previousElementSibling;
-  if (userLabel) userLabel.textContent = isJp ? 'ハンドル名 (ユーザー名)' : 'user_handle (username)';
-  const passLabel = document.querySelector('#auth-password')?.previousElementSibling;
-  if (passLabel) passLabel.textContent = isJp ? 'セキュリティパスフレーズ (パスワード)' : 'security_passphrase (password)';
-
-  // 3. Ethos Modal
-  const hmTitle = document.getElementById('hm-title');
-  if (hmTitle) {
-    hmTitle.textContent = isJp ? '習慣の追加 (ἔθος)' : 'add ethos (ἔθος)';
-  }
-  const ethosLabels = document.querySelectorAll('#ethos-modal .modal-label');
-  if (ethosLabels.length >= 4) {
-    ethosLabels[0].textContent = isJp ? '習慣名' : 'ethos name';
-    ethosLabels[1].textContent = isJp ? 'ルーティン' : 'routine';
-    ethosLabels[2].textContent = isJp ? 'グループ' : 'group';
-    ethosLabels[3].textContent = isJp ? '獲得経験値' : 'xp reward';
-  }
-  const hmNameInput = document.getElementById('hm-name');
-  if (hmNameInput) {
-    hmNameInput.placeholder = isJp ? '例: 手でアテンションを導出する' : 'e.g. derive attention by hand';
-  }
-  const hmXp = document.getElementById('hm-xp');
-  if (hmXp && hmXp.options.length >= 4) {
-    hmXp.options[0].textContent = isJp ? '10 XP' : '10 xp';
-    hmXp.options[1].textContent = isJp ? '20 XP' : '20 xp';
-    hmXp.options[2].textContent = isJp ? '30 XP' : '30 xp';
-    hmXp.options[3].textContent = isJp ? '50 XP' : '50 xp';
-  }
-  const hmGroup = document.getElementById('hm-group-select');
-  if (hmGroup && hmGroup.options.length >= 7) {
-    hmGroup.options[0].textContent = isJp ? '[数学]' : '[math]';
-    hmGroup.options[1].textContent = isJp ? '[身体]' : '[body]';
-    hmGroup.options[2].textContent = isJp ? '[精神]' : '[mind]';
-    hmGroup.options[3].textContent = isJp ? '[構築]' : '[build]';
-    hmGroup.options[4].textContent = isJp ? '[髪]' : '[hair]';
-    hmGroup.options[5].textContent = isJp ? '[肌]' : '[skin]';
-    hmGroup.options[6].textContent = isJp ? '[栄養]' : '[nutrition]';
-  }
-  const ethosModalCancelBtn = document.getElementById('ethos-modal-cancel-btn');
-  if (ethosModalCancelBtn) {
-    ethosModalCancelBtn.textContent = isJp ? 'キャンセル' : 'cancel';
-  }
-  const hmSaveBtn = document.getElementById('hm-save');
-  if (hmSaveBtn) {
-    hmSaveBtn.textContent = isJp ? '保存' : 'save';
-  }
-
-  // 4. Routine Modal
-  const routineModalTitle = document.querySelector('#routine-modal .modal-title');
-  if (routineModalTitle) {
-    routineModalTitle.textContent = isJp ? 'ルーティンの追加' : 'add routine';
-  }
-  const routineModalLabel = document.querySelector('#routine-modal .modal-label');
-  if (routineModalLabel) {
-    routineModalLabel.textContent = isJp ? 'ルーティン名' : 'routine name';
-  }
-  const rmNameInput = document.getElementById('rm-name');
-  if (rmNameInput) {
-    rmNameInput.placeholder = isJp ? '例: 朝の学習' : 'e.g. Morning Study';
-  }
-  const routineModalCancelBtn = document.getElementById('routine-modal-cancel-btn');
-  if (routineModalCancelBtn) {
-    routineModalCancelBtn.textContent = isJp ? 'キャンセル' : 'cancel';
-  }
-  const rmSaveBtn = document.getElementById('rm-save');
-  if (rmSaveBtn) {
-    rmSaveBtn.textContent = isJp ? '保存' : 'save';
-  }
-
-  // 5. Radar Modal (ECRE Diagnostic)
-  const radarModalTitle = document.querySelector('#radar-modal .modal-title');
-  if (radarModalTitle) {
-    radarModalTitle.textContent = isJp ? 'ECRE_リフレクティブ_コヒーレンス_診断' : 'ECRE_REFLECTIVE_COHERENCE_DIAGNOSTIC';
-  }
-  const radarStrong = document.querySelectorAll('.radar-modal-stats strong');
-  if (radarStrong.length >= 7) {
-    radarStrong[0].textContent = isJp ? 'CNS (一貫性):' : 'CNS (Consistency):';
-    radarStrong[1].textContent = isJp ? 'RIG (厳密性):' : 'RIG (Rigor):';
-    radarStrong[2].textContent = isJp ? 'FOC (集中力):' : 'FOC (Focus):';
-    radarStrong[3].textContent = isJp ? 'RUT (ルーティン):' : 'RUT (Routines):';
-    radarStrong[4].textContent = isJp ? 'STM (スタミナ):' : 'STM (Stamina):';
-    radarStrong[5].textContent = isJp ? 'ステータス:' : 'STATE:';
-    radarStrong[6].textContent = isJp ? 'バフ:' : 'BUFF:';
-  }
-  const radarModalCloseBtn = document.getElementById('radar-modal-close-btn');
-  if (radarModalCloseBtn) {
-    radarModalCloseBtn.textContent = isJp ? '閉じる --session' : 'dismiss --session';
-  }
-
-  // 6. Import Modal
-  const importModalTitle = document.querySelector('#import-modal .modal-title');
-  if (importModalTitle) {
-    importModalTitle.textContent = isJp ? '復元 --バックアップ' : 'restore --backup';
-  }
-  const importDesc = document.querySelector('#import-modal div[style*="font-family"]');
-  if (importDesc) {
-    importDesc.textContent = isJp ? '// 習性のバックアップJSONファイルをアップロードするか、以下のテキストエリアに生のJSONを貼り付けます。' : '// Upload an ethos backup JSON file or paste the raw JSON text below.';
-  }
-  const importModalLabel = document.querySelector('#import-modal .modal-label');
-  if (importModalLabel) {
-    importModalLabel.textContent = isJp ? 'バックアップファイルをアップロード' : 'Upload Backup File';
-  }
-  const dragZone = document.getElementById('import-drag-zone');
-  if (dragZone) {
-    dragZone.innerHTML = isJp 
-      ? '<span style="color:var(--accent);">ファイルを選択</span> またはここにドラッグ＆ドロップ' 
-      : '<span style="color:var(--accent);">Choose file</span> or drag & drop here';
-  }
-  const pasteLabel = document.querySelector('#import-modal .modal-row:nth-child(3) .modal-label');
-  if (pasteLabel) {
-    pasteLabel.textContent = isJp ? 'または生のJSONデータを貼り付け' : 'Or Paste Raw JSON Data';
-  }
-  const importTextArea = document.getElementById('import-text-area');
-  if (importTextArea) {
-    importTextArea.placeholder = isJp 
-      ? 'ここにバックアップのJSONデータを貼り付け...' 
-      : 'Paste {"routines": [...], "history": {...}, ...}';
-  }
-  const importCancel = document.getElementById('import-cancel-btn');
-  if (importCancel) {
-    importCancel.textContent = isJp ? 'キャンセル' : 'cancel';
-  }
-  const importConfirm = document.getElementById('import-confirm-btn');
-  if (importConfirm) {
-    importConfirm.textContent = isJp ? '復元を実行 --restore' : 'authorize --restore';
-  }
-
-  // 7. Interactive Terminal Buttons & Hints
-  const closeTermBtn = document.getElementById('close-term-btn');
-  if (closeTermBtn) {
-    closeTermBtn.textContent = isJp ? '[x] 終了' : '[x] exit';
-  }
-  const tvHint = document.querySelector('.tv-hint');
-  if (tvHint) {
-    tvHint.textContent = isJp 
-      ? '// ↑↓ 履歴 · Tab 補完 · Ctrl+Alt+C CRT切り替え' 
-      : '// ↑↓ history · Tab autocomplete · Ctrl+Alt+C crt toggle';
-  }
-
-  // 8. Navigation & Filter Controls
-  const viewGroupsBtn = document.getElementById('view-groups-btn');
-  if (viewGroupsBtn) {
-    viewGroupsBtn.textContent = isJp ? '[グループ表示]' : '[groups]';
-  }
-  const viewProtocolBtn = document.getElementById('view-protocol-btn');
-  if (viewProtocolBtn) {
-    viewProtocolBtn.textContent = isJp ? '[プロトコル表示]' : '[protocol]';
-  }
-  const groupFilterTabs = document.querySelectorAll('.group-filter-tab');
-  groupFilterTabs.forEach(tab => {
-    const dataGroup = tab.getAttribute('data-group');
-    if (dataGroup === 'all') tab.textContent = isJp ? 'すべて' : 'all';
-    else if (dataGroup === 'math') tab.textContent = isJp ? '[数学]' : '[math]';
-    else if (dataGroup === 'body') tab.textContent = isJp ? '[身体]' : '[body]';
-    else if (dataGroup === 'mind') tab.textContent = isJp ? '[精神]' : '[mind]';
-    else if (dataGroup === 'build') tab.textContent = isJp ? '[構築]' : '[build]';
-    else if (dataGroup === 'hair') tab.textContent = isJp ? '[髪]' : '[hair]';
-    else if (dataGroup === 'skin') tab.textContent = isJp ? '[肌]' : '[skin]';
-    else if (dataGroup === 'nutrition') tab.textContent = isJp ? '[栄養]' : '[nutrition]';
-  });
-
-  // 9. Habits Page Inputs & Placeholders
-  const todayNoteTextarea = document.getElementById('today-note');
-  if (todayNoteTextarea) {
-    todayNoteTextarea.placeholder = isJp 
-      ? '// 今日は何を学びましたか？何が理解できましたか？何に苦戦しましたか？\n// 例: 「ついに QKᵀ/√dₖ スケーリングが必要な理由を理解した」' 
-      : `// what did you learn today? what clicked? what broke your brain?\n// e.g. 'finally understood why QK^T needs √d_k scaling'`;
-  }
-  const saveNoteBtn = document.getElementById('save-note-btn');
-  if (saveNoteBtn) {
-    saveNoteBtn.textContent = isJp ? 'ノートを保存' : 'save note';
-  }
-  const noteSavedFlash = document.getElementById('note-saved');
-  if (noteSavedFlash) {
-    noteSavedFlash.textContent = isJp ? '✓ 保存完了' : '✓ saved';
-  }
-  const hbbAddEthos = document.getElementById('hbb-add-ethos');
-  if (hbbAddEthos) {
-    hbbAddEthos.textContent = isJp ? '+ 習慣追加' : '+ ethos';
-  }
-  const hbbAddRoutine = document.getElementById('hbb-add-routine');
-  if (hbbAddRoutine) {
-    hbbAddRoutine.textContent = isJp ? '+ ルーティン追加' : '+ routine';
-  }
-  const dpGoal = document.querySelector('.dp-goal');
-  if (dpGoal) {
-    dpGoal.textContent = isJp ? '// 目標: 80%' : '// goal: 80%';
-  }
-
-  // 10. Swimming Tab Elements
-  const swimCards = document.querySelectorAll('#tab-swim .stat-card');
-  if (swimCards.length >= 10) {
-    swimCards[0].querySelector('.stat-label').textContent = isJp ? '総セッション数' : 'total sessions';
-    swimCards[0].querySelector('.stat-unit').textContent = isJp ? '回' : 'sessions';
-    swimCards[1].querySelector('.stat-label').textContent = isJp ? '遊泳達成日数' : 'total swam days';
-    swimCards[1].querySelector('.stat-unit').textContent = isJp ? '日' : 'days';
-    swimCards[2].querySelector('.stat-label').textContent = isJp ? '未達成日数' : 'missed days';
-    swimCards[2].querySelector('.stat-unit').textContent = isJp ? '日' : 'days';
-    swimCards[3].querySelector('.stat-label').textContent = isJp ? 'ダブルセッション' : 'double-sessions';
-    swimCards[3].querySelector('.stat-unit').textContent = isJp ? '日' : 'days';
-    swimCards[4].querySelector('.stat-label').textContent = isJp ? '達成率' : 'completion rate';
-    swimCards[4].querySelector('.stat-unit').textContent = isJp ? '比率' : 'rate';
-    swimCards[5].querySelector('.stat-label').textContent = isJp ? '総遊泳時間' : 'total duration';
-    swimCards[5].querySelector('.stat-unit').textContent = isJp ? '分' : 'minutes';
-    swimCards[6].querySelector('.stat-label').textContent = isJp ? '総距離' : 'total distance';
-    swimCards[6].querySelector('.stat-unit').textContent = isJp ? 'km' : 'km';
-    swimCards[7].querySelector('.stat-label').textContent = isJp ? '消費カロリー' : 'total calories';
-    swimCards[7].querySelector('.stat-unit').textContent = isJp ? 'kcal' : 'kcal';
-    swimCards[8].querySelector('.stat-label').textContent = isJp ? '現在の継続日数' : 'current streak';
-    swimCards[8].querySelector('.stat-unit').textContent = isJp ? '日 🔥' : 'days 🔥';
-    swimCards[9].querySelector('.stat-label').textContent = isJp ? '最長継続日数' : 'longest streak';
-    swimCards[9].querySelector('.stat-unit').textContent = isJp ? '日 👑' : 'days 👑';
-  }
-  const swimTimeInput = document.getElementById('swim-input-time');
-  if (swimTimeInput) {
-    swimTimeInput.placeholder = isJp ? '時間 (例: 8:00 pm – 9:30 pm)' : 'time (e.g. 8:00 pm – 9:30 pm)';
-  }
-  const swimDurationInput = document.getElementById('swim-input-duration');
-  if (swimDurationInput) {
-    swimDurationInput.placeholder = isJp ? '時間 (分)' : 'duration (mins)';
-  }
-  const swimLapsInput = document.getElementById('swim-input-laps');
-  if (swimLapsInput) {
-    swimLapsInput.placeholder = isJp ? 'ラップ数 (任意)' : 'laps (optional)';
-  }
-  const swimCommentInput = document.getElementById('swim-input-comment');
-  if (swimCommentInput) {
-    swimCommentInput.placeholder = isJp ? 'コメント (例: Machaxi Centre, Olympia)' : 'comments (e.g. Machaxi Centre, Olympia)';
-  }
-  const swimLogBtn = document.getElementById('swim-log-btn');
-  if (swimLogBtn) {
-    swimLogBtn.textContent = isJp ? '+ swim記録' : '+ log swim';
-  }
-  const swimSearchInput = document.getElementById('swim-search-input');
-  if (swimSearchInput) {
-    swimSearchInput.placeholder = isJp ? '日付、時間、またはコメントでフィルタ...' : 'filter by date, time, or comments...';
-  }
-  const swimFilterTabs = document.querySelectorAll('.swim-filter-tab');
-  swimFilterTabs.forEach(tab => {
-    const dataFilter = tab.getAttribute('data-filter');
-    if (dataFilter === 'all') tab.textContent = isJp ? '全日程' : 'all days';
-    else if (dataFilter === 'swam') tab.textContent = isJp ? '遊泳日' : 'swam days';
-    else if (dataFilter === 'missed') tab.textContent = isJp ? '未達成日' : 'missed days';
-  });
-
-  // 11. Log Tab Controls
-  const logTabResetBtn = document.getElementById('reset-btn');
-  if (logTabResetBtn) {
-    logTabResetBtn.textContent = isJp ? 'すべてのデータを消去' : 'erase all data';
-    const logTabResetDesc = logTabResetBtn.nextElementSibling;
-    if (logTabResetDesc && logTabResetDesc.classList.contains('log-msg')) {
-      logTabResetDesc.textContent = isJp ? '// この操作により��べてのデータが削除されます。取り消しはできません。' : '// this will delete everything. no undo.';
-    }
-  }
-  const logTabOpenTermBtn = document.getElementById('open-term-btn');
-  if (logTabOpenTermBtn) {
-    logTabOpenTermBtn.textContent = isJp ? '対話型ターミナルを起動' : 'launch interactive terminal';
-  }
-  const logTabPwaRequestBtn = document.getElementById('pwa-request-btn');
-  if (logTabPwaRequestBtn) {
-    logTabPwaRequestBtn.textContent = isJp ? '[通知を有効にする]' : '[enable notifications]';
-  }
-  const logTabPwaStatusSpan = document.querySelector('.reminders-config-box span');
-  if (logTabPwaStatusSpan) {
-    const textNode = Array.from(logTabPwaStatusSpan.childNodes).find(n => n.nodeType === Node.TEXT_NODE);
-    if (textNode) {
-      textNode.nodeValue = isJp ? 'アラートエンジン: ' : 'Alert Engine: ';
-    }
-  }
-  const logTabPwaNotifStatus = document.getElementById('pwa-notif-status');
-  if (logTabPwaNotifStatus) {
-    if (logTabPwaNotifStatus.textContent === 'BLOCKED' || logTabPwaNotifStatus.textContent === 'ブロック') {
-      logTabPwaNotifStatus.textContent = isJp ? 'ブロック' : 'BLOCKED';
-    } else if (logTabPwaNotifStatus.textContent === 'GRANTED' || logTabPwaNotifStatus.textContent === '許可') {
-      logTabPwaNotifStatus.textContent = isJp ? '許可' : 'GRANTED';
-    }
-  }
-  const logTabManualLogInput = document.getElementById('manual-log-input');
-  if (logTabManualLogInput) {
-    logTabManualLogInput.placeholder = isJp ? 'ログエントリーを入力してください...' : 'write a log entry...';
-  }
-  const logTabAddLogBtn = document.getElementById('add-log-btn');
-  if (logTabAddLogBtn) {
-    logTabAddLogBtn.textContent = isJp ? '書き込み' : 'write';
-  }
-  const fd25 = document.getElementById('fd-25');
-  if (fd25) fd25.textContent = isJp ? '25分_集中' : '25m_focus';
-  const fd50 = document.getElementById('fd-50');
-  if (fd50) fd50.textContent = isJp ? '50分_集中' : '50m_focus';
-  const fd5 = document.getElementById('fd-5');
-  if (fd5) fd5.textContent = isJp ? '5分_休憩' : '5m_break';
-  const fd15 = document.getElementById('fd-15');
-  if (fd15) fd15.textContent = isJp ? '15分_休憩' : '15m_break';
-}
 
 // === RENDER ===
 function render() {
-  translateStaticDOM();
-  renderStats(); renderXP(); renderContrib(); renderGroupSummary();
+    renderStats(); renderXP(); renderContrib(); renderGroupSummary();
   renderEtheTab(); renderTodayQuick(); renderSkills();
   renderPapers(); renderLog(); renderPhases(); renderThemes();
   renderExpectations(); renderSwimTab(); renderBiometrics();
@@ -3356,16 +2508,16 @@ function renderEcreMemoryDashboard() {
   // 1. Render Promises
   const activePromises = (memory.userPromises || []).filter(p => !p.fulfilled);
   if (activePromises.length === 0) {
-    promisesList.innerHTML = false ? '<div class="ecre-empty-msg">// 有効な約束はありません。</div>' : '<div class="ecre-empty-msg">// No active commitments.</div>';
+    promisesList.innerHTML = '<div class="ecre-empty-msg">// No active commitments.</div>';
   } else {
     activePromises.forEach(p => {
       const chip = document.createElement('div');
       chip.className = 'ecre-mem-chip';
       chip.style.borderLeft = '2px solid var(--accent)';
       
-      const targetLabel = false ? (p.targetGroup === 'any' ? '任意' : p.targetGroup) : (p.targetGroup || 'any');
-      const dateLabel = false ? (p.date === 'unknown' ? '不明' : p.date) : (p.date || 'unknown');
-      const metaText = false ? `対象: [${escapeHtml(targetLabel)}] | 日付: ${escapeHtml(dateLabel)}` : `Target: [${escapeHtml(targetLabel)}] | Date: ${escapeHtml(dateLabel)}`;
+      const targetLabel = (p.targetGroup || 'any');
+      const dateLabel = (p.date || 'unknown');
+      const metaText = `Target: [${escapeHtml(targetLabel)}] | Date: ${escapeHtml(dateLabel)}`;
       
       chip.innerHTML = `
         <div>${escapeHtml(p.promise)}</div>
@@ -3378,14 +2530,14 @@ function renderEcreMemoryDashboard() {
   // 2. Render Unanswered Questions
   const unansweredQuestions = (memory.openQuestions || []).filter(q => q.answer === null);
   if (unansweredQuestions.length === 0) {
-    questionsList.innerHTML = false ? '<div class="ecre-empty-msg">// 未解決の質問はありません。</div>' : '<div class="ecre-empty-msg">// No open questions.</div>';
+    questionsList.innerHTML = '<div class="ecre-empty-msg">// No open questions.</div>';
   } else {
     unansweredQuestions.forEach(q => {
       const chip = document.createElement('div');
       chip.className = 'ecre-mem-chip';
       chip.style.borderLeft = '2px solid var(--red)';
       
-      const metaText = false ? `セッション: #${q.sessionAsked} | XPロック有効` : `Session: #${q.sessionAsked} | XP_LOCK active`;
+      const metaText = `Session: #${q.sessionAsked} | XP_LOCK active`;
       
       chip.innerHTML = `
         <div style="color:var(--text);">${escapeHtml(q.question)}</div>
@@ -3398,14 +2550,14 @@ function renderEcreMemoryDashboard() {
   // 3. Render Patterns
   const patterns = memory.namedPatterns || [];
   if (patterns.length === 0) {
-    patternsList.innerHTML = false ? '<div class="ecre-empty-msg">// 行動異常を監視中...</div>' : '<div class="ecre-empty-msg">// Listening for anomalies...</div>';
+    patternsList.innerHTML = '<div class="ecre-empty-msg">// Listening for anomalies...</div>';
   } else {
     patterns.forEach(p => {
       const chip = document.createElement('div');
       chip.className = 'ecre-mem-chip';
       chip.style.borderLeft = '2px solid var(--amber)';
       
-      const metaText = false ? `パターン: アラート有効` : `Pattern: active alert`;
+      const metaText = `Pattern: active alert`;
       
       chip.innerHTML = `
         <div>${escapeHtml(p)}</div>
@@ -3434,7 +2586,7 @@ function renderStats() {
   const xpTodayEl = document.getElementById('stat-xp-today');
   const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
   if (isDeepSync && xpTodayEl) {
-    const flowBadge = false ? 'x1.2 フロー' : 'x1.2 Flow';
+    const flowBadge = 'x1.2 Flow';
     xpTodayEl.innerHTML = S.xpToday + ' <span class="flow-xp-badge" style="font-size:10px;font-weight:700;color:var(--accent);text-shadow:0 0 3px var(--accent-faint);background:var(--accent-faint);border:1px solid var(--accent);padding:1px 3px;border-radius:3px;margin-left:3px;vertical-align:middle">' + flowBadge + '</span>';
   } else if (xpTodayEl) {
     xpTodayEl.textContent = S.xpToday;
@@ -3443,15 +2595,11 @@ function renderStats() {
   document.getElementById('stat-hours').textContent = Math.round(S.totalHours * 10) / 10;
   document.getElementById('stat-done').textContent = done;
   
-  if (false) {
-    document.getElementById('stat-done-delta').textContent = '\u2014 本日: ' + done + ' / ' + all.length + ' 完了';
-    document.getElementById('stat-streak-delta').textContent = S.streak > 0 ? '\u25B2 ' + S.streak + ' 日連続中' : '\u2014 今日からスタート';
-    document.getElementById('stat-hours-delta').textContent = '\u25B2 今週: ' + (Math.round(S.weekHours * 10) / 10) + ' 時間';
-  } else {
+  
     document.getElementById('stat-done-delta').textContent = '\u2014 ' + done + ' / ' + all.length + ' today';
     document.getElementById('stat-streak-delta').textContent = S.streak > 0 ? '\u25B2 ' + S.streak + ' day streak' : '\u2014 start today';
     document.getElementById('stat-hours-delta').textContent = '\u25B2 this week: ' + (Math.round(S.weekHours * 10) / 10) + 'h';
-  }
+  
 }
 
 function renderGroupSummary() {
@@ -3465,8 +2613,8 @@ function renderGroupSummary() {
     var card = document.createElement('div');
     card.className = 'group-card';
     
-    var progressText = false ? done + '/' + all.length + ' 本日' : done + '/' + all.length + ' today';
-    const labelText = false ? (groupLabels[g.id] || g.label) : g.label;
+    var progressText = done + '/' + all.length + ' today';
+    const labelText = g.label;
     
     card.innerHTML = '<div class="gc-label" style="color:' + g.color + '">' + labelText + '</div>' +
       '<div class="gc-streak">' + g.streak + ' \uD83D\uDD25</div>' +
@@ -3482,11 +2630,11 @@ function renderXP() {
   var lvl = LEVELS[level], nxt = LEVELS[Math.min(level + 1, LEVELS.length - 1)];
   var inLvl = S.xp - cum, pct = lvl.next === Infinity ? 100 : Math.min(100, Math.round(inLvl / lvl.next * 100));
   document.getElementById('xp-level').textContent = level + 1;
-  document.getElementById('xp-title').textContent = false ? (levelTitlesJp[lvl.title] || lvl.title) : lvl.title;
+  document.getElementById('xp-title').textContent = lvl.title;
   document.getElementById('xp-current').textContent = inLvl;
   document.getElementById('xp-next').textContent = lvl.next === Infinity ? '\u221E' : lvl.next;
   document.getElementById('xp-bar').style.width = pct + '%';
-  document.getElementById('xp-next-title').textContent = false ? (levelTitlesJp[nxt.title] || nxt.title) : nxt.title;
+  document.getElementById('xp-next-title').textContent = nxt.title;
 }
 
 function renderContrib() {
@@ -3649,8 +2797,8 @@ function renderEtheTab() {
     wrap.className = 'r-group' + (r.collapsed ? ' collapsed' : '');
     var hdr = document.createElement('div'); hdr.className = 'r-group-header';
     
-    const rTitle = false ? (routineTitles[r.title] || r.title) : r.title;
-    const rSubtitle = false ? (routineSubtitles[r.subtitle] || r.subtitle) : r.subtitle;
+    const rTitle = r.title;
+    const rSubtitle = r.subtitle;
     
     hdr.innerHTML = '<div><div class="r-group-title"><span style="color:' + (r.color || 'inherit') + '">' + r.icon + ' ' + rTitle + '</span></div><div class="r-group-sub">' + rSubtitle + '</div></div><div class="r-group-count">[' + doneR + '/' + totalR + '] <span class="hgc-arrow">\u25BE</span></div>';
     hdr.onclick = function() { r.collapsed = !r.collapsed; ss(); renderEtheTab(); };
@@ -3669,7 +2817,7 @@ function renderEtheTab() {
       if (isOffDay) itemClasses.push('off-day');
       el.className = itemClasses.join(' ');
       
-      var restTag = isOffDay ? (false ? '<span class="rest-day-tag">休</span>' : '<span class="rest-day-tag">rest</span>') : '';
+      var restTag = isOffDay ? ('<span class="rest-day-tag">rest</span>') : '';
       
       // Water target element
       var checkHtml = '';
@@ -3696,19 +2844,15 @@ function renderEtheTab() {
         const pct = Math.min(100, Math.round((daysPassed / 90) * 100));
         
         let warningClass = '';
-        let warningText = false 
-          ? '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// 連続最長90日間まで。色素沈着部分にのみ薄く塗布してください。</div>' 
-          : '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// Max 90 days continuous. Keep thin layer on hyperpigmentation only.</div>';
+        let warningText = '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// Max 90 days continuous. Keep thin layer on hyperpigmentation only.</div>';
         if (daysPassed > 90) {
           warningClass = 'triluma-warning';
-          warningText = false
-            ? '<div class="log-msg triluma-warning" style="margin-top:4px">// 警告: 連続使用サイクルが90日を超えています！組織黒変症のリスクがあります。直ちに皮膚科医の診断を受けてください。</div>'
-            : '<div class="log-msg triluma-warning" style="margin-top:4px">// WARNING: Active cycle exceeds 90 days continuous! Risk of ochronosis. Seek dermatological review immediately.</div>';
+          warningText = '<div class="log-msg triluma-warning" style="margin-top:4px">// WARNING: Active cycle exceeds 90 days continuous! Risk of ochronosis. Seek dermatological review immediately.</div>';
         }
         
-        const titleLabel = false ? 'トリルマ アクティブサイクル' : 'TRILUMA ACTIVE CYCLE';
-        const dayLabel = false ? `${daysPassed}日目 / 90日` : `Day ${daysPassed} / 90`;
-        const startLabel = false ? 'サイクル開始:' : 'Cycle Start:';
+        const titleLabel = 'TRILUMA ACTIVE CYCLE';
+        const dayLabel = `Day ${daysPassed} / 90`;
+        const startLabel = 'Cycle Start:';
         
         trilumaHtml = `
           <div class="triluma-countdown-box" style="margin-top: 6px;">
@@ -3728,9 +2872,9 @@ function renderEtheTab() {
         `;
       }
 
-      const eName = false ? (etheNames[e.name] || e.name) : e.name;
-      const eNote = false ? (etheNotes[e.note] || e.note) : e.note;
-      const grpLabel = grp ? (false ? (groupLabels[grp.label] || grp.label) : grp.label) : '';
+      const eName = e.name;
+      const eNote = e.note;
+      const grpLabel = grp ? (grp.label) : '';
 
       el.innerHTML = `
         <div style="display:flex; align-items:center; width:100%; gap:8px;">
@@ -3807,14 +2951,6 @@ function renderProtocolView() {
     if (foundUnchecked) break;
   }
 
-  const phaseLabels = {
-    'WAKE': '起床',
-    'STUDY': '学習',
-    'DEEP WORK': '集中開発',
-    'TRAIN': '筋トレ・有酸素',
-    'WIND DOWN': '就寝前'
-  };
-
   var stepCounter = 1;
   PROTOCOL_ORDER.forEach(function(phaseOrder) {
     var phaseDef = PROTOCOL_PHASES.find(function(p) { return p.id === phaseOrder.phase; });
@@ -3847,7 +2983,7 @@ function renderProtocolView() {
     var header = document.createElement('div');
     header.className = 'protocol-phase-header';
     
-    const phaseLabel = false ? (phaseLabels[phaseDef.label] || phaseDef.label) : phaseDef.label;
+    const phaseLabel = phaseDef.label;
     
     header.innerHTML = `
       <span class="protocol-phase-label">${phaseDef.icon} ${phaseLabel} <span style="font-size:10px;color:var(--text-dim);font-weight:400;margin-left:4px;">${phaseDef.time}</span></span>
@@ -3882,7 +3018,7 @@ function renderProtocolView() {
       el.className = itemClasses.join(' ');
       el.setAttribute('data-id', e.id);
 
-      var restTag = isOffDay ? (false ? '<span class="rest-day-tag">休</span>' : '<span class="rest-day-tag">rest</span>') : '';
+      var restTag = isOffDay ? ('<span class="rest-day-tag">rest</span>') : '';
       var grp = S.ethosGroups.find(function(g) { return g.id === e.groupId; });
       var grpColor = grp ? grp.color : '#888';
 
@@ -3911,19 +3047,15 @@ function renderProtocolView() {
         const pct = Math.min(100, Math.round((daysPassed / 90) * 100));
         
         let warningClass = '';
-        let warningText = false 
-          ? '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// 連続最長90日間まで。色素沈着部分にのみ薄く塗布してください。</div>' 
-          : '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// Max 90 days continuous. Keep thin layer on hyperpigmentation only.</div>';
+        let warningText = '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// Max 90 days continuous. Keep thin layer on hyperpigmentation only.</div>';
         if (daysPassed > 90) {
           warningClass = 'triluma-warning';
-          warningText = false
-            ? '<div class="log-msg triluma-warning" style="margin-top:4px">// 警告: 連続使用サイクルが90日を超えています！組織黒変症のリスクがあります。直ちに皮膚科医の診断を受けてください。</div>'
-            : '<div class="log-msg triluma-warning" style="margin-top:4px">// WARNING: Active cycle exceeds 90 days continuous! Risk of ochronosis. Seek dermatological review immediately.</div>';
+          warningText = '<div class="log-msg triluma-warning" style="margin-top:4px">// WARNING: Active cycle exceeds 90 days continuous! Risk of ochronosis. Seek dermatological review immediately.</div>';
         }
         
-        const titleLabel = false ? 'トリルマ アクティブサイクル' : 'TRILUMA ACTIVE CYCLE';
-        const dayLabel = false ? `${daysPassed}日目 / 90日` : `Day ${daysPassed} / 90`;
-        const startLabel = false ? 'サイクル開始:' : 'Cycle Start:';
+        const titleLabel = 'TRILUMA ACTIVE CYCLE';
+        const dayLabel = `Day ${daysPassed} / 90`;
+        const startLabel = 'Cycle Start:';
         
         trilumaHtml = `
           <div class="triluma-countdown-box" style="margin-top: 6px;">
@@ -3943,8 +3075,8 @@ function renderProtocolView() {
         `;
       }
 
-      const eName = false ? (etheNames[e.name] || e.name) : e.name;
-      const grpLabel = grp ? (false ? (groupLabels[grp.label] || grp.label) : grp.label) : '';
+      const eName = e.name;
+      const grpLabel = grp ? (grp.label) : '';
 
       el.innerHTML = `
         <span class="protocol-step-num">${stepNumStr}.</span>
@@ -4226,11 +3358,11 @@ function renderAchievements() {
     const card = document.createElement('div');
     card.className = 'achievement-card' + (isUnlocked ? ' unlocked' : '');
     
-    const aName = false ? (achNamesJp[a.name] || a.name) : a.name;
-    const aDesc = false ? (achDescsJp[a.desc] || a.desc) : a.desc;
+    const aName = a.name;
+    const aDesc = a.desc;
     const dateText = isUnlocked 
-      ? (false ? '✓ 解除済み ' + unlockedDate : '✓ Unlocked ' + unlockedDate)
-      : (false ? '// ロック中' : '// LOCKED');
+      ? ('✓ Unlocked ' + unlockedDate)
+      : ('// LOCKED');
 
     card.innerHTML = '<span class="ac-badge">' + a.badge + '</span>' +
       '<div class="ac-name">' + aName + '</div>' +
@@ -4252,17 +3384,6 @@ const SKILL_DESCS = {
   lora: "Low-rank updates, mathematical parameter reductions, weight adaptation, adapters, and scaling metrics."
 };
 
-const SKILL_DESCS_JP = {
-  linear_algebra: "基礎的なベクトル、行列、固有値、固有ベクトル、SVD（特異値分解）、および射影。埋め込みと重みのメカニズムを理解するための最重要基盤。",
-  mv_calc: "偏微分、勾配、ヤコビアン、ヘッシアン、および連鎖律。ニューラルネットワークのバックプロパゲーション学習の絶対的な中核。",
-  probability: "確率分布、期待値、最尤推定（MLE）、ベイズの定理。トークンの確率分布、クロスエントロピー、およびエントロピーの理解に不可欠。",
-  optimization: "勾配降下法のバリエーション（Adam、SGD）、損失ランドスケープ、学習率スケジューリング、収束性、および凸最適化。",
-  backprop: "自動微分グラフ、フォワード/バックワードパス、ヤコビ・ベクトル積、および逆伝播最適化。",
-  attention: "スケールド・ドットプロダクト・アテンション、Query/Key/Value射影の数理、マルチヘッド・アテンションの結合、スケーリング因子の数学的正当化。",
-  transformer: "エンコーダ・デコーダ構造、位置エンコーディング、レイヤー正規化メカニズム、残差接続、およびフィードフォワードネットワーク。",
-  lora: "低ランク更新（Low-Rank Updates）、数学的パラメータ削減、重み適応、アダプター、およびスケーリング指標。"
-};
-
 window.selectedSkillKey = null;
 function selectSkillNode(key) {
   window.selectedSkillKey = key;
@@ -4277,23 +3398,12 @@ function selectSkillNode(key) {
   
   const s = SKILLS.find(x => x.key === key);
   if (s) {
-    const skillNamesJp = {
-      'linear algebra': '線形代数',
-      'multivariable calc': '多変数微積分',
-      'probability / stats': '確率・統計',
-      'optimization theory': '最適化理論',
-      'backprop / autodiff': '誤差逆伝播 / 自動微分',
-      'attention mechanism': 'アテンション機構',
-      'transformer arch': 'Transformer アーキテクチャ',
-      'fine-tuning / LoRA': '微調整 / LoRA'
-    };
-    
-    title.textContent = false ? (skillNamesJp[s.name] || s.name).toUpperCase() : s.name.toUpperCase();
+    title.textContent = s.name.toUpperCase();
     title.style.color = s.color;
     const v = S.skills[key] || 0;
     pct.textContent = v + '%';
     pct.style.color = s.color;
-    desc.textContent = false ? (SKILL_DESCS_JP[key] || SKILL_DESCS[key] || '') : (SKILL_DESCS[key] || '');
+    desc.textContent = (SKILL_DESCS[key] || '');
     if (row) row.style.display = 'flex';
   }
 }
@@ -4439,43 +3549,37 @@ function updateFocusUI() {
   
   const pct = focusSession.totalDuration > 0 ? Math.round(focusSession.remaining / focusSession.totalDuration * 100) : 0;
   if (bar) bar.style.width = pct + '%';
-  
-  const isJp = false;
-  if (pctText) pctText.textContent = pct + (isJp ? '% アクティブ' : '% ACTIVE');
+  if (pctText) pctText.textContent = pct + ('% ACTIVE');
 
   if (focusSession.active) {
     status.textContent = focusSession.type === 'focus' 
-      ? (isJp ? '集中中' : 'FOCUS_ENGAGED') 
-      : (isJp ? '休憩中' : 'REST_ENGAGED');
+      ? ('FOCUS_ENGAGED') 
+      : ('REST_ENGAGED');
     status.className = 'fhud-status-tag blinking';
     typeText.textContent = focusSession.type === 'focus' 
-      ? (isJp ? '// 集中タスク' : '// TASK_FOCUS') 
-      : (isJp ? '// 休憩' : '// REST_BREAK');
+      ? ('// TASK_FOCUS') 
+      : ('// REST_BREAK');
     startBtn.style.display = 'none';
     pauseBtn.style.display = 'inline-block';
     abortBtn.style.display = 'inline-block';
-    document.title = isJp 
-      ? '[' + clock.textContent + '] 集中.初期化' 
-      : '[' + clock.textContent + '] focus.init';
+    document.title = '[' + clock.textContent + '] focus.init';
   } else if (focusSession.paused) {
-    status.textContent = isJp ? '一時停止中' : 'SYSTEM_PAUSED';
+    status.textContent = 'SYSTEM_PAUSED';
     status.className = 'fhud-status-tag';
     startBtn.style.display = 'inline-block';
-    startBtn.textContent = isJp ? '再開 --session' : 'resume --session';
+    startBtn.textContent = 'resume --session';
     pauseBtn.style.display = 'none';
     abortBtn.style.display = 'inline-block';
-    document.title = isJp ? '一時停止 集中.初期化' : 'paused focus.init';
+    document.title = 'paused focus.init';
   } else {
-    status.textContent = isJp ? '待機中' : 'SYSTEM_IDLE';
+    status.textContent = 'SYSTEM_IDLE';
     status.className = 'fhud-status-tag';
-    typeText.textContent = isJp ? '// アイドル' : '// TASK_IDLE';
+    typeText.textContent = '// TASK_IDLE';
     startBtn.style.display = 'inline-block';
-    startBtn.textContent = isJp ? '開始 --session' : 'start --session';
+    startBtn.textContent = 'start --session';
     pauseBtn.style.display = 'none';
     abortBtn.style.display = 'none';
-    document.title = isJp 
-      ? '習性.初期化 — LLM数学学習トラッカー' 
-      : 'ethos.init — LLM Math Mastery Tracker';
+    document.title = 'ethos.init — LLM Math Mastery Tracker';
   }
 
   const utcEl = document.getElementById('focus-utc');
@@ -4495,13 +3599,12 @@ function focusLog(msg) {
 
 function renderPapers() {
   var list = document.getElementById('paper-list'); if (!list) return; list.innerHTML = '';
-  const isJp = false;
   S.papers.forEach(function(p) {
     var el = document.createElement('div'); el.className = 'paper-item';
-    const queuedText = isJp ? '積読' : 'queued';
-    const readingText = isJp ? '読書中' : 'reading';
-    const doneText = isJp ? '読了' : 'done';
-    const rmText = isJp ? '削除' : 'rm';
+    const queuedText = 'queued';
+    const readingText = 'reading';
+    const doneText = 'done';
+    const rmText = 'rm';
     el.innerHTML = '<div class="paper-item-header"><div class="paper-name">' + p.name + '</div><div class="paper-controls"><select class="terminal-input" style="width:90px;padding:3px 6px;font-size:11px" data-pid="' + p.id + '"><option value="queued"' + (p.status === 'queued' ? ' selected' : '') + '>' + queuedText + '</option><option value="reading"' + (p.status === 'reading' ? ' selected' : '') + '>' + readingText + '</option><option value="done"' + (p.status === 'done' ? ' selected' : '') + '>' + doneText + '</option></select><button class="ethos-rm" data-pid="' + p.id + '">' + rmText + '</button></div></div>';
     el.querySelector('select').onchange = function() { updatePaperStatus(p.id, this.value); };
     el.querySelector('.ethos-rm').onclick = function() { removePaper(p.id); };
@@ -4512,35 +3615,16 @@ function renderPapers() {
 function renderLog() {
   var el = document.getElementById('main-log'); if (!el) return;
   var recent = (S.logs || []).slice(-40).reverse();
-  const isJp = false;
   if (recent.length === 0) { 
-    const welcome = isJp ? '習性.初期化 が起動しました。お帰りなさい。' : 'ethos.init started. welcome back.';
-    const typeLabel = isJp ? '情報' : 'info';
+    const welcome = 'ethos.init started. welcome back.';
+    const typeLabel = 'info';
     el.innerHTML = '<div class="log-line"><span class="ts">--:--:--</span><span class="info">[' + typeLabel + ']</span> ' + welcome + '</div>'; 
     return; 
   }
   el.innerHTML = recent.map(function(l) {
     let msg = l.msg;
     let typeText = l.type;
-    if (isJp) {
-      if (typeText === 'info') typeText = '情報';
-      else if (typeText === 'ok') typeText = '成功';
-      else if (typeText === 'warning') typeText = '警告';
-      
-      if (msg.includes('ethos added:')) {
-        msg = msg.replace(/ethos added: "(.*)"/, '習慣が追加されました: "$1"');
-      } else if (msg.includes('ethos marked:')) {
-        msg = msg.replace(/ethos marked: "(.*)" \+(.*) xp/, '習慣「$1」が達成されました： +$2 XP');
-      } else if (msg.includes('marked ethos:')) {
-        msg = msg.replace(/marked ethos: "(.*)" -- \+0 XP/, '習慣「$1」がマークされました： +0 XP');
-      } else if (msg.includes('deleted reminder:')) {
-        msg = msg.replace(/deleted reminder: (.*) - "(.*)"/, 'アラームが削除されました: $1 - "$2"');
-      } else if (msg.includes('added routine reminder for')) {
-        msg = msg.replace(/added routine reminder for (.*): "(.*)"/, '$1 のアラームを追加しました: "$2"');
-      } else if (msg.includes('logged') && msg.includes('hours')) {
-        msg = msg.replace(/logged (.*) hours\. total: (.*)h/, '$1 時間を学習記録しました。累計: $2時間');
-      }
-    }
+    
     return '<div class="log-line"><span class="ts">' + l.ts + '</span> <span class="' + l.type + '">[' + typeText + ']</span> ' + escapeHtml(msg) + '</div>'; 
   }).join('');
 }
@@ -4709,7 +3793,7 @@ function addManualLog() {
 }
 
 function resetAll() {
-  if (confirm(false ? 'すべてのデータを消去しますか？この操作は元に戻せません。' : 'erase ALL data? this cannot be undone.')) { localStorage.removeItem('mathInit_state'); localStorage.removeItem('mathInit'); location.reload(); }
+  if (confirm('erase ALL data? this cannot be undone.')) { localStorage.removeItem('mathInit_state'); localStorage.removeItem('mathInit'); location.reload(); }
 }
 
 function exportStateData() {
@@ -5316,9 +4400,7 @@ function renderSwimTab() {
   });
   
   if (sortedHistory.length === 0) {
-    container.innerHTML = false 
-      ? '<div style="color:var(--text-faint); font-size:12px; padding:16px; text-align:center;">// 検索・フィルター条件に一致する水泳記録がありません</div>'
-      : '<div style="color:var(--text-faint); font-size:12px; padding:16px; text-align:center;">// NO SWIM LOG RECORDS MATCHING SEARCH / FILTER CRITERIA</div>';
+    container.innerHTML = '<div style="color:var(--text-faint); font-size:12px; padding:16px; text-align:center;">// NO SWIM LOG RECORDS MATCHING SEARCH / FILTER CRITERIA</div>';
     return;
   }
   
@@ -5335,8 +4417,8 @@ function renderSwimTab() {
     
     const badgeClass = isSwam ? 'swim-badge swam' : (isWednesday ? 'swim-badge rest' : 'swim-badge missed');
     const badgeText = isSwam 
-      ? (entry.sessions.length >= 2 ? (false ? '二回実施' : 'double swam') : (false ? '実施' : 'swam')) 
-      : (isWednesday ? (false ? '予定休' : 'scheduled rest') : (false ? '未実施' : 'missed'));
+      ? (entry.sessions.length >= 2 ? ('double swam') : ('swam')) 
+      : (isWednesday ? ('scheduled rest') : ('missed'));
     
     let detailsHtml = '';
     if (isSwam) {
@@ -5344,7 +4426,7 @@ function renderSwimTab() {
         let statsStr = `${s.duration}m`;
         if (s.laps !== undefined && s.laps > 0) {
           const distKm = ((s.distance || 0) / 1000).toFixed(2) + 'km';
-          statsStr += false ? ` | ${s.laps} ラップ | ${distKm} | ${s.calories} kcal` : ` | ${s.laps} laps | ${distKm} | ${s.calories} kcal`;
+          statsStr += ` | ${s.laps} laps | ${distKm} | ${s.calories} kcal`;
         } else {
           const estCal = s.calories || Math.round(s.duration * 9);
           statsStr += ` | ~${estCal} kcal`;
@@ -5357,10 +4439,10 @@ function renderSwimTab() {
         ${commentsText ? `<div class="swim-comment-txt" style="margin-top:2px; color:var(--text-faint);">${commentsText}</div>` : ''}
       `;
     } else {
-      detailsHtml = `<div class="swim-comment-txt" style="margin-top:2px;">${isWednesday ? (false ? '// 予定された休養日' : '// scheduled rest day') : (false ? '// 休養日または未実施セッション' : '// rest day or missed session')}</div>`;
+      detailsHtml = `<div class="swim-comment-txt" style="margin-top:2px;">${isWednesday ? ('// scheduled rest day') : ('// rest day or missed session')}</div>`;
     }
     
-    const dateFormatted = dateObj.toLocaleDateString(false ? 'ja-JP' : 'en-US', false ? { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' } : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
+    const dateFormatted = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
     row.innerHTML = `
       <div class="swim-info-col" style="margin-left:0;">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -5370,7 +4452,7 @@ function renderSwimTab() {
         ${detailsHtml}
       </div>
       <div class="swim-action-col">
-        <button class="ethos-rm" data-date="${entry.date}">${false ? '削除' : 'rm'}</button>
+        <button class="ethos-rm" data-date="${entry.date}">${'rm'}</button>
       </div>
     `;
     row.querySelector('.ethos-rm').onclick = () => removeSwimDay(entry.date);
@@ -5506,7 +4588,7 @@ function logSwimSession() {
 }
 
 function removeSwimDay(date) {
-  if (confirm(false ? `${date} の水泳ログを削除しますか？` : `delete swim log for ${date}?`)) {
+  if (confirm(`delete swim log for ${date}?`)) {
     if (!S.swimHistory) return;
     const entry = S.swimHistory.find(x => x.date === date);
     if (entry && entry.status === 'Swam') {
@@ -5593,7 +4675,7 @@ function logBiometrics() {
   const weight = parseFloat(weightInput.value);
   
   if (!date || isNaN(weight)) {
-    alert(false ? '日付と体重は必須項目です。' : 'Date and Weight are required.');
+    alert('Date and Weight are required.');
     return;
   }
   
@@ -5621,7 +4703,7 @@ function logBiometrics() {
 }
 
 function removeBiometrics(date) {
-  if (confirm(false ? `${date} の生体データログを削除しますか？` : `delete biometrics log for ${date}?`)) {
+  if (confirm(`delete biometrics log for ${date}?`)) {
     if (!S.weightLogs) return;
     S.weightLogs = S.weightLogs.filter(x => x.date !== date);
     addLog('info', `deleted biometrics log for ${date}`);
@@ -5862,17 +4944,15 @@ function renderRemindersList() {
   if (!container) return;
   
   if (S.reminders.length === 0) {
-    container.innerHTML = false 
-      ? '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-faint);">// 設定されたアラームはありません</td></tr>'
-      : '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-faint);">// NO ROUTINE ALARMS SCHEDULED</td></tr>';
+    container.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-faint);">// NO ROUTINE ALARMS SCHEDULED</td></tr>';
     return;
   }
   
   container.innerHTML = S.reminders.map((r, idx) => {
     const activeText = r.active 
-      ? (false ? '[稼働中]' : '[ACTIVE]') 
-      : (false ? '[停止]' : '[OFF]');
-    const deleteText = false ? '[削除]' : '[delete]';
+      ? ('[ACTIVE]') 
+      : ('[OFF]');
+    const deleteText = '[delete]';
     return `
       <tr style="border-bottom: 1px dashed var(--border2); color: var(--text);">
         <td style="padding: 8px 4px; font-weight: bold; color: var(--accent);">${r.time}</td>
@@ -6406,21 +5486,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
   let state = "DEEP_SYNC";
   let critique = "";
   
-  if (false) {
-    if (mathSkips >= 2) {
-      state = "DEGRADED";
-      critique = "認知デコヒーレンス警告：LLM数学が2セッション以上連続してスキップされました。脳の可塑性には厳密な能動的導出が必要です。";
-    } else if (compliancePct >= 85) {
-      state = "DEEP_SYNC";
-      critique = "シナプスルーティンは最適です。このまま継続してください。";
-    } else if (compliancePct >= 50) {
-      state = "TURBULENT";
-      critique = "シナプスルーティンにわずかなドリフトが検出されました。目標を再設定してください。";
-    } else {
-      state = "DEGRADED";
-      critique = "認知デコヒーレンス警告。コアのルーティンがオフラインです。";
-    }
-  } else {
+  
     if (mathSkips >= 2) {
       state = "DEGRADED";
       critique = "Cognitive decoherence warning: LLM Mathematics skipped for 2+ consecutive sessions.";
@@ -6434,7 +5500,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
       state = "DEGRADED";
       critique = "Cognitive decoherence warning. Core routines offline.";
     }
-  }
+  
 
   // 4. Dynamic appraisal heuristics for ECRE guide dialogue & living comments
   const todayDay = new Date().getDay();
@@ -6470,45 +5536,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
 
   // Positive Integrations
   const positiveNotes = [];
-  if (false) {
-    if (S.streak >= 7) {
-      positiveNotes.push(`継続維持：ニューラルモーメンタムは ${S.streak} 日と強力です。シールド保護がアクティブです。`);
-    } else if (S.streak > 0) {
-      positiveNotes.push(`モーメンタム：${S.streak} 日間のアクティブな継続。ニューラル接続が形成中。`);
-    }
-    
-    if (mathEthe.length > 0 && mathDone === mathEthe.length) {
-      positiveNotes.push(`認知的深さ：数学ルーティンが100%完了。解析エンジンが完全に整合されています。`);
-    } else if (isEthosDoneOnDate(3, TODAY)) {
-      positiveNotes.push(`厳密性の確保：本日、証明問題の導出演習（ID 3）が正常に実行されました。`);
-    }
-    
-    if (buildEthe.length > 0 && buildDone === buildEthe.length) {
-      positiveNotes.push(`ハードウェア健全性：集中開発とアルゴリズム実装が完了。`);
-    }
-    
-    if (bodyDone > 0 || swamTodayOrYesterday) {
-      let msg = `身体のアウトフロー：物理ルーティンが本日完了しました。`;
-      if (swamTodayOrYesterday) msg += ` 水泳セッションが記録されました。`;
-      positiveNotes.push(msg);
-    }
-    
-    if (skinEthe.length > 0 && skinDone === skinEthe.length) {
-      positiveNotes.push(`皮膚バリア：朝と夜のスキンケアバリアが正常に配備されました。`);
-    }
-    
-    if (isHydrationOptimal) {
-      positiveNotes.push(`バイオ燃料：水分補給目標を達成しました（本日は ${waterToday}L 記録）。`);
-    }
-    
-    if (etheToday.length > 0 && etheToday.every(e => e.done)) {
-      positiveNotes.push(`コヒーレンスの極致：本日のすべての日課が100%完了しました。`);
-    }
-    
-    if (positiveNotes.length === 0) {
-      positiveNotes.push(`初期化：ECREシステム待機中。最初の日課検証を待っています。`);
-    }
-  } else {
+  
     if (S.streak >= 7) {
       positiveNotes.push(`STREAK SUSTAINED: Neural momentum strong at ${S.streak} days. Shield protection active.`);
     } else if (S.streak > 0) {
@@ -6546,40 +5574,11 @@ function compileCognitiveVector(relativeDate = new Date()) {
     if (positiveNotes.length === 0) {
       positiveNotes.push(`INITIALIZATION: ECRE system standby. Awaiting first routine validation.`);
     }
-  }
+  
 
   // Diagnostic Advisories
   const advisories = [];
-  if (false) {
-    if (mathSkips >= 2) {
-      advisories.push(`致命的な認知ドリフト：数学証明が ${mathSkips} 回連続セッションでスキップされました！脳の可塑性には厳密な能動的導出が必要です。`);
-    } else if (!isEthosDoneOnDate(3, TODAY)) {
-      advisories.push(`未完了の厳密性：本日「証明問題の導出演習」（ID 3）が確認されていません。`);
-    }
-    
-    if (mathEthe.length > 0 && mathDone === 0) {
-      advisories.push(`数学非同期：本日は数学の習慣が完全にオフラインです。`);
-    }
-    if (bodyEthe.length > 0 && bodyDone === 0 && !swamTodayOrYesterday) {
-      advisories.push(`身体的怠慢：運動/物理ルーティンが本日すべて未完了です。身体の整合性が脆弱です。`);
-    }
-    if (skinEthe.length > 0 && skinDone === 0) {
-      advisories.push(`皮膚的怠慢：皮膚保護ルーティンが本日すべてスキップされています。`);
-    }
-    if (nutritionEthe.length > 0 && nutritionDone === 0) {
-      advisories.push(`代謝停滞：栄養/サプリメントのルーティンが本日完全に放置されています。`);
-    }
-    if (hairEthe.length > 0 && hairDone === 0) {
-      advisories.push(`毛髪的不活性：頭皮・毛髪栄養プロトコルが本日オフラインです。`);
-    }
-    if (waterToday < 3.5) {
-      advisories.push(`水分不足：現在の水分補給量は ${waterToday}L です。システムは毎日 3.5L 以上を要求しています。`);
-    }
-    
-    if (advisories.length === 0) {
-      advisories.push(`すべての認知チャネルが確保されました。有効なアノマリーは検出されていません。`);
-    }
-  } else {
+  
     if (mathSkips >= 2) {
       advisories.push(`CRITICAL COGNITIVE DRIFT: Mathematical proofs skipped for ${mathSkips} consecutive sessions! Brain plasticity requires rigorous active derivation.`);
     } else if (!isEthosDoneOnDate(3, TODAY)) {
@@ -6608,7 +5607,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
     if (advisories.length === 0) {
       advisories.push(`ALL COGNITIVE CHANNELS SECURED. Zero active anomalies detected.`);
     }
-  }
+  
 
   // Directives
   let directive = "";
@@ -6617,22 +5616,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
   const pendingBody = bodyEthe.find(e => !e.done);
   const pendingOther = etheToday.find(e => !e.done);
   
-  if (false) {
-    if (!isEthosDoneOnDate(3, TODAY)) {
-      directive = `証明バインダーを開き、コア数学定理の導出演習に20分を割いてください。証明を省略しないでください。`;
-    } else if (pendingBuild) {
-      directive = `ディープワークを開始してください。コアアルゴリズムの実装とコードのリファクタリングを行います。タスク「${pendingBuild.name}」に集中してください。`;
-    } else if (pendingMath) {
-      directive = `未完了の数学タスク「${pendingMath.name}」を完了してください。解析エンジンを活性化状態に保ちます。`;
-    } else if (pendingBody) {
-      directive = `エネルギーフローを回復させてください。身体ルーティン（「${pendingBody.name}」）を実行します。`;
-    } else if (pendingOther) {
-      const grpText = groupLabels[pendingOther.groupId] || pendingOther.groupId;
-      directive = `完全同期を達成するために、「${grpText}」カテゴリの「${pendingOther.name}」を完了してください。`;
-    } else {
-      directive = `コヒーレンスの極致。すべての日課が完了しました。基準を維持し、本日の学習を定着させて休息してください。`;
-    }
-  } else {
+  
     if (!isEthosDoneOnDate(3, TODAY)) {
       directive = `Open proof binder. Spend 20 minutes deriving core mathematical theorems. Do not skip proofs.`;
     } else if (pendingBuild) {
@@ -6646,26 +5630,11 @@ function compileCognitiveVector(relativeDate = new Date()) {
     } else {
       directive = `Coherence zenith. Active routines secured. Maintain baseline, consolidate today's learnings, and rest.`;
     }
-  }
+  
 
   // Living Comment
   let livingComment = "";
-  if (false) {
-    if (etheToday.length > 0 && etheToday.every(e => e.done)) {
-      livingComment = `// ECRE: [完全同期] 完璧な遵守率。日課が100%完了。この状態を維持してください。`;
-    } else if (mathSkips >= 2) {
-      livingComment = `// ECRE: [機能低下] 警告: 2回以上証明がスキップされました！解析ドリフトを今すぐ解消してください。`;
-    } else if (!isEthosDoneOnDate(3, TODAY)) {
-      livingComment = `// ECRE: [推奨警告] 本日数学の証明問題が未完了。机上での導出を実行してください。`;
-    } else if (compliancePct < 50) {
-      livingComment = `// ECRE: [機能低下] コア遵守率 ${compliancePct}%。ルーティンを再同期してください。`;
-    } else if (compliancePct < 85) {
-      livingComment = `// ECRE: [不穏状態] わずかなドリフト。継続日数: ${S.streak}日。集中力を回復させてください。`;
-    } else {
-      const pendingCount = etheToday.filter(e => !e.done).length;
-      livingComment = `// ECRE: [完全同期] 継続日数 ${S.streak}日。残り ${pendingCount} 件のルーティンが未完了です。`;
-    }
-  } else {
+  
     if (etheToday.length > 0 && etheToday.every(e => e.done)) {
       livingComment = `// ECRE: [DEEP_SYNC] Zenith compliance. 100% daily routines complete. Maintain state.`;
     } else if (mathSkips >= 2) {
@@ -6680,7 +5649,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
       const pendingCount = etheToday.filter(e => !e.done).length;
       livingComment = `// ECRE: [DEEP_SYNC] Streaks active on ${S.streak}d. ${pendingCount} routines pending.`;
     }
-  }
+  
   
   // Set pattern violation flag in ECRE Memory
   // Check if today is Thursday and math proofs (id 3) are undone/skipped, or mathSkips >= 1
@@ -6769,8 +5738,8 @@ function renderCOHERENCE() {
   };
 
   const stateText = vector.state;
-  const buffText = false ? (vector.state === 'DEEP_SYNC' ? 'x1.2 フロー' : 'x1.0 アクティブ') : (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow' : 'x1.0 Active');
-  const modalBuffText = false ? (vector.state === 'DEEP_SYNC' ? 'x1.2 フローバフ' : 'x1.0 アクティブ') : (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow Buff' : 'x1.0 Active');
+  const buffText = (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow' : 'x1.0 Active');
+  const modalBuffText = (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow Buff' : 'x1.0 Active');
 
   // Dashboard Telemetry Card
   updateElText('hud-val-cns', Math.round(cns * 100) + '%');
@@ -6801,28 +5770,26 @@ function renderCOHERENCE() {
     const detailedCritique = `
       <div style="padding: 10px; background: ${activeColor}06; border-radius: 4px; border: 1px solid ${activeColor}15; font-family: var(--font); font-size: 11px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed ${activeColor}30; padding-bottom:6px; margin-bottom:8px;">
-          <strong style="color:var(--text); letter-spacing:0.5px;">${false ? 'ECRE 認知評価システム v2.6.2' : 'ECRE COGNITIVE APPRAISAL v2.6.2'}</strong>
+          <strong style="color:var(--text); letter-spacing:0.5px;">${'ECRE COGNITIVE APPRAISAL v2.6.2'}</strong>
           <span style="color:${activeColor}; font-weight:bold; letter-spacing:1px; background:${activeColor}15; padding:2px 6px; border-radius:3px; font-size:9px;">${stateText}</span>
         </div>
         <div style="margin-bottom:8px; line-height:1.4; color:var(--text-dim)">
-          ${false 
-            ? `// CNS一貫性指標が <span style="color:var(--text); font-weight:600">${vector.compliancePct}%</span> と評価されました。継続日数は <span style="color:var(--text); font-weight:600">${S.streak}日</span> を維持しています。`
-            : `// CNS consistency index evaluated at <span style="color:var(--text); font-weight:600">${vector.compliancePct}%</span>. Active streak remains at <span style="color:var(--text); font-weight:600">${S.streak} days</span>.`}
+          ${`// CNS consistency index evaluated at <span style="color:var(--text); font-weight:600">${vector.compliancePct}%</span>. Active streak remains at <span style="color:var(--text); font-weight:600">${S.streak} days</span>.`}
         </div>
         <div style="margin-bottom:8px;">
-          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${false ? '[肯定的統合]' : '[Positive Integrations]'}</div>
+          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${'[Positive Integrations]'}</div>
           <div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">
             ${vector.positiveNotes.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:${activeColor}">✔</span><span style="color:var(--text-dim); line-height:1.3;">${n}</span></div>`).join('')}
           </div>
         </div>
         <div style="margin-bottom:8px;">
-          <div style="color:var(--red); font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${false ? '[診断アノマリー]' : '[Diagnostic Anomalies]'}</div>
+          <div style="color:var(--red); font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${'[Diagnostic Anomalies]'}</div>
           <div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">
             ${vector.advisories.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:var(--red)">⚠</span><span style="color:var(--text-dim); line-height:1.3;">${n}</span></div>`).join('')}
           </div>
         </div>
         <div style="margin-top:10px; border-top:1px dashed ${activeColor}20; padding-top:8px;">
-          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${false ? '[サイバネティクス指令]' : '[Cybernetic Directive]'}</div>
+          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${'[Cybernetic Directive]'}</div>
           <div style="color:var(--text); font-style:italic; padding-left:4px; line-height:1.4;">${vector.directive}</div>
         </div>
       </div>
