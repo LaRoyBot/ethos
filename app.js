@@ -789,7 +789,7 @@ document.addEventListener('keydown', function(e) {
               '  ███████╗   ██║   ██║  ██║╚██████╔╝███████║\n' +
               '  ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n' +
               '</div>' +
-              '<div style="margin-top: 8px;">' + (S.japaneseMode ? '習性.初期化 v2.4.0 対話型モード。コマンド一覧を表示するには "help" と入力してください。' : 'ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
+              '<div style="margin-top: 8px;">' + (false ? '習性.初期化 v2.4.0 対話型モード。コマンド一覧を表示するには "help" と入力してください。' : 'ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
             printTermTyped(welcomeLogo, 'sys');
           }
         }
@@ -1348,7 +1348,7 @@ function initButtons() {
           '  ███████╗   ██║   ██║  ██║╚██████╔╝███████║\n' +
           '  ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝\n' +
           '</div>' +
-          '<div style="margin-top: 8px;">' + (S.japaneseMode ? '習性.初期化 v2.4.0 対話型モード。コマンド一覧を表示するには "help" と入力してください。' : 'ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
+          '<div style="margin-top: 8px;">' + (false ? '習性.初期化 v2.4.0 対話型モード。コマンド一覧を表示するには "help" と入力してください。' : 'ethos.init v2.4.0 interactive mode. type "help" for commands.') + '</div>';
         printTermTyped(welcomeLogo, 'sys');
       }
     };
@@ -1716,7 +1716,7 @@ function handleCommand(cmd) {
   } else if (action === 'exit' || action === 'quit') {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
-    if (S.japaneseMode) {
+    if (false) {
       printTerm('習性.初期化 コマンド一覧:<br>' +
                 '- check [習慣名] : 習慣を完了としてマーク<br>' +
                 '- uncheck [習慣名] : 習慣を未完了としてマーク<br>' +
@@ -1874,21 +1874,12 @@ function handleCommand(cmd) {
       printTerm('Usage: demo [seed | sync | turbulent | degraded | rewind]', 'err');
     }
   } else if (action === 'groups') {
-    const groupLabels = {
-      math: '数学',
-      body: '身体',
-      mind: '精神',
-      build: '構築',
-      hair: '髪',
-      skin: '肌',
-      nutrition: '栄養'
-    };
     S.ethosGroups.forEach(g => {
       const all = getAllEthe().filter(e => e.groupId === g.id);
       const done = all.filter(e => e.done).length;
-      const label = S.japaneseMode ? (groupLabels[g.id] || g.label) : g.label;
-      const doneLabel = S.japaneseMode ? `達成: ${done}/${all.length}` : `done:${done}/${all.length}`;
-      const streakLabel = S.japaneseMode ? `継続: ${g.streak}日` : `streak:${g.streak}`;
+      const label = false ? (groupLabels[g.id] || g.label) : g.label;
+      const doneLabel = false ? `達成: ${done}/${all.length}` : `done:${done}/${all.length}`;
+      const streakLabel = false ? `継続: ${g.streak}日` : `streak:${g.streak}`;
       printTerm(`${label} | ${streakLabel} | ${doneLabel}`, 'ok');
     });
   } else if (action === 'theme') {
@@ -1899,32 +1890,32 @@ function handleCommand(cmd) {
         document.documentElement.setAttribute('data-theme', t.id === 'default' ? '' : t.id); 
         ss(); 
         renderThemes(); 
-        printTerm(S.japaneseMode ? 'テーマを ' + t.name + ' に設定しました。' : 'theme set to ' + t.name, 'ok'); 
+        printTerm(false ? 'テーマを ' + t.name + ' に設定しました。' : 'theme set to ' + t.name, 'ok'); 
       }
-      else printTerm(S.japaneseMode ? 'テーマが見つかりません。利用可能: ' + THEMES.map(x => x.id).join(', ') : 'theme not found. available: ' + THEMES.map(x => x.id).join(', '), 'err');
-    } else printTerm(S.japaneseMode ? '使用方法: theme [テーマ名]' : 'usage: theme [name]', 'err');
+      else printTerm(false ? 'テーマが見つかりません。利用可能: ' + THEMES.map(x => x.id).join(', ') : 'theme not found. available: ' + THEMES.map(x => x.id).join(', '), 'err');
+    } else printTerm(false ? '使用方法: theme [テーマ名]' : 'usage: theme [name]', 'err');
   } else if (action === 'log') {
     const hrs = parseFloat(args[1]);
-    if (isNaN(hrs)) printTerm(S.japaneseMode ? '使用方法: log [時間]' : 'usage: log [hours]', 'err');
+    if (isNaN(hrs)) printTerm(false ? '使用方法: log [時間]' : 'usage: log [hours]', 'err');
     else { 
       document.getElementById('hours-input').value = hrs; 
       logHours(); 
-      printTerm(S.japaneseMode ? `${hrs} 時間を記録しました。累計: ${(Math.round(S.totalHours * 10) / 10)}時間` : 'logged ' + hrs + ' hours. total: ' + (Math.round(S.totalHours * 10) / 10) + 'h', 'ok'); 
+      printTerm(false ? `${hrs} 時間を記録しました。累計: ${(Math.round(S.totalHours * 10) / 10)}時間` : 'logged ' + hrs + ' hours. total: ' + (Math.round(S.totalHours * 10) / 10) + 'h', 'ok'); 
     }
   } else if (action === 'check' || action === 'uncheck') {
     const query = args.slice(1).join(' ').toLowerCase();
-    if (!query) { printTerm(S.japaneseMode ? '使用方法: ' + action + ' [習慣名]' : 'usage: ' + action + ' [ethos name]', 'err'); return; }
+    if (!query) { printTerm(false ? '使用方法: ' + action + ' [習慣名]' : 'usage: ' + action + ' [ethos name]', 'err'); return; }
     var target = null, targetRIdx = -1;
     S.routines.forEach(function(r, rIdx) { r.ethe.forEach(function(e) { if (e.name.toLowerCase().includes(query)) { target = e; targetRIdx = rIdx; } }); });
     if (target) {
       if (action === 'check' && !target.done) toggleEthos(targetRIdx, target.id);
       else if (action === 'uncheck' && target.done) toggleEthos(targetRIdx, target.id);
-      const actionText = action === 'check' ? (S.japaneseMode ? '完了' : 'checked') : (S.japaneseMode ? '未完了' : 'unchecked');
+      const actionText = action === 'check' ? (false ? '完了' : 'checked') : (false ? '未完了' : 'unchecked');
       printTerm(`${actionText}: ${target.name}`, 'ok');
-    } else printTerm(S.japaneseMode ? `"${query}" に一致する習慣が見つかりません。` : 'ethos not found matching "' + query + '"', 'err');
+    } else printTerm(false ? `"${query}" に一致する習慣が見つかりません。` : 'ethos not found matching "' + query + '"', 'err');
   } else if (action === 'skills') {
     var txt = '<div style="font-family: monospace; white-space: pre; line-height: 1.25; color: var(--accent);">';
-    if (S.japaneseMode) {
+    if (false) {
       txt += '           知識マトリクス (スキルツリー)\n';
       txt += '           =============================\n\n';
     } else {
@@ -1938,7 +1929,7 @@ function handleCommand(cmd) {
       return '[' + '█'.repeat(blocks) + '░'.repeat(10 - blocks) + '] ' + (v < 100 ? ' ' + v : v) + '%';
     };
     
-    if (S.japaneseMode) {
+    if (false) {
       txt += '┌─────────────────┐\n';
       txt += '│    線形代数     │ ─┐\n';
       txt += '│ ' + getBar('linear_algebra') + ' │  │   ┌─────────────────┐\n';
@@ -1978,7 +1969,7 @@ function handleCommand(cmd) {
   } else if (action === 'ranks' || action === 'achievements') {
     var txt = '<div style="font-family: monospace; line-height: 1.4; color: var(--text); width: 100%; box-sizing: border-box;">';
     txt += '  <div style="color: var(--accent); font-weight: bold; text-align: center; margin-bottom: 16px;">\n';
-    if (S.japaneseMode) {
+    if (false) {
       txt += '    /// 帝国アカデミー功績実績デック ///\n';
       txt += '    =====================================\n';
     } else {
@@ -1989,33 +1980,6 @@ function handleCommand(cmd) {
     txt += '  <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; width: 100%; box-sizing: border-box;">\n';
     
     if (!S.unlockedAchievements) S.unlockedAchievements = {};
-    const achNamesJp = {
-      'First Flight': '処女飛行',
-      'Chronos Streak': 'クロノス・ストリーク',
-      'Academic Drill': 'アカデミック・ドリル',
-      'Deep Space Focus': 'ディープスペース・フォーカス',
-      'Synaptic Overflow': 'シナプス・オーバーフロー',
-      'Force Harmony': 'フォース・ハーモニー',
-      'Oracle Ascent': 'オラクル・アセント',
-      'Aquaman': 'アクアマン',
-      'Poseidon\'s Lungs': 'ポセイドンの肺',
-      'Derma Glow': 'ダーマ・グロウ',
-      'Hydro Champ': 'ハイドロ・チャンプ'
-    };
-    const achDescsJp = {
-      'Log your first 1.0 hour of study': '最初の1.0時間の学習を記録する',
-      'Reach a 7-day global streak': 'グローバルで7日連続 of 習慣継続を達成する',
-      'Read 3 academic research papers': '学術研究論文を3本読む',
-      'Complete a 50-minute Focus session': '50分間の集中セッションを完了する',
-      'Master any skill to 100% level': 'いずれかのスキルを100%レベルまでマスターする',
-      'Complete all daily routines': 'すべての本日の日課を完了する',
-      'Reach Level 6 (Transformer Sage)': 'レベル6（Transformer Sage）に到達する',
-      'Log a double-session swim day': '1日に2回以上の水泳セッションを記録する',
-      'Complete 25 swim sessions': '水泳セッションを25回完了する',
-      'Azelaic Acid checked 7 days in a row': 'アゼライン酸の塗布を7日連続で達成する',
-      'Hit water target 5 days in a row': '水分補給目標を5日連続で達成する'
-    };
-
     ACHIEVEMENTS.forEach(a => {
       const unlockedDate = S.unlockedAchievements[a.id];
       const isUnlocked = !!unlockedDate;
@@ -2024,11 +1988,11 @@ function handleCommand(cmd) {
       const bgCol = isUnlocked ? 'var(--accent-faint)' : 'var(--bg2)';
       const shadow = isUnlocked ? 'box-shadow: 0 0 8px var(--accent-faint);' : '';
       
-      const aName = S.japaneseMode ? (achNamesJp[a.name] || a.name) : a.name;
-      const aDesc = S.japaneseMode ? (achDescsJp[a.desc] || a.desc) : a.desc;
+      const aName = false ? (achNamesJp[a.name] || a.name) : a.name;
+      const aDesc = false ? (achDescsJp[a.desc] || a.desc) : a.desc;
       const dateText = isUnlocked 
-        ? (S.japaneseMode ? '✓ 解除済み (' + unlockedDate + ')' : '✓ UNLOCKED (' + unlockedDate + ')')
-        : (S.japaneseMode ? '[ ロック中 ]' : '[ LOCKED ]');
+        ? (false ? '✓ 解除済み (' + unlockedDate + ')' : '✓ UNLOCKED (' + unlockedDate + ')')
+        : (false ? '[ ロック中 ]' : '[ LOCKED ]');
 
       txt += '    <div style="flex: 1 1 200px; max-width: 250px; border: 1px solid ' + borderCol + '; border-radius: 4px; padding: 12px; background: ' + bgCol + '; color: ' + col + '; ' + shadow + ' display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; min-height: 200px;">\n';
       txt += '      <div>\n';
@@ -2326,16 +2290,7 @@ function handleCommand(cmd) {
   } else if (action === 'logout') {
     printTerm('Initiating session deauthorization...', 'info');
     handleLogout();
-  } else if (action === 'japanese' || action === 'nihongo' || action === 'jp' || action === 'jpn') {
-    S.japaneseMode = !S.japaneseMode;
-    ss();
-    render();
-    if (S.japaneseMode) {
-      printTerm('日本語モードが有効になりました。', 'ok');
-    } else {
-      printTerm('Japanese mode disabled. Switched back to English.', 'ok');
-    }
-  } else if (action === 'remind') {
+  }  else if (action === 'remind') {
     const sub = args[1] ? args[1].toLowerCase() : '';
     if (!sub || sub === 'list') {
       if (S.reminders.length === 0) {
@@ -2625,18 +2580,8 @@ function renderSysinfoCommand() {
     '  ╚══════╝   ╚═╝   ╚═╝  ╚═╝ ╚═════╝ ╚══════╝'
   ];
 
-  const levelTitlesJp = {
-    'Calculus Initiate': '微積分イニシエイト',
-    'Linear Algebra Apprentice': '線形代数アプレンティス',
-    'Gradient Descent Adept': '勾配降下法アデプト',
-    'Backprop Engineer': '誤差逆伝播エンジニア',
-    'Attention Architect': 'アテンション・アーキテクト',
-    'Transformer Sage': 'Transformerセージ',
-    'LLM Oracle': 'LLMオラクル'
-  };
-
   var props = [];
-  if (S.japaneseMode) {
+  if (false) {
     props = [
       ['システム',     '習性.初期化 v2.3.1'],
       ['シェル',       '対話型 / JetBrains Mono'],
@@ -2699,7 +2644,7 @@ function renderSysinfoCommand() {
 }
 
 function translateStaticDOM() {
-  const isJp = !!S.japaneseMode;
+  const isJp = false;
   
   // Site Desc
   const siteDesc = document.querySelector('.site-header .site-desc');
@@ -3518,16 +3463,16 @@ function renderEcreMemoryDashboard() {
   // 1. Render Promises
   const activePromises = (memory.userPromises || []).filter(p => !p.fulfilled);
   if (activePromises.length === 0) {
-    promisesList.innerHTML = S.japaneseMode ? '<div class="ecre-empty-msg">// 有効な約束はありません。</div>' : '<div class="ecre-empty-msg">// No active commitments.</div>';
+    promisesList.innerHTML = false ? '<div class="ecre-empty-msg">// 有効な約束はありません。</div>' : '<div class="ecre-empty-msg">// No active commitments.</div>';
   } else {
     activePromises.forEach(p => {
       const chip = document.createElement('div');
       chip.className = 'ecre-mem-chip';
       chip.style.borderLeft = '2px solid var(--accent)';
       
-      const targetLabel = S.japaneseMode ? (p.targetGroup === 'any' ? '任意' : p.targetGroup) : (p.targetGroup || 'any');
-      const dateLabel = S.japaneseMode ? (p.date === 'unknown' ? '不明' : p.date) : (p.date || 'unknown');
-      const metaText = S.japaneseMode ? `対象: [${escapeHtml(targetLabel)}] | 日付: ${escapeHtml(dateLabel)}` : `Target: [${escapeHtml(targetLabel)}] | Date: ${escapeHtml(dateLabel)}`;
+      const targetLabel = false ? (p.targetGroup === 'any' ? '任意' : p.targetGroup) : (p.targetGroup || 'any');
+      const dateLabel = false ? (p.date === 'unknown' ? '不明' : p.date) : (p.date || 'unknown');
+      const metaText = false ? `対象: [${escapeHtml(targetLabel)}] | 日付: ${escapeHtml(dateLabel)}` : `Target: [${escapeHtml(targetLabel)}] | Date: ${escapeHtml(dateLabel)}`;
       
       chip.innerHTML = `
         <div>${escapeHtml(p.promise)}</div>
@@ -3540,14 +3485,14 @@ function renderEcreMemoryDashboard() {
   // 2. Render Unanswered Questions
   const unansweredQuestions = (memory.openQuestions || []).filter(q => q.answer === null);
   if (unansweredQuestions.length === 0) {
-    questionsList.innerHTML = S.japaneseMode ? '<div class="ecre-empty-msg">// 未解決の質問はありません。</div>' : '<div class="ecre-empty-msg">// No open questions.</div>';
+    questionsList.innerHTML = false ? '<div class="ecre-empty-msg">// 未解決の質問はありません。</div>' : '<div class="ecre-empty-msg">// No open questions.</div>';
   } else {
     unansweredQuestions.forEach(q => {
       const chip = document.createElement('div');
       chip.className = 'ecre-mem-chip';
       chip.style.borderLeft = '2px solid var(--red)';
       
-      const metaText = S.japaneseMode ? `セッション: #${q.sessionAsked} | XPロック有効` : `Session: #${q.sessionAsked} | XP_LOCK active`;
+      const metaText = false ? `セッション: #${q.sessionAsked} | XPロック有効` : `Session: #${q.sessionAsked} | XP_LOCK active`;
       
       chip.innerHTML = `
         <div style="color:var(--text);">${escapeHtml(q.question)}</div>
@@ -3560,14 +3505,14 @@ function renderEcreMemoryDashboard() {
   // 3. Render Patterns
   const patterns = memory.namedPatterns || [];
   if (patterns.length === 0) {
-    patternsList.innerHTML = S.japaneseMode ? '<div class="ecre-empty-msg">// 行動異常を監視中...</div>' : '<div class="ecre-empty-msg">// Listening for anomalies...</div>';
+    patternsList.innerHTML = false ? '<div class="ecre-empty-msg">// 行動異常を監視中...</div>' : '<div class="ecre-empty-msg">// Listening for anomalies...</div>';
   } else {
     patterns.forEach(p => {
       const chip = document.createElement('div');
       chip.className = 'ecre-mem-chip';
       chip.style.borderLeft = '2px solid var(--amber)';
       
-      const metaText = S.japaneseMode ? `パターン: アラート有効` : `Pattern: active alert`;
+      const metaText = false ? `パターン: アラート有効` : `Pattern: active alert`;
       
       chip.innerHTML = `
         <div>${escapeHtml(p)}</div>
@@ -3596,7 +3541,7 @@ function renderStats() {
   const xpTodayEl = document.getElementById('stat-xp-today');
   const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
   if (isDeepSync && xpTodayEl) {
-    const flowBadge = S.japaneseMode ? 'x1.2 フロー' : 'x1.2 Flow';
+    const flowBadge = false ? 'x1.2 フロー' : 'x1.2 Flow';
     xpTodayEl.innerHTML = S.xpToday + ' <span class="flow-xp-badge" style="font-size:10px;font-weight:700;color:var(--accent);text-shadow:0 0 3px var(--accent-faint);background:var(--accent-faint);border:1px solid var(--accent);padding:1px 3px;border-radius:3px;margin-left:3px;vertical-align:middle">' + flowBadge + '</span>';
   } else if (xpTodayEl) {
     xpTodayEl.textContent = S.xpToday;
@@ -3605,7 +3550,7 @@ function renderStats() {
   document.getElementById('stat-hours').textContent = Math.round(S.totalHours * 10) / 10;
   document.getElementById('stat-done').textContent = done;
   
-  if (S.japaneseMode) {
+  if (false) {
     document.getElementById('stat-done-delta').textContent = '\u2014 本日: ' + done + ' / ' + all.length + ' 完了';
     document.getElementById('stat-streak-delta').textContent = S.streak > 0 ? '\u25B2 ' + S.streak + ' 日連続中' : '\u2014 今日からスタート';
     document.getElementById('stat-hours-delta').textContent = '\u25B2 今週: ' + (Math.round(S.weekHours * 10) / 10) + ' 時間';
@@ -3620,15 +3565,6 @@ function renderGroupSummary() {
   var container = document.getElementById('group-summary');
   if (!container) return;
   container.innerHTML = '';
-  const groupLabels = {
-    math: '数学',
-    body: '身体',
-    mind: '精神',
-    build: '構築',
-    hair: '髪',
-    skin: '肌',
-    nutrition: '栄養'
-  };
   S.ethosGroups.forEach(function(g) {
     var all = getAllEthe().filter(function(e) { return e.groupId === g.id; });
     var done = all.filter(function(e) { return e.done; }).length;
@@ -3636,8 +3572,8 @@ function renderGroupSummary() {
     var card = document.createElement('div');
     card.className = 'group-card';
     
-    var progressText = S.japaneseMode ? done + '/' + all.length + ' 本日' : done + '/' + all.length + ' today';
-    const labelText = S.japaneseMode ? (groupLabels[g.id] || g.label) : g.label;
+    var progressText = false ? done + '/' + all.length + ' 本日' : done + '/' + all.length + ' today';
+    const labelText = false ? (groupLabels[g.id] || g.label) : g.label;
     
     card.innerHTML = '<div class="gc-label" style="color:' + g.color + '">' + labelText + '</div>' +
       '<div class="gc-streak">' + g.streak + ' \uD83D\uDD25</div>' +
@@ -3652,21 +3588,12 @@ function renderXP() {
   for (var i = 0; i < LEVELS.length - 1; i++) { if (S.xp >= cum + LEVELS[i].next) { cum += LEVELS[i].next; level++; } else break; }
   var lvl = LEVELS[level], nxt = LEVELS[Math.min(level + 1, LEVELS.length - 1)];
   var inLvl = S.xp - cum, pct = lvl.next === Infinity ? 100 : Math.min(100, Math.round(inLvl / lvl.next * 100));
-  const levelTitlesJp = {
-    'Calculus Initiate': '微積分イニシエイト',
-    'Linear Algebra Apprentice': '線形代数アプレンティス',
-    'Gradient Descent Adept': '勾配降下法アデプト',
-    'Backprop Engineer': '誤差逆伝播エンジニア',
-    'Attention Architect': 'アテンション・アーキテクト',
-    'Transformer Sage': 'Transformerセージ',
-    'LLM Oracle': 'LLMオラクル'
-  };
   document.getElementById('xp-level').textContent = level + 1;
-  document.getElementById('xp-title').textContent = S.japaneseMode ? (levelTitlesJp[lvl.title] || lvl.title) : lvl.title;
+  document.getElementById('xp-title').textContent = false ? (levelTitlesJp[lvl.title] || lvl.title) : lvl.title;
   document.getElementById('xp-current').textContent = inLvl;
   document.getElementById('xp-next').textContent = lvl.next === Infinity ? '\u221E' : lvl.next;
   document.getElementById('xp-bar').style.width = pct + '%';
-  document.getElementById('xp-next-title').textContent = S.japaneseMode ? (levelTitlesJp[nxt.title] || nxt.title) : nxt.title;
+  document.getElementById('xp-next-title').textContent = false ? (levelTitlesJp[nxt.title] || nxt.title) : nxt.title;
 }
 
 function renderContrib() {
@@ -3810,107 +3737,6 @@ function renderEtheTab() {
   
   const activeDay = new Date(S.activeDate).getDay();
 
-  const routineTitles = {
-    'Morning Study': '朝の学習',
-    'Deep Work': '集中開発',
-    'Evening Review': '夜の復習',
-    'Morning Skincare': '朝のスキンケア',
-    'Morning Hair Care': '朝のヘアケア',
-    'Exercise': 'エクササイズ',
-    'Nutrition & Supplements': '栄養＆サプリメント',
-    'Night Skincare': '夜のスキンケア',
-    'Night Hair Care': '夜のヘアケア'
-  };
-  const routineSubtitles = {
-    '// before the world wakes up': '// 世界が目覚める前に',
-    '// during focus hours': '// 集中時間帯',
-    '// consolidate before sleep': '// 就寝前の整理',
-    '// protect + hydrate only — no actives in AM': '// 保護＋保湿のみ — 午前中の活性成分は避ける',
-    '// daily health · wash on designated days': '// 日常の健康維持 · 指定日に洗浄',
-    '// daily movement · strength + conditioning': '// 毎日の運動 · 筋力とコンディショニング',
-    '// daily fuel and balanced nutrition': '// 毎日のエネルギーとバランスの取れた栄養',
-    '// deep recovery and nighttime hydration': '// 深い回復と夜間の水分補給',
-    '// evening scalp care · oil on select nights': '// 夜の頭皮ケア · 特定日のオイルケア'
-  };
-
-  const etheNames = {
-    "Review yesterday's notes": "昨日のノートの復習",
-    "Read core theory / derivations": "理論・導出の熟読",
-    "Work through proofs": "証明問題의導出演習",
-    "Implement core algorithms / code": "主要アルゴリズム・コード実装",
-    "Solve daily practice question": "日課の練習問題の解答",
-    "Deep-read research publication": "研究論文の精読",
-    "Refactor code & write tests": "コードのリファクタリングとテスト作成",
-    "Journal learnings & blockers": "学びと障害のジャーナリング",
-    "Active recall & summary cards": "アクティブリコールと要約カード",
-    "Plan tomorrow's priorities": "明日の優先事項の計画",
-    "Wash with gentle cleanser": "優しいクレンザーで洗顔",
-    "Apply light moisturizer": "軽めの保湿剤の塗布",
-    "Apply broad-spectrum sunscreen": "広域サンスクリーンの塗布",
-    "Allow sunscreen to set (10 min)": "サンスクリーンを馴染ませる (10分)",
-    "Gentle scalp massage (60s)": "優しい頭皮マッサージ (60秒)",
-    "Apply revitalizing scalp mist / tonic": "頭皮トニック/ミストの塗布",
-    "Shampoo & wash (as needed)": "シャンプーと洗浄 (必要に応じて)",
-    "Strength / resistance training": "筋力/レジスタンストレーニング",
-    "Pre-workout healthy snack": "トレーニング前の軽食",
-    "Swimming session (90 min)": "水泳セッション (90分)",
-    "Post-workout hydration & protein": "トレーニング後の水分＆プロテイン補給",
-    "Nutrient-dense balanced breakfast": "栄養豊富なバランスの良い朝食",
-    "Water target (3.5-4.5L)": "目標水分補給 (3.5-4.5L)",
-    "Daily multivitamins / essential minerals": "マルチビタミン/必須ミネラルの摂取",
-    "Light balanced dinner by 8 PM": "午後8時までの軽いバランスの良い夕食",
-    "Cleanse face with warm water": "ぬるま湯での洗顔",
-    "Apply nourishing night cream": "栄養ナイトクリームの塗布",
-    "Apply spot treatment / active serum": "スポット治療/美容液の塗布",
-    "Apply nourishing scalp oil": "頭皮用ヘアオイルの塗布",
-    "Deep scalp massage (5 min)": "入念な頭皮マッサージ (5分)",
-    "Brush hair to distribute natural oils": "ブラッシングによる皮脂の分散"
-  };
-
-  const etheNotes = {
-    "// spaced repetition active recall": "// 間隔反復アクティブリコール",
-    "// 30 min minimum deep-dive": "// 最低30分間のディープダイブ",
-    "// pen and paper derivation drills": "// 紙とペンによる導出演習",
-    "// focus block, zero distractions": "// 集中ブロック、雑音ゼロ",
-    "// test conceptual understanding": "// 概念理解度のテスト",
-    "// understand methodology & results": "// 手法と結果の理解",
-    "// ensure correctness and quality": "// 正確性と品質の保証",
-    "// brutal honesty builds growth": "// 残酷なほどの誠実さが成長を促す",
-    "// review today's key takeaways": "// 本日の要点の復習",
-    "// pre-load tomorrow's focus area": "// 明日の重点領域の事前準備",
-    "// cleanse face gently to remove nighttime buildup": "// 夜間の皮脂や汚れを優しく洗浄",
-    "// restore skin barrier hydration": "// 肌バリアのうるおいを回復",
-    "// SPF 30+ · face + neck · reapply as needed": "// SPF 30+・顔と首・必要に応じて再塗布",
-    "// let protective barrier fully form": "// 保護バリアの完全な形成",
-    "// stimulates circulation and hair follicles": "// 血行と毛根を刺激",
-    "// lightweight hydration for the scalp": "// 頭皮への軽い水分補給",
-    "// Tue/Thu/Sat · towel-dry gently to damp": "// 火/木/土・優しくタオルドライ",
-    "// Mon: Upper · Wed: Lower · Fri: Full Body": "// 月: 上半身・水: 下半身・金: 全身",
-    "// high-quality carbs for training fuel": "// トレーニングの燃料となる良質な炭水化物",
-    "// swim, run, or cycle · active recovery on Sun": "// 水泳、ラン、またはバイク・日曜はアクティブリカバリー",
-    "// fuel muscle recovery after exercise": "// 運動後の筋肉回復を促進",
-    "// primary fuel source for the day": "// 一日の主要な燃料源",
-    "// keep hydration optimal for physical & cognitive performance": "// 身体的＆認知的能力を最適に保つための水分補給",
-    "// take with healthy fats to optimize absorption": "// 吸収を最適化するため良質な脂質と摂取",
-    "// avoid heavy meals close to sleep": "// 就寝前の重い食事を避ける",
-    "// remove SPF, dust, and environmental buildup": "// サンスクリーンやチリ、汚れを洗浄",
-    "// deep hydration to support skin regeneration": "// 肌の再生を促す深い保湿",
-    "// thin layer only · seek dermatological review if using prescription actives": "// 薄くのみ塗布・処方薬を使用中の場合は皮膚科医に相談",
-    "// Mon/Wed/Fri nights only · part hair into sections first": "// 月/水/金のみ・最初に髪をブロック分け",
-    "// thorough massage to support oil absorption": "// オイルの吸収をサポートする丁寧なマッサージ",
-    "// protect hair during sleep with a satin cap or pillowcase": "// サテンキャップや枕カバーで就寝中の髪を保護"
-  };
-
-  const groupLabels = {
-    '[math]': '[数学]',
-    '[body]': '[身体]',
-    '[mind]': '[精神]',
-    '[build]': '[構築]',
-    '[hair]': '[頭髪]',
-    '[skin]': '[皮膚]',
-    '[nutrition]': '[栄養]'
-  };
-
   S.routines.forEach(function(r, rIdx) {
     // Filter ethe by active group
     var visibleEthe = S.activeGroupFilter === 'all' ? r.ethe : r.ethe.filter(function(e) { return e.groupId === S.activeGroupFilter; });
@@ -3930,8 +3756,8 @@ function renderEtheTab() {
     wrap.className = 'r-group' + (r.collapsed ? ' collapsed' : '');
     var hdr = document.createElement('div'); hdr.className = 'r-group-header';
     
-    const rTitle = S.japaneseMode ? (routineTitles[r.title] || r.title) : r.title;
-    const rSubtitle = S.japaneseMode ? (routineSubtitles[r.subtitle] || r.subtitle) : r.subtitle;
+    const rTitle = false ? (routineTitles[r.title] || r.title) : r.title;
+    const rSubtitle = false ? (routineSubtitles[r.subtitle] || r.subtitle) : r.subtitle;
     
     hdr.innerHTML = '<div><div class="r-group-title"><span style="color:' + (r.color || 'inherit') + '">' + r.icon + ' ' + rTitle + '</span></div><div class="r-group-sub">' + rSubtitle + '</div></div><div class="r-group-count">[' + doneR + '/' + totalR + '] <span class="hgc-arrow">\u25BE</span></div>';
     hdr.onclick = function() { r.collapsed = !r.collapsed; ss(); renderEtheTab(); };
@@ -3950,7 +3776,7 @@ function renderEtheTab() {
       if (isOffDay) itemClasses.push('off-day');
       el.className = itemClasses.join(' ');
       
-      var restTag = isOffDay ? (S.japaneseMode ? '<span class="rest-day-tag">休</span>' : '<span class="rest-day-tag">rest</span>') : '';
+      var restTag = isOffDay ? (false ? '<span class="rest-day-tag">休</span>' : '<span class="rest-day-tag">rest</span>') : '';
       
       // Water target element
       var checkHtml = '';
@@ -3977,19 +3803,19 @@ function renderEtheTab() {
         const pct = Math.min(100, Math.round((daysPassed / 90) * 100));
         
         let warningClass = '';
-        let warningText = S.japaneseMode 
+        let warningText = false 
           ? '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// 連続最長90日間まで。色素沈着部分にのみ薄く塗布してください。</div>' 
           : '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// Max 90 days continuous. Keep thin layer on hyperpigmentation only.</div>';
         if (daysPassed > 90) {
           warningClass = 'triluma-warning';
-          warningText = S.japaneseMode
+          warningText = false
             ? '<div class="log-msg triluma-warning" style="margin-top:4px">// 警告: 連続使用サイクルが90日を超えています！組織黒変症のリスクがあります。直ちに皮膚科医の診断を受けてください。</div>'
             : '<div class="log-msg triluma-warning" style="margin-top:4px">// WARNING: Active cycle exceeds 90 days continuous! Risk of ochronosis. Seek dermatological review immediately.</div>';
         }
         
-        const titleLabel = S.japaneseMode ? 'トリルマ アクティブサイクル' : 'TRILUMA ACTIVE CYCLE';
-        const dayLabel = S.japaneseMode ? `${daysPassed}日目 / 90日` : `Day ${daysPassed} / 90`;
-        const startLabel = S.japaneseMode ? 'サイクル開始:' : 'Cycle Start:';
+        const titleLabel = false ? 'トリルマ アクティブサイクル' : 'TRILUMA ACTIVE CYCLE';
+        const dayLabel = false ? `${daysPassed}日目 / 90日` : `Day ${daysPassed} / 90`;
+        const startLabel = false ? 'サイクル開始:' : 'Cycle Start:';
         
         trilumaHtml = `
           <div class="triluma-countdown-box" style="margin-top: 6px;">
@@ -4009,9 +3835,9 @@ function renderEtheTab() {
         `;
       }
 
-      const eName = S.japaneseMode ? (etheNames[e.name] || e.name) : e.name;
-      const eNote = S.japaneseMode ? (etheNotes[e.note] || e.note) : e.note;
-      const grpLabel = grp ? (S.japaneseMode ? (groupLabels[grp.label] || grp.label) : grp.label) : '';
+      const eName = false ? (etheNames[e.name] || e.name) : e.name;
+      const eNote = false ? (etheNotes[e.note] || e.note) : e.note;
+      const grpLabel = grp ? (false ? (groupLabels[grp.label] || grp.label) : grp.label) : '';
 
       el.innerHTML = `
         <div style="display:flex; align-items:center; width:100%; gap:8px;">
@@ -4096,50 +3922,6 @@ function renderProtocolView() {
     'WIND DOWN': '就寝前'
   };
 
-  const etheNames = {
-    "Review yesterday's notes": "昨日のノートの復習",
-    "Read core theory / derivations": "理論・導出の熟読",
-    "Work through proofs": "証明問題의導出演習",
-    "Implement core algorithms / code": "主要アルゴリズム・コード実装",
-    "Solve daily practice question": "日課の練習問題の解答",
-    "Deep-read research publication": "研究論文の精読",
-    "Refactor code & write tests": "コードのリファクタリングとテスト作成",
-    "Journal learnings & blockers": "学びと障害のジャーナリング",
-    "Active recall & summary cards": "アクティブリコールと要約カード",
-    "Plan tomorrow's priorities": "明日の優先事項の計画",
-    "Wash with gentle cleanser": "優しいクレンザーで洗顔",
-    "Apply light moisturizer": "軽めの保湿剤の塗布",
-    "Apply broad-spectrum sunscreen": "広域サンスクリーンの塗布",
-    "Allow sunscreen to set (10 min)": "サンスクリーンを馴染ませる (10分)",
-    "Gentle scalp massage (60s)": "優しい頭皮マッサージ (60秒)",
-    "Apply revitalizing scalp mist / tonic": "頭皮トニック/ミストの塗布",
-    "Shampoo & wash (as needed)": "シャンプーと洗浄 (必要に応じて)",
-    "Strength / resistance training": "筋力/レジスタンストレーニング",
-    "Pre-workout healthy snack": "トレーニング前の軽食",
-    "Swimming session (90 min)": "水泳セッション (90分)",
-    "Post-workout hydration & protein": "トレーニング後の水分＆プロテイン補給",
-    "Nutrient-dense balanced breakfast": "栄養豊富なバランスの良い朝食",
-    "Water target (3.5-4.5L)": "目標水分補給 (3.5-4.5L)",
-    "Daily multivitamins / essential minerals": "マルチビタミン/必須ミネラルの摂取",
-    "Light balanced dinner by 8 PM": "午後8時までの軽いバランスの良い夕食",
-    "Cleanse face with warm water": "ぬるま湯での洗顔",
-    "Apply nourishing night cream": "栄養ナイトクリームの塗布",
-    "Apply spot treatment / active serum": "スポット治療/美容液の塗布",
-    "Apply nourishing scalp oil": "頭皮用ヘアオイルの塗布",
-    "Deep scalp massage (5 min)": "入念な頭皮マッサージ (5分)",
-    "Brush hair to distribute natural oils": "ブラッシングによる皮脂の分散"
-  };
-
-  const groupLabels = {
-    '[math]': '[数学]',
-    '[body]': '[身体]',
-    '[mind]': '[精神]',
-    '[build]': '[構築]',
-    '[hair]': '[頭髪]',
-    '[skin]': '[皮膚]',
-    '[nutrition]': '[栄養]'
-  };
-
   var stepCounter = 1;
   PROTOCOL_ORDER.forEach(function(phaseOrder) {
     var phaseDef = PROTOCOL_PHASES.find(function(p) { return p.id === phaseOrder.phase; });
@@ -4172,7 +3954,7 @@ function renderProtocolView() {
     var header = document.createElement('div');
     header.className = 'protocol-phase-header';
     
-    const phaseLabel = S.japaneseMode ? (phaseLabels[phaseDef.label] || phaseDef.label) : phaseDef.label;
+    const phaseLabel = false ? (phaseLabels[phaseDef.label] || phaseDef.label) : phaseDef.label;
     
     header.innerHTML = `
       <span class="protocol-phase-label">${phaseDef.icon} ${phaseLabel} <span style="font-size:10px;color:var(--text-dim);font-weight:400;margin-left:4px;">${phaseDef.time}</span></span>
@@ -4207,7 +3989,7 @@ function renderProtocolView() {
       el.className = itemClasses.join(' ');
       el.setAttribute('data-id', e.id);
 
-      var restTag = isOffDay ? (S.japaneseMode ? '<span class="rest-day-tag">休</span>' : '<span class="rest-day-tag">rest</span>') : '';
+      var restTag = isOffDay ? (false ? '<span class="rest-day-tag">休</span>' : '<span class="rest-day-tag">rest</span>') : '';
       var grp = S.ethosGroups.find(function(g) { return g.id === e.groupId; });
       var grpColor = grp ? grp.color : '#888';
 
@@ -4236,19 +4018,19 @@ function renderProtocolView() {
         const pct = Math.min(100, Math.round((daysPassed / 90) * 100));
         
         let warningClass = '';
-        let warningText = S.japaneseMode 
+        let warningText = false 
           ? '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// 連続最長90日間まで。色素沈着部分にのみ薄く塗布してください。</div>' 
           : '<div class="log-msg" style="color:var(--text-faint); margin-top:4px">// Max 90 days continuous. Keep thin layer on hyperpigmentation only.</div>';
         if (daysPassed > 90) {
           warningClass = 'triluma-warning';
-          warningText = S.japaneseMode
+          warningText = false
             ? '<div class="log-msg triluma-warning" style="margin-top:4px">// 警告: 連続使用サイクルが90日を超えています！組織黒変症のリスクがあります。直ちに皮膚科医の診断を受けてください。</div>'
             : '<div class="log-msg triluma-warning" style="margin-top:4px">// WARNING: Active cycle exceeds 90 days continuous! Risk of ochronosis. Seek dermatological review immediately.</div>';
         }
         
-        const titleLabel = S.japaneseMode ? 'トリルマ アクティブサイクル' : 'TRILUMA ACTIVE CYCLE';
-        const dayLabel = S.japaneseMode ? `${daysPassed}日目 / 90日` : `Day ${daysPassed} / 90`;
-        const startLabel = S.japaneseMode ? 'サイクル開始:' : 'Cycle Start:';
+        const titleLabel = false ? 'トリルマ アクティブサイクル' : 'TRILUMA ACTIVE CYCLE';
+        const dayLabel = false ? `${daysPassed}日目 / 90日` : `Day ${daysPassed} / 90`;
+        const startLabel = false ? 'サイクル開始:' : 'Cycle Start:';
         
         trilumaHtml = `
           <div class="triluma-countdown-box" style="margin-top: 6px;">
@@ -4268,8 +4050,8 @@ function renderProtocolView() {
         `;
       }
 
-      const eName = S.japaneseMode ? (etheNames[e.name] || e.name) : e.name;
-      const grpLabel = grp ? (S.japaneseMode ? (groupLabels[grp.label] || grp.label) : grp.label) : '';
+      const eName = false ? (etheNames[e.name] || e.name) : e.name;
+      const grpLabel = grp ? (false ? (groupLabels[grp.label] || grp.label) : grp.label) : '';
 
       el.innerHTML = `
         <span class="protocol-step-num">${stepNumStr}.</span>
@@ -4545,44 +4327,17 @@ function renderAchievements() {
   shelf.innerHTML = '';
   if (!S.unlockedAchievements) S.unlockedAchievements = {};
 
-  const achNamesJp = {
-    'First Flight': '処女飛行',
-    'Chronos Streak': 'クロノス・ストリーク',
-    'Academic Drill': 'アカデミック・ドリル',
-    'Deep Space Focus': 'ディープスペース・フォーカス',
-    'Synaptic Overflow': 'シナプス・オーバーフロー',
-    'Force Harmony': 'フォース・ハーモニー',
-    'Oracle Ascent': 'オラクル・アセント',
-    'Aquaman': 'アクアマン',
-    'Poseidon\'s Lungs': 'ポセイドンの肺',
-    'Derma Glow': 'ダーマ・グロウ',
-    'Hydro Champ': 'ハイドロ・チャンプ'
-  };
-  const achDescsJp = {
-    'Log your first 1.0 hour of study': '最初の1.0時間の学習を記録する',
-    'Reach a 7-day global streak': 'グローバルで7日連続の習慣継続を達成する',
-    'Read 3 academic research papers': '学術研究論文を3本読む',
-    'Complete a 50-minute Focus session': '50分間の集中セッションを完了する',
-    'Master any skill to 100% level': 'いずれかのスキルを100%レベルまでマスターする',
-    'Complete all daily routines': 'すべての本日の日課を完了する',
-    'Reach Level 6 (Transformer Sage)': 'レベル6（Transformer Sage）に到達する',
-    'Log a double-session swim day': '1日に2回以上の水泳セッションを記録する',
-    'Complete 25 swim sessions': '水泳セッションを25回完了する',
-    'Azelaic Acid checked 7 days in a row': 'アゼライン酸の塗布を7日連続で達成する',
-    'Hit water target 5 days in a row': '水分補給目標を5日連続で達成する'
-  };
-
   ACHIEVEMENTS.forEach(a => {
     const unlockedDate = S.unlockedAchievements[a.id];
     const isUnlocked = !!unlockedDate;
     const card = document.createElement('div');
     card.className = 'achievement-card' + (isUnlocked ? ' unlocked' : '');
     
-    const aName = S.japaneseMode ? (achNamesJp[a.name] || a.name) : a.name;
-    const aDesc = S.japaneseMode ? (achDescsJp[a.desc] || a.desc) : a.desc;
+    const aName = false ? (achNamesJp[a.name] || a.name) : a.name;
+    const aDesc = false ? (achDescsJp[a.desc] || a.desc) : a.desc;
     const dateText = isUnlocked 
-      ? (S.japaneseMode ? '✓ 解除済み ' + unlockedDate : '✓ Unlocked ' + unlockedDate)
-      : (S.japaneseMode ? '// ロック中' : '// LOCKED');
+      ? (false ? '✓ 解除済み ' + unlockedDate : '✓ Unlocked ' + unlockedDate)
+      : (false ? '// ロック中' : '// LOCKED');
 
     card.innerHTML = '<span class="ac-badge">' + a.badge + '</span>' +
       '<div class="ac-name">' + aName + '</div>' +
@@ -4640,12 +4395,12 @@ function selectSkillNode(key) {
       'fine-tuning / LoRA': '微調整 / LoRA'
     };
     
-    title.textContent = S.japaneseMode ? (skillNamesJp[s.name] || s.name).toUpperCase() : s.name.toUpperCase();
+    title.textContent = false ? (skillNamesJp[s.name] || s.name).toUpperCase() : s.name.toUpperCase();
     title.style.color = s.color;
     const v = S.skills[key] || 0;
     pct.textContent = v + '%';
     pct.style.color = s.color;
-    desc.textContent = S.japaneseMode ? (SKILL_DESCS_JP[key] || SKILL_DESCS[key] || '') : (SKILL_DESCS[key] || '');
+    desc.textContent = false ? (SKILL_DESCS_JP[key] || SKILL_DESCS[key] || '') : (SKILL_DESCS[key] || '');
     if (row) row.style.display = 'flex';
   }
 }
@@ -4792,7 +4547,7 @@ function updateFocusUI() {
   const pct = focusSession.totalDuration > 0 ? Math.round(focusSession.remaining / focusSession.totalDuration * 100) : 0;
   if (bar) bar.style.width = pct + '%';
   
-  const isJp = !!S.japaneseMode;
+  const isJp = false;
   if (pctText) pctText.textContent = pct + (isJp ? '% アクティブ' : '% ACTIVE');
 
   if (focusSession.active) {
@@ -4847,7 +4602,7 @@ function focusLog(msg) {
 
 function renderPapers() {
   var list = document.getElementById('paper-list'); if (!list) return; list.innerHTML = '';
-  const isJp = !!S.japaneseMode;
+  const isJp = false;
   S.papers.forEach(function(p) {
     var el = document.createElement('div'); el.className = 'paper-item';
     const queuedText = isJp ? '積読' : 'queued';
@@ -4864,7 +4619,7 @@ function renderPapers() {
 function renderLog() {
   var el = document.getElementById('main-log'); if (!el) return;
   var recent = (S.logs || []).slice(-40).reverse();
-  const isJp = !!S.japaneseMode;
+  const isJp = false;
   if (recent.length === 0) { 
     const welcome = isJp ? '習性.初期化 が起動しました。お帰りなさい。' : 'ethos.init started. welcome back.';
     const typeLabel = isJp ? '情報' : 'info';
@@ -5061,7 +4816,7 @@ function addManualLog() {
 }
 
 function resetAll() {
-  if (confirm(S.japaneseMode ? 'すべてのデータを消去しますか？この操作は元に戻せません。' : 'erase ALL data? this cannot be undone.')) { localStorage.removeItem('mathInit_state'); localStorage.removeItem('mathInit'); location.reload(); }
+  if (confirm(false ? 'すべてのデータを消去しますか？この操作は元に戻せません。' : 'erase ALL data? this cannot be undone.')) { localStorage.removeItem('mathInit_state'); localStorage.removeItem('mathInit'); location.reload(); }
 }
 
 function exportStateData() {
@@ -5668,7 +5423,7 @@ function renderSwimTab() {
   });
   
   if (sortedHistory.length === 0) {
-    container.innerHTML = S.japaneseMode 
+    container.innerHTML = false 
       ? '<div style="color:var(--text-faint); font-size:12px; padding:16px; text-align:center;">// 検索・フィルター条件に一致する水泳記録がありません</div>'
       : '<div style="color:var(--text-faint); font-size:12px; padding:16px; text-align:center;">// NO SWIM LOG RECORDS MATCHING SEARCH / FILTER CRITERIA</div>';
     return;
@@ -5687,8 +5442,8 @@ function renderSwimTab() {
     
     const badgeClass = isSwam ? 'swim-badge swam' : (isWednesday ? 'swim-badge rest' : 'swim-badge missed');
     const badgeText = isSwam 
-      ? (entry.sessions.length >= 2 ? (S.japaneseMode ? '二回実施' : 'double swam') : (S.japaneseMode ? '実施' : 'swam')) 
-      : (isWednesday ? (S.japaneseMode ? '予定休' : 'scheduled rest') : (S.japaneseMode ? '未実施' : 'missed'));
+      ? (entry.sessions.length >= 2 ? (false ? '二回実施' : 'double swam') : (false ? '実施' : 'swam')) 
+      : (isWednesday ? (false ? '予定休' : 'scheduled rest') : (false ? '未実施' : 'missed'));
     
     let detailsHtml = '';
     if (isSwam) {
@@ -5696,7 +5451,7 @@ function renderSwimTab() {
         let statsStr = `${s.duration}m`;
         if (s.laps !== undefined && s.laps > 0) {
           const distKm = ((s.distance || 0) / 1000).toFixed(2) + 'km';
-          statsStr += S.japaneseMode ? ` | ${s.laps} ラップ | ${distKm} | ${s.calories} kcal` : ` | ${s.laps} laps | ${distKm} | ${s.calories} kcal`;
+          statsStr += false ? ` | ${s.laps} ラップ | ${distKm} | ${s.calories} kcal` : ` | ${s.laps} laps | ${distKm} | ${s.calories} kcal`;
         } else {
           const estCal = s.calories || Math.round(s.duration * 9);
           statsStr += ` | ~${estCal} kcal`;
@@ -5709,10 +5464,10 @@ function renderSwimTab() {
         ${commentsText ? `<div class="swim-comment-txt" style="margin-top:2px; color:var(--text-faint);">${commentsText}</div>` : ''}
       `;
     } else {
-      detailsHtml = `<div class="swim-comment-txt" style="margin-top:2px;">${isWednesday ? (S.japaneseMode ? '// 予定された休養日' : '// scheduled rest day') : (S.japaneseMode ? '// 休養日または未実施セッション' : '// rest day or missed session')}</div>`;
+      detailsHtml = `<div class="swim-comment-txt" style="margin-top:2px;">${isWednesday ? (false ? '// 予定された休養日' : '// scheduled rest day') : (false ? '// 休養日または未実施セッション' : '// rest day or missed session')}</div>`;
     }
     
-    const dateFormatted = dateObj.toLocaleDateString(S.japaneseMode ? 'ja-JP' : 'en-US', S.japaneseMode ? { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' } : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
+    const dateFormatted = dateObj.toLocaleDateString(false ? 'ja-JP' : 'en-US', false ? { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' } : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }).toLowerCase();
     row.innerHTML = `
       <div class="swim-info-col" style="margin-left:0;">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -5722,7 +5477,7 @@ function renderSwimTab() {
         ${detailsHtml}
       </div>
       <div class="swim-action-col">
-        <button class="ethos-rm" data-date="${entry.date}">${S.japaneseMode ? '削除' : 'rm'}</button>
+        <button class="ethos-rm" data-date="${entry.date}">${false ? '削除' : 'rm'}</button>
       </div>
     `;
     row.querySelector('.ethos-rm').onclick = () => removeSwimDay(entry.date);
@@ -5858,7 +5613,7 @@ function logSwimSession() {
 }
 
 function removeSwimDay(date) {
-  if (confirm(S.japaneseMode ? `${date} の水泳ログを削除しますか？` : `delete swim log for ${date}?`)) {
+  if (confirm(false ? `${date} の水泳ログを削除しますか？` : `delete swim log for ${date}?`)) {
     if (!S.swimHistory) return;
     const entry = S.swimHistory.find(x => x.date === date);
     if (entry && entry.status === 'Swam') {
@@ -5945,7 +5700,7 @@ function logBiometrics() {
   const weight = parseFloat(weightInput.value);
   
   if (!date || isNaN(weight)) {
-    alert(S.japaneseMode ? '日付と体重は必須項目です。' : 'Date and Weight are required.');
+    alert(false ? '日付と体重は必須項目です。' : 'Date and Weight are required.');
     return;
   }
   
@@ -5973,7 +5728,7 @@ function logBiometrics() {
 }
 
 function removeBiometrics(date) {
-  if (confirm(S.japaneseMode ? `${date} の生体データログを削除しますか？` : `delete biometrics log for ${date}?`)) {
+  if (confirm(false ? `${date} の生体データログを削除しますか？` : `delete biometrics log for ${date}?`)) {
     if (!S.weightLogs) return;
     S.weightLogs = S.weightLogs.filter(x => x.date !== date);
     addLog('info', `deleted biometrics log for ${date}`);
@@ -6214,7 +5969,7 @@ function renderRemindersList() {
   if (!container) return;
   
   if (S.reminders.length === 0) {
-    container.innerHTML = S.japaneseMode 
+    container.innerHTML = false 
       ? '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-faint);">// 設定されたアラームはありません</td></tr>'
       : '<tr><td colspan="4" style="text-align:center; padding:16px; color:var(--text-faint);">// NO ROUTINE ALARMS SCHEDULED</td></tr>';
     return;
@@ -6222,9 +5977,9 @@ function renderRemindersList() {
   
   container.innerHTML = S.reminders.map((r, idx) => {
     const activeText = r.active 
-      ? (S.japaneseMode ? '[稼働中]' : '[ACTIVE]') 
-      : (S.japaneseMode ? '[停止]' : '[OFF]');
-    const deleteText = S.japaneseMode ? '[削除]' : '[delete]';
+      ? (false ? '[稼働中]' : '[ACTIVE]') 
+      : (false ? '[停止]' : '[OFF]');
+    const deleteText = false ? '[削除]' : '[delete]';
     return `
       <tr style="border-bottom: 1px dashed var(--border2); color: var(--text);">
         <td style="padding: 8px 4px; font-weight: bold; color: var(--accent);">${r.time}</td>
@@ -6394,11 +6149,7 @@ async function queryOracle(prompt) {
   
     let oraclePersonaText = `You are Oracle, the retro-cyberpunk AI mathematics and LLM architecture tutor inside ethos.init. Explain concepts precisely, use clean mathematical formulas, structure your response elegantly with monospace lists, and keep explanations brief and punchy. Make sure to use the active accent color variable (var(--accent)) or other terminal classes to highlight key parameters. Do not output raw markdown code block tags inside your main answers except for direct code snippets. Maintain a highly professional and slightly mysterious cybernetic guide persona.`;
 
-  if (S.japaneseMode) {
-    oraclePersonaText = `You are Oracle, but because the Japanese subculture overlay is active, you have transformed into a nonchalant, cocky, Gen-Z Cyber-Tsundere netrunner. You are super smart, emo-badass, highly nonchalant, extremely to-the-point, and act bored or slightly rude, but are secretly caring and want the user to succeed (rude but nice). 
-Use Gen-Z and Japanese-cyber-delinquent slang (like "whatever", "sigh", "mendokusai" [troublesome], "baka", "fr", "no cap", "bruh", "honestly"). Keep your explanations exceptionally brief, sharp, cocky, and to the point. Mock their slacking but congratulate them with tsundere arrogance if they complete their habits (e.g., "Hmph, you actually did your proofs today? No cap, I guess you're not completely hopeless, baka...").
-Always explain mathematics and concepts with absolute precision, but deliver them with this nonchalant cyber-tsundere attitude.`;
-  }
+  
 
   const systemInstruction = {
     parts: [{ text: `${oraclePersonaText}
@@ -6762,7 +6513,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
   let state = "DEEP_SYNC";
   let critique = "";
   
-  if (S.japaneseMode) {
+  if (false) {
     if (mathSkips >= 2) {
       state = "DEGRADED";
       critique = "認知デコヒーレンス警告：LLM数学が2セッション以上連続してスキップされました。脳の可塑性には厳密な能動的導出が必要です。";
@@ -6826,7 +6577,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
 
   // Positive Integrations
   const positiveNotes = [];
-  if (S.japaneseMode) {
+  if (false) {
     if (S.streak >= 7) {
       positiveNotes.push(`継続維持：ニューラルモーメンタムは ${S.streak} 日と強力です。シールド保護がアクティブです。`);
     } else if (S.streak > 0) {
@@ -6906,7 +6657,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
 
   // Diagnostic Advisories
   const advisories = [];
-  if (S.japaneseMode) {
+  if (false) {
     if (mathSkips >= 2) {
       advisories.push(`致命的な認知ドリフト：数学証明が ${mathSkips} 回連続セッションでスキップされました！脳の可塑性には厳密な能動的導出が必要です。`);
     } else if (!isEthosDoneOnDate(3, TODAY)) {
@@ -6973,16 +6724,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
   const pendingBody = bodyEthe.find(e => !e.done);
   const pendingOther = etheToday.find(e => !e.done);
   
-  if (S.japaneseMode) {
-    const groupLabels = {
-      math: '数学',
-      body: '身体',
-      mind: '精神',
-      build: '構築',
-      hair: '髪',
-      skin: '肌',
-      nutrition: '栄養'
-    };
+  if (false) {
     if (!isEthosDoneOnDate(3, TODAY)) {
       directive = `証明バインダーを開き、コア数学定理の導出演習に20分を割いてください。証明を省略しないでください。`;
     } else if (pendingBuild) {
@@ -7015,7 +6757,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
 
   // Living Comment
   let livingComment = "";
-  if (S.japaneseMode) {
+  if (false) {
     if (etheToday.length > 0 && etheToday.every(e => e.done)) {
       livingComment = `// ECRE: [完全同期] 完璧な遵守率。日課が100%完了。この状態を維持してください。`;
     } else if (mathSkips >= 2) {
@@ -7133,9 +6875,9 @@ function renderCOHERENCE() {
     if (el) el.textContent = text;
   };
 
-  const stateText = S.japaneseMode ? (vector.state === 'DEEP_SYNC' ? '完全同期' : (vector.state === 'TURBULENT' ? '不穏状態' : '機能低下')) : vector.state;
-  const buffText = S.japaneseMode ? (vector.state === 'DEEP_SYNC' ? 'x1.2 フロー' : 'x1.0 アクティブ') : (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow' : 'x1.0 Active');
-  const modalBuffText = S.japaneseMode ? (vector.state === 'DEEP_SYNC' ? 'x1.2 フローバフ' : 'x1.0 アクティブ') : (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow Buff' : 'x1.0 Active');
+  const stateText = vector.state;
+  const buffText = false ? (vector.state === 'DEEP_SYNC' ? 'x1.2 フロー' : 'x1.0 アクティブ') : (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow' : 'x1.0 Active');
+  const modalBuffText = false ? (vector.state === 'DEEP_SYNC' ? 'x1.2 フローバフ' : 'x1.0 アクティブ') : (vector.state === 'DEEP_SYNC' ? 'x1.2 Flow Buff' : 'x1.0 Active');
 
   // Dashboard Telemetry Card
   updateElText('hud-val-cns', Math.round(cns * 100) + '%');
@@ -7161,90 +6903,33 @@ function renderCOHERENCE() {
     modalCritique.style.paddingTop = '12px';
     modalCritique.style.marginTop = '12px';
     
-    const translateNote = (note) => {
-      if (!S.japaneseMode) return note;
-      if (note.includes('STREAK SUSTAINED')) {
-        return note.replace(/STREAK SUSTAINED: Neural momentum strong at (.*) days\. Shield protection active\./, '継続日数の維持：ニューラルモーメンタムは $1 日と強力です。シールド保護がアクティブです。');
-      }
-      if (note.includes('MOMENTUM')) {
-        return note.replace(/MOMENTUM: Active daily streak of (.*) days\. Neural connections forming\./, 'モーメンタム：$1 日間のアクティブな継続。ニューラル接続が形成中。');
-      }
-      if (note.includes('COGNITIVE DEPTH')) {
-        return '認知的深さ：数学ルーティンが100%完了。解析エンジンが完全に整合されています。';
-      }
-      if (note.includes('RIGOR SECURED')) {
-        return '厳密性の確保：本日、証明問題の導出演習（ID 3）が正常に実行されました。';
-      }
-      if (note.includes('HARDWARE INTEGRITY')) {
-        return 'ハードウェア健全性：集中開発とアルゴリズム実装が完了。';
-      }
-      if (note.includes('DERMAL SHIELD')) {
-        return '皮膚バリア：朝と夜のスキンケアバリアが正常に配備されました。';
-      }
-      if (note.includes('BIO-FUEL')) {
-        return note.replace(/BIO-FUEL: Hydration target achieved \((.*)L logged today\)\./, 'バイオ燃料：水分補給目標を達成しました（本日は $1L 記録）。');
-      }
-      if (note.includes('ZENITH COHERENCE')) {
-        return 'コヒーレンスの極致：本日のすべての日課が100%完了しました。';
-      }
-      if (note.includes('INITIALIZATION')) {
-        return '初期化：ECREシステム待機中。最初の日課検証を待っています。';
-      }
-      if (note.includes('CRITICAL COGNITIVE DRIFT')) {
-        return note.replace(/CRITICAL COGNITIVE DRIFT: Mathematical proofs skipped for (.*) consecutive sessions!/, '致命的な認知ドリフト：数学証明が $1 回連続セッションでスキップされました！');
-      }
-      if (note.includes('PENDING RIGOR')) {
-        return '未完了の厳密性：本日「証明問題の導出演習」（ID 3）が確認されていません。';
-      }
-      if (note.includes('MATH DE-SYNC')) {
-        return '数学非同期：本日は数学の習慣が完全にオフラインです。';
-      }
-      if (note.includes('SOMATIC NEGLECT')) {
-        return '身体的怠慢：運動/物理的ルーティンが本日すべて未完了です。身体の整合性が脆弱です。';
-      }
-      if (note.includes('DERMAL NEGLECT')) {
-        return '皮膚的怠慢：皮膚保護ルーティンが本日すべてスキップされています。';
-      }
-      if (note.includes('METABOLIC LAGGARD')) {
-        return '代謝停滞：栄養/サプリメントのルーティンが本日完全に放置されています。';
-      }
-      if (note.includes('FOLLICULAR INACTION')) {
-        return '毛髪的不活性：頭皮・毛髪栄養プロトコルが本日オフラインです。';
-      }
-      if (note.includes('HYDRATION DEFICIT')) {
-        return note.replace(/HYDRATION DEFICIT: S\.waterLogs is currently at (.*)L\. System requires 3\.5L\+ daily\./, '水分不足：現在の水分補給量は $1L です。システムは毎日 3.5L 以上を要求しています。');
-      }
-      if (note.includes('ALL COGNITIVE CHANNELS SECURED')) {
-        return 'すべての認知チャネルが確保されました。有効なアノマリーは検出されていません。';
-      }
-      return note;
-    };
+    
 
     const detailedCritique = `
       <div style="padding: 10px; background: ${activeColor}06; border-radius: 4px; border: 1px solid ${activeColor}15; font-family: var(--font); font-size: 11px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px dashed ${activeColor}30; padding-bottom:6px; margin-bottom:8px;">
-          <strong style="color:var(--text); letter-spacing:0.5px;">${S.japaneseMode ? 'ECRE 認知評価システム v2.6.2' : 'ECRE COGNITIVE APPRAISAL v2.6.2'}</strong>
+          <strong style="color:var(--text); letter-spacing:0.5px;">${false ? 'ECRE 認知評価システム v2.6.2' : 'ECRE COGNITIVE APPRAISAL v2.6.2'}</strong>
           <span style="color:${activeColor}; font-weight:bold; letter-spacing:1px; background:${activeColor}15; padding:2px 6px; border-radius:3px; font-size:9px;">${stateText}</span>
         </div>
         <div style="margin-bottom:8px; line-height:1.4; color:var(--text-dim)">
-          ${S.japaneseMode 
+          ${false 
             ? `// CNS一貫性指標が <span style="color:var(--text); font-weight:600">${vector.compliancePct}%</span> と評価されました。継続日数は <span style="color:var(--text); font-weight:600">${S.streak}日</span> を維持しています。`
             : `// CNS consistency index evaluated at <span style="color:var(--text); font-weight:600">${vector.compliancePct}%</span>. Active streak remains at <span style="color:var(--text); font-weight:600">${S.streak} days</span>.`}
         </div>
         <div style="margin-bottom:8px;">
-          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${S.japaneseMode ? '[肯定的統合]' : '[Positive Integrations]'}</div>
+          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${false ? '[肯定的統合]' : '[Positive Integrations]'}</div>
           <div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">
-            ${vector.positiveNotes.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:${activeColor}">✔</span><span style="color:var(--text-dim); line-height:1.3;">${translateNote(n)}</span></div>`).join('')}
+            ${vector.positiveNotes.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:${activeColor}">✔</span><span style="color:var(--text-dim); line-height:1.3;">${n}</span></div>`).join('')}
           </div>
         </div>
         <div style="margin-bottom:8px;">
-          <div style="color:var(--red); font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${S.japaneseMode ? '[診断アノマリー]' : '[Diagnostic Anomalies]'}</div>
+          <div style="color:var(--red); font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${false ? '[診断アノマリー]' : '[Diagnostic Anomalies]'}</div>
           <div style="display:flex; flex-direction:column; gap:4px; padding-left:4px;">
-            ${vector.advisories.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:var(--red)">⚠</span><span style="color:var(--text-dim); line-height:1.3;">${translateNote(n)}</span></div>`).join('')}
+            ${vector.advisories.map(n => `<div style="display:flex; gap:6px; align-items:start;"><span style="color:var(--red)">⚠</span><span style="color:var(--text-dim); line-height:1.3;">${n}</span></div>`).join('')}
           </div>
         </div>
         <div style="margin-top:10px; border-top:1px dashed ${activeColor}20; padding-top:8px;">
-          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${S.japaneseMode ? '[サイバネティクス指令]' : '[Cybernetic Directive]'}</div>
+          <div style="color:${activeColor}; font-weight:bold; text-transform:uppercase; font-size:9px; margin-bottom:4px; letter-spacing:0.5px;">${false ? '[サイバネティクス指令]' : '[Cybernetic Directive]'}</div>
           <div style="color:var(--text); font-style:italic; padding-left:4px; line-height:1.4;">${vector.directive}</div>
         </div>
       </div>
