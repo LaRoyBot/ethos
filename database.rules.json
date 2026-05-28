@@ -12,8 +12,8 @@
       ".read": false,
       "$username": {
         ".read": true,
-        ".write": "auth != null && auth.token.email != null && newData.isString() && newData.val() === auth.token.email && (!data.exists() || data.val() === auth.token.email)",
-        ".validate": "auth != null && auth.token.email != null && newData.isString() && newData.val() === auth.token.email"
+        ".write": "auth != null && auth.token.email != null && $username.matches(/^[a-z0-9_]{3,16}$/) && (!data.exists() || data.val() === auth.token.email) && newData.val() === auth.token.email",
+        ".validate": "newData.isString() && newData.val() === auth.token.email"
       }
     }
   }

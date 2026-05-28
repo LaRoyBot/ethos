@@ -1,5 +1,16 @@
+const ALLOWED_ORIGINS = [
+  'https://ethos-jet.vercel.app',
+  'http://localhost:8080',
+  'http://127.0.0.1:8080'
+];
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://ethos-jet.vercel.app');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
 
@@ -11,16 +22,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const hasFirebase = !!(process.env.FIREBASE_DATABASE_URL && process.env.FIREBASE_DATABASE_SECRET);
-  const hasKv = !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-
+  // Secure diagnostic payload to only leak service online status without exposing infrastructure details
   return res.status(200).json({
     status: 'ok',
-    timestamp: Date.now(),
-    service: 'ethos-sync-gateway',
-    storage_type: hasKv ? 'vercel-kv' : (hasFirebase ? 'firebase' : 'unconfigured'),
-    auth_type: 'firebase-id-token',
-    firebase_configured: hasFirebase,
-    kv_configured: hasKv
+    timestamp: Date.now()
   });
 }

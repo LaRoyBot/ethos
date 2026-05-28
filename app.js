@@ -1637,7 +1637,7 @@ function getSyncDetailsReport(state) {
             '  Auth: <span style="color:var(--accent)">' + syncPath.auth + '</span><br>' +
             '  Size: <span style="color:var(--accent)">' + (size / 1024).toFixed(2) + ' KB</span> (' + size + ' bytes)<br>' +
             '  Push Count: <span style="color:var(--accent)">' + pushCount + '</span><br>' +
-            '  User: <span style="color:var(--accent)">' + username + ' (' + email + ')</span><br>' +
+            '  User: <span style="color:var(--accent)">' + escapeHtml(username) + ' (' + escapeHtml(email) + ')</span><br>' +
             '  XP: <span style="color:var(--accent)">' + (state.xp || 0) + ' (today: ' + (state.xpToday || 0) + ')</span><br>' +
             '  Completed Ethe: <span style="color:var(--accent)">' + doneEthe + ' / ' + totalEthe + '</span><br>' +
             '  Groups: ' + (groupsList.length ? groupsList.join(', ') : 'none') + '<br>' +
@@ -2127,7 +2127,7 @@ function handleCommand(cmd) {
             rpt += '  Storage configured: ' + (storageConfigured ? '<span style="color:var(--accent)">YES</span> (' + storageType + ')' : '<span style="color:var(--red)">NO</span>') + '<br>';
             rpt += '  Auth mode: <span style="color:var(--accent)">' + (health.auth_type || 'firebase-id-token') + '</span><br>';
           }
-          rpt += '  Proxy override: ' + (S.customSyncProxy || '&lt;none&gt;') + '<br>';
+          rpt += '  Proxy override: ' + (escapeHtml(S.customSyncProxy) || '&lt;none&gt;') + '<br>';
           var gw = getSyncGatewayUrl(diagUid);
           rpt += '  UID: <span style="color:var(--amber)">' + diagUid + '</span><br>';
           rpt += '  Active path: <span style="color:var(--amber)">' + (gw ? gw.type.toUpperCase() + ' \u2192 ' + gw.url.substring(0, 60) : 'DIRECT FIREBASE') + '</span>';
@@ -2172,7 +2172,7 @@ function handleCommand(cmd) {
       const pKey = args[3] ? args[3].trim() : '';
       if (!pUrl) {
         if (S.customSyncProxy) {
-          printTerm('Active sync proxy: ' + S.customSyncProxy, 'info');
+          printTerm('Active sync proxy: ' + escapeHtml(S.customSyncProxy), 'info');
           if (S.customSyncKey) {
             printTerm('Active proxy key: registered (hidden)', 'info');
           }
@@ -2214,7 +2214,7 @@ function handleCommand(cmd) {
             activeSyncRef.off();
             activeSyncRef = null;
           }
-          printTerm('Custom sync proxy successfully configured to: ' + S.customSyncProxy, 'ok');
+          printTerm('Custom sync proxy successfully configured to: ' + escapeHtml(S.customSyncProxy), 'ok');
           if (S.customSyncKey) {
             printTerm('Edge authentication key successfully registered.', 'ok');
           }
@@ -2572,7 +2572,7 @@ function renderSysinfoCommand() {
   props.forEach(function(pair) {
     var label = '  ' + pair[0] + ' ';
     var dashes = '─'.repeat(Math.max(1, 14 - pair[0].length));
-    html += '<span style="color:var(--accent)">' + label + '</span><span style="color:var(--text-faint)">' + dashes + '</span> <span style="color:var(--text-dim)">' + pair[1] + '</span>\n';
+    html += '<span style="color:var(--accent)">' + label + '</span><span style="color:var(--text-faint)">' + dashes + '</span> <span style="color:var(--text-dim)">' + escapeHtml(pair[1]) + '</span>\n';
   });
 
   html += '\n' + paletteHtml + '\n';
@@ -3708,7 +3708,7 @@ function renderPapers() {
     const readingText = 'reading';
     const doneText = 'done';
     const rmText = 'rm';
-    el.innerHTML = '<div class="paper-item-header"><div class="paper-name">' + p.name + '</div><div class="paper-controls"><select class="terminal-input" style="width:90px;padding:3px 6px;font-size:11px" data-pid="' + p.id + '"><option value="queued"' + (p.status === 'queued' ? ' selected' : '') + '>' + queuedText + '</option><option value="reading"' + (p.status === 'reading' ? ' selected' : '') + '>' + readingText + '</option><option value="done"' + (p.status === 'done' ? ' selected' : '') + '>' + doneText + '</option></select><button class="ethos-rm" data-pid="' + p.id + '">' + rmText + '</button></div></div>';
+    el.innerHTML = '<div class="paper-item-header"><div class="paper-name">' + escapeHtml(p.name) + '</div><div class="paper-controls"><select class="terminal-input" style="width:90px;padding:3px 6px;font-size:11px" data-pid="' + p.id + '"><option value="queued"' + (p.status === 'queued' ? ' selected' : '') + '>' + queuedText + '</option><option value="reading"' + (p.status === 'reading' ? ' selected' : '') + '>' + readingText + '</option><option value="done"' + (p.status === 'done' ? ' selected' : '') + '>' + doneText + '</option></select><button class="ethos-rm" data-pid="' + p.id + '">' + rmText + '</button></div></div>';
     el.querySelector('select').onchange = function() { updatePaperStatus(p.id, this.value); };
     el.querySelector('.ethos-rm').onclick = function() { removePaper(p.id); };
     list.appendChild(el);
@@ -3920,6 +3920,7 @@ function exportStateData() {
 
     addLog('ok', 'Data backup exported successfully (JSON download initiated).');
     printTerm('Data backup exported successfully (JSON download initiated).', 'ok');
+    printTerm('WARNING: Backup file contains sensitive variables (Gemini API key, custom sync keys). Store it securely.', 'warn');
   } catch (e) {
     console.error('Backup failed:', e);
     addLog('warn', 'Backup export encountered an error: ' + e.message);
@@ -3935,20 +3936,61 @@ function importStateData(rawString) {
   }
 
   try {
+    // 1. Size limit validation (cap at 500KB)
+    if (rawString.length > 500 * 1024) {
+      throw new Error('Backup payload size exceeds the maximum limit of 500KB.');
+    }
+
     const parsed = JSON.parse(rawString.trim());
     if (!parsed || typeof parsed !== 'object') {
       throw new Error('Backup data must be a valid JSON object.');
     }
     
-    // Strict schema verification
+    // 2. Schema check for mandatory state fields
     const criticalKeys = ['routines', 'history', 'xp', 'streak'];
     const missingKeys = criticalKeys.filter(k => parsed[k] === undefined);
     if (missingKeys.length > 0) {
       throw new Error('Invalid backup schema. Missing keys: ' + missingKeys.join(', '));
     }
 
-    // Overwrite S, sanitize, save and reload
-    S = parsed;
+    // 3. Strict schema property validation & field stripping
+    const VALID_KEYS = [
+      'routines', 'ethosGroups', 'papers', 'logs', 'contrib', 'swimHistory', 
+      'weightLogs', 'reminders', 'oracleHistory', 'history', 'skills', 
+      'unlockedAchievements', 'notificationSettings', 'xp', 'streak', 
+      'totalHours', 'weekHours', 'xpToday', 'activeDate', 'activeGroupFilter', 
+      'weekOffset', 'todayOnlyToggle', 'todayNote', 'paperNote', 'ethosViewMode', 
+      'protocolCollapsed', 'lastUpdated', 'authUsername', 'authEmail', 
+      'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate', 
+      'waterLogs', 'ecreMemory'
+    ];
+
+    const cleanedState = {};
+    VALID_KEYS.forEach(key => {
+      if (parsed[key] !== undefined) {
+        const val = parsed[key];
+        if (['xp', 'streak', 'totalHours', 'weekHours', 'xpToday', 'weekOffset', 'lastUpdated'].includes(key)) {
+          cleanedState[key] = typeof val === 'number' ? val : (parseInt(val) || 0);
+        } else if (['todayOnlyToggle'].includes(key)) {
+          cleanedState[key] = !!val;
+        } else if (['activeDate', 'activeGroupFilter', 'todayNote', 'paperNote', 'ethosViewMode', 'authUsername', 'authEmail', 'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate'].includes(key)) {
+          cleanedState[key] = typeof val === 'string' ? val : '';
+        } else if (['routines', 'ethosGroups', 'papers', 'logs', 'contrib', 'swimHistory', 'weightLogs', 'reminders', 'oracleHistory'].includes(key)) {
+          cleanedState[key] = Array.isArray(val) ? val : [];
+        } else if (['history', 'skills', 'unlockedAchievements', 'waterLogs', 'protocolCollapsed', 'notificationSettings', 'ecreMemory'].includes(key)) {
+          cleanedState[key] = (val && typeof val === 'object' && !Array.isArray(val)) ? val : {};
+        }
+      }
+    });
+
+    cleanedState.routines = cleanedState.routines || [];
+    cleanedState.history = cleanedState.history || {};
+    cleanedState.xp = cleanedState.xp || 0;
+    cleanedState.streak = cleanedState.streak || 0;
+
+    // Deep sanitize array structures
+    sanitizeStateArrays(cleanedState);
+    S = cleanedState;
     sanitizeStateArrays(S);
     ss(false); // save to localStorage and sync to Firebase
 
