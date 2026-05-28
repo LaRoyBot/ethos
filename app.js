@@ -304,7 +304,7 @@ function getCleanSyncKey() {
 
 function getSyncGatewayUrl(uid) {
   const cleanKey = getCleanSyncKey();
-  if (_vercelGatewayAvailable !== false) {
+  if (_vercelGatewayAvailable === true) {
     return { url: '/api/sync', type: 'gateway', headers: {} };
   }
   if (S.customSyncProxy && cleanKey) {
@@ -412,8 +412,8 @@ function firebaseRestPush(uid, callback) {
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' push HTTP ' + response.status); return response.json(); })
     .then(function(data) { console.log('[Sync] ' + gw.type + ' push succeeded:', data); if (callback) callback(true, 'pushed'); })
     .catch(function(err) {
-      console.error('[Sync] ' + gw.type + ' push failed:', err);
-      if (callback) callback(false, getSyncErrorMessage(err));
+      console.warn('[Sync] ' + gw.type + ' push failed, falling back to direct Firebase REST:', err.message);
+      firebaseDirectRestPush(uid, callback);
     });
     return;
   }
@@ -510,7 +510,7 @@ function applyCloudState(val, forcePull, callback) {
   }
 }
 
-// REST API pull — uses gateway → proxy → direct Firebase REST.
+// REST API pull — uses gateway → proxy → direct Firebase REST (with automatic fallback).
 function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
   var statusEl = document.getElementById('auth-sync-status');
   if (isDirectCall) {
@@ -530,10 +530,8 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' HTTP ' + response.status); return response.json(); })
     .then(function(val) { console.log('[Sync] ' + gw.type + ' pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
     .catch(function(err) {
-      console.error('[Sync] ' + gw.type + ' pull failed:', err);
-      if (statusEl) statusEl.textContent = 'Status: sync error (' + gw.type + ' failed) - ' + err.message;
-      unlockBootSync();
-      if (callback) callback(false, getSyncErrorMessage(err));
+      console.warn('[Sync] ' + gw.type + ' pull failed, falling back to direct Firebase REST:', err.message);
+      firebaseDirectRestPull(uid, callback, forcePull, isDirectCall);
     });
     return;
   }
@@ -1028,13 +1026,12 @@ if (typeof firebase !== 'undefined') {
       // Dismiss boot gate immediately for snappy responsiveness
       tryDismissBoot();
       
-      // Sync from cloud in the background. Do not force-pull on reload:
-      // a missing local auth marker or missing gateway key can otherwise
-      // overwrite a rich local state with a stale/default cloud record.
-      firebaseSyncPull(null, false);
-      
-      // Real-time synchronization across devices (Issue 8/8)
-      attachFirebaseWebSocketListener(user);
+      // Ensure gateway probe completes before first sync attempt
+      probeGateway().then(function() {
+        firebaseSyncPull(null, false);
+        // Real-time synchronization across devices (Issue 8/8)
+        attachFirebaseWebSocketListener(user);
+      });
     } else {
       if (activeSyncRef) {
         activeSyncRef.off();
