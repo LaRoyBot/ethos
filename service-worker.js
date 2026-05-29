@@ -1,63 +1,51 @@
-const CACHE_NAME = 'ethos-init-v2.7.7';
-const ASSETS = [
-  './',
-  './index.html',
-  './styles.css',
-  './app.js',
-  './data.js'
-];
+const CACHE_NAME = 'ethos-init-v2.7.8';
+const SHELL = ['./', './index.html', './styles.css', './app.js', './data.js'];
+const NETWORK_FIRST = new Set(['/', '/index.html', '/app.js', '/data.js']);
 
-self.addEventListener('install', event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(ASSETS);
-    }).then(() => self.skipWaiting())
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(k => (k !== CACHE_NAME ? caches.delete(k) : null))))
+      .then(() => self.clients.claim())
   );
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil(
-    caches.keys().then(keys => {
-      return Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) return caches.delete(key);
-        })
-      );
-    }).then(() => self.clients.claim())
-  );
-});
+self.addEventListener('fetch', e => {
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  if (!req.url.startsWith(self.location.origin)) return;
+  const url = new URL(req.url);
+  if (url.pathname.startsWith('/api/')) return;
+  const isShell = SHELL.some(a => new URL(a, self.location.href).pathname === url.pathname);
+  if (!isShell) return;
 
-self.addEventListener('fetch', event => {
-  if (!event.request.url.startsWith(self.location.origin)) {
-    return;
-  }
-
-  const url = new URL(event.request.url);
-  const isStaticAsset = ASSETS.some(asset => {
-    const assetUrl = new URL(asset, self.location.href);
-    return assetUrl.pathname === url.pathname;
-  });
-
-  if (!isStaticAsset) {
-    return;
-  }
-
-  if (url.pathname.endsWith('.html') || url.pathname.endsWith('.js') || url.pathname === '/' || url.pathname.endsWith('/')) {
-    event.respondWith(
-      fetch(event.request)
-        .then(networkResponse => {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
-          return networkResponse;
-        })
-        .catch(() => caches.match(event.request))
+  const networkFirst = NETWORK_FIRST.has(url.pathname) || url.pathname.endsWith('/');
+  if (networkFirst) {
+    e.respondWith(
+      fetch(req).then(resp => {
+        if (resp && resp.ok && resp.type === 'basic') {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, clone));
+        }
+        return resp;
+      }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html')))
     );
     return;
   }
-
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      return cachedResponse || fetch(event.request);
+  e.respondWith(
+    caches.match(req).then(hit => {
+      const net = fetch(req).then(resp => {
+        if (resp && resp.ok && resp.type === 'basic') {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(c => c.put(req, clone));
+        }
+        return resp;
+      }).catch(() => hit);
+      return hit || net;
     })
   );
 });

@@ -44,9 +44,9 @@ let S = load('mathInit_state', {
   logs: [], contrib: [], lastDate: '', theme: 'default',
   weekOffset: 0, history: {}, activeDate: new Date().toDateString(),
   activeGroupFilter: 'all',
-  swimHistory: DEFAULT_SWIM_HISTORY,
-  waterLogs: Object.assign({}, DEFAULT_WATER_LOGS),
-  weightLogs: [{ date: '2026-05-19', weight: 70.0, uricAcid: 5.0, hdl: 50, eosinophils: 2.0 }],
+  swimHistory: [],
+  waterLogs: {},
+  weightLogs: [],
   trilumaStartDate: '2026-01-01',
   todayOnlyToggle: true,
   swimFilter: 'all',
@@ -2585,8 +2585,8 @@ function renderSysinfoCommand() {
   }
 
   // Water today
-  var todayKey = new Date().toISOString().split('T')[0];
-  var waterToday = (S.waterLogs && S.waterLogs[todayKey]) ? S.waterLogs[todayKey] : 0;
+  const todayKey = normalizeDateKey(new Date().toDateString());
+  const waterToday = (S.waterLogs && S.waterLogs[todayKey]) || 0;
 
   // Modules
   var modules = ['ethe', 'swim', 'focus', 'papers', 'skills', 'water', 'bio'];
@@ -2836,7 +2836,7 @@ function renderEtheTab() {
   // Update water logs done state for renderEtheTab based on S.waterLogs
   all.forEach(function(e) {
     if (e.isWater) {
-      const waterVal = S.waterLogs[S.activeDate] || 0;
+      const waterVal = S.waterLogs[normalizeDateKey(S.activeDate)] || 0;
       e.done = waterVal >= 3.5;
     }
   });
@@ -2925,7 +2925,7 @@ function renderEtheTab() {
           S.activeDate = dateStr;
           S.routines.forEach(function(r) { r.ethe.forEach(function(e) {
             if (e.isWater) {
-              const waterVal = S.waterLogs[S.activeDate] || 0;
+              const waterVal = S.waterLogs[normalizeDateKey(S.activeDate)] || 0;
               e.done = waterVal >= 3.5;
             } else {
               e.done = S.history[S.activeDate] ? !!S.history[S.activeDate][e.id] : (S.activeDate === TODAY ? e.done : false);
@@ -2994,7 +2994,7 @@ function renderEtheTab() {
       // Water target element
       var checkHtml = '';
       if (e.isWater) {
-        const waterVal = S.waterLogs[S.activeDate] || 0;
+        const waterVal = S.waterLogs[normalizeDateKey(S.activeDate)] || 0;
         checkHtml = `
           <div class="water-widget" style="margin-top: 4px;">
             <button class="water-btn minus-btn">-</button>
@@ -3197,7 +3197,7 @@ function renderProtocolView() {
       // Water target element
       var checkHtml = '';
       if (e.isWater) {
-        const waterVal = S.waterLogs[S.activeDate] || 0;
+        const waterVal = S.waterLogs[normalizeDateKey(S.activeDate)] || 0;
         checkHtml = `
           <div class="water-widget" style="margin-top: 4px;">
             <button class="water-btn minus-btn">-</button>
@@ -4487,9 +4487,9 @@ function renderExpectations() {
 
 function changeWaterIntake(rIdx, eId, delta) {
   if (!S.waterLogs) S.waterLogs = {};
-  const current = S.waterLogs[S.activeDate] || 0;
+  const current = S.waterLogs[normalizeDateKey(S.activeDate)] || 0;
   const next = Math.max(0, Math.min(6.0, current + delta));
-  S.waterLogs[S.activeDate] = next;
+  S.waterLogs[normalizeDateKey(S.activeDate)] = next;
   
   const r = S.routines[rIdx];
   const e = r.ethe.find(x => x.id === eId);
@@ -4697,7 +4697,7 @@ function normalizeDateToISO(dateInput) {
 
 function logSwimSessionProgrammatic(date, time, duration, comment, laps, distance, calories) {
   if (!date) return;
-  date = normalizeDateToISO(date);
+  date = normalizeDateKey(date);
   if (!S.swimHistory) S.swimHistory = [];
   let entry = S.swimHistory.find(x => x.date === date);
   const isSwamLog = time && duration > 0;
@@ -4798,6 +4798,7 @@ function logSwimSession() {
 }
 
 function removeSwimDay(date) {
+  date = normalizeDateKey(date);
   if (confirm(`delete swim log for ${date}?`)) {
     if (!S.swimHistory) return;
     const entry = S.swimHistory.find(x => x.date === date);
@@ -5715,7 +5716,7 @@ function compileCognitiveVector(relativeDate = new Date()) {
   // 4. Dynamic appraisal heuristics for ECRE guide dialogue & living comments
   const todayDay = new Date().getDay();
   const etheToday = allEthe.filter(e => !e.days || e.days.includes(todayDay));
-  const waterToday = S.waterLogs[TODAY] || 0;
+  const waterToday = S.waterLogs[normalizeDateKey(TODAY)] || 0;
   const isHydrationOptimal = waterToday >= 3.5;
 
   let swamTodayOrYesterday = false;
@@ -6147,6 +6148,11 @@ function printECREDiagnosticBoot() {
 
 function seedDemoDataVariant(variant) {
   const sub = variant || 'seed';
+
+  S.swimHistory = DEFAULT_SWIM_HISTORY.map(x => Object.assign({}, x, { date: normalizeDateKey(x.date) }));
+  S.waterLogs = {};
+  for (let k in DEFAULT_WATER_LOGS) { S.waterLogs[normalizeDateKey(k)] = DEFAULT_WATER_LOGS[k]; }
+  S.weightLogs = [{ date: normalizeDateKey('2026-05-19'), weight: 70.0, uricAcid: 5.0, hdl: 50, eosinophils: 2.0 }];
   
   // Base properties
   S.xp = 4250;

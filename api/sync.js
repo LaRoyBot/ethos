@@ -80,56 +80,45 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       const response = await fetch(kvUrl, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${kvToken}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Authorization': `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(['GET', keyName]),
       });
-
       if (!response.ok) {
         const errorBody = await response.text();
-        return res.status(response.status).json({
-          error: 'Vercel KV read failed',
-          status: response.status,
-          detail: errorBody,
-        });
+        return res.status(response.status).json({ error: 'Vercel KV read failed', status: response.status, detail: errorBody });
       }
-
       const resData = await response.json();
       const rawValue = resData.result;
-
-      if (rawValue === null) {
-        return res.status(200).json(null);
+      if (rawValue === null || rawValue === undefined) {
+        // Explicitly signal "no data" rather than ambiguous null.
+        return res.status(200).json({ exists: false });
       }
-
       try {
-        return res.status(200).json(JSON.parse(rawValue));
+        const parsed = JSON.parse(rawValue);
+        return res.status(200).json({ exists: true, ...parsed });
       } catch (parseErr) {
-        return res.status(200).json(rawValue);
+        return res.status(200).json({ exists: true, raw: rawValue });
       }
     }
 
-    const bodyString = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    // PUT: server-authoritative timestamp
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body || {});
+    const serverNow = Date.now();
+    const toStore = {
+      state: body.state,
+      lastUpdated: serverNow,
+      pushCount: typeof body.pushCount === 'number' ? body.pushCount : 0,
+    };
     const response = await fetch(kvUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${kvToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(['SET', keyName, bodyString]),
+      headers: { 'Authorization': `Bearer ${kvToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(['SET', keyName, JSON.stringify(toStore)]),
     });
-
     if (!response.ok) {
       const errorBody = await response.text();
-      return res.status(response.status).json({
-        error: 'Vercel KV write failed',
-        status: response.status,
-        detail: errorBody,
-      });
+      return res.status(response.status).json({ error: 'Vercel KV write failed', status: response.status, detail: errorBody });
     }
-
-    return res.status(200).json(JSON.parse(bodyString));
+    return res.status(200).json({ ok: true, lastUpdated: serverNow });
   } catch (err) {
     const statusCode = err.statusCode || 500;
     return res.status(statusCode).json({
