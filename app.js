@@ -565,11 +565,13 @@ function firebaseSyncPull(callback, forcePull = false) {
     firebase.database().goOnline();
   } catch (e) {
     console.warn("Firebase goOnline failed:", e);
+    addLog('warn', 'Cloud sync: Firebase goOnline() failed — ' + (e.message || String(e)));
   }
 
   const statusEl = document.getElementById('auth-sync-status');
   if (statusEl) statusEl.textContent = 'Status: syncing with cloud...';
   console.log('[Sync] Starting pull — racing WebSocket vs 10s timeout...');
+  addLog('info', 'Cloud sync: Attempting WebSocket connection (timeout: 10s)...');
 
   // Create a timeout promise that resolves with a sentinel value after 10 seconds
   const SYNC_TIMEOUT_MS = 10000;
@@ -587,19 +589,23 @@ function firebaseSyncPull(callback, forcePull = false) {
         if (result === TIMEOUT_SENTINEL) {
           // WebSocket hung — fall back to REST
           console.warn('[Sync] WebSocket timed out after ' + SYNC_TIMEOUT_MS + 'ms');
+          addLog('warn', 'Cloud sync: WebSocket timed out after ' + (SYNC_TIMEOUT_MS / 1000) + 's — falling back to REST API.');
           firebaseRestPull(user.uid, callback, forcePull);
         } else {
           // WebSocket succeeded
           console.log('[Sync] WebSocket pull succeeded');
+          addLog('info', 'Cloud sync: WebSocket connection succeeded.');
           applyCloudState(result, forcePull, callback);
         }
       })
       .catch(err => {
         console.error('[Sync] WebSocket pull errored, trying REST:', err);
+        addLog('warn', 'Cloud sync: WebSocket error — ' + (err.message || String(err)) + '. Falling back to REST API.');
         firebaseRestPull(user.uid, callback, forcePull);
       });
   } catch (err) {
     console.error("Firebase database pull initialization failed:", err);
+    addLog('warn', 'Cloud sync: WebSocket init failed — ' + (err.message || String(err)));
     if (statusEl) statusEl.textContent = 'Status: database error - ' + err.message;
     unlockBootSync();
     if (callback) callback(false, err);
