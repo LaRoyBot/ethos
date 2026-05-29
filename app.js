@@ -4670,6 +4670,26 @@ function renderSwimTab() {
   });
 }
 
+function normalizeDateKey(dateInput) {
+  if (!dateInput) return '';
+  if (dateInput instanceof Date) {
+    return dateInput.toDateString();
+  }
+  const isoRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
+  const match = String(dateInput).trim().match(isoRegex);
+  if (match) {
+    const yr = parseInt(match[1], 10);
+    const mo = parseInt(match[2], 10) - 1;
+    const dy = parseInt(match[3], 10);
+    return new Date(yr, mo, dy).toDateString();
+  }
+  const parsed = new Date(dateInput);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toDateString();
+  }
+  return String(dateInput);
+}
+
 function normalizeDateToISO(dateInput) {
   if (!dateInput) return '';
   if (dateInput instanceof Date) {
