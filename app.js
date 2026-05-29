@@ -297,6 +297,7 @@ function backupLocalStateBeforeCloudReplace(reason) {
 // Same-origin Vercel API gateway: the best sync path.
 // Priority: 1) /api/sync (same domain, zero CORS) → 2) customSyncProxy → 3) direct Firebase REST → 4) Firebase WebSocket
 let _vercelGatewayAvailable = null; // null = untested, true/false = cached probe result
+let _wsAvailable = null;            // null = untested, true = worked last time, false = skip WebSocket this session
 
 function getCleanSyncKey() {
   return (S.customSyncKey || '').trim().replace(/^["']|["']$/g, '');
@@ -561,6 +562,14 @@ function firebaseSyncPull(callback, forcePull = false) {
     return;
   }
 
+  // Skip WebSocket if it failed previously this session — go straight to REST
+  if (_wsAvailable === false) {
+    addLog('info', 'Cloud sync: Skipping WebSocket (failed earlier this session) — using REST API directly.');
+    console.log('[Sync] Skipping WebSocket (failed earlier this session). Using REST directly.');
+    firebaseDirectRestPull(user.uid, callback, forcePull, true);
+    return;
+  }
+
   try {
     firebase.database().goOnline();
   } catch (e) {
@@ -570,11 +579,11 @@ function firebaseSyncPull(callback, forcePull = false) {
 
   const statusEl = document.getElementById('auth-sync-status');
   if (statusEl) statusEl.textContent = 'Status: syncing with cloud...';
-  console.log('[Sync] Starting pull — racing WebSocket vs 10s timeout...');
-  addLog('info', 'Cloud sync: Attempting WebSocket connection (timeout: 10s)...');
+  const SYNC_TIMEOUT_MS = 5000;
+  console.log('[Sync] Starting pull — racing WebSocket vs ' + (SYNC_TIMEOUT_MS / 1000) + 's timeout...');
+  addLog('info', 'Cloud sync: Attempting WebSocket connection (timeout: ' + (SYNC_TIMEOUT_MS / 1000) + 's)...');
 
-  // Create a timeout promise that resolves with a sentinel value after 10 seconds
-  const SYNC_TIMEOUT_MS = 10000;
+  // Create a timeout promise that resolves with a sentinel value
   const TIMEOUT_SENTINEL = Symbol('TIMEOUT');
   const timeoutPromise = new Promise(resolve => {
     setTimeout(() => resolve(TIMEOUT_SENTINEL), SYNC_TIMEOUT_MS);
@@ -587,23 +596,28 @@ function firebaseSyncPull(callback, forcePull = false) {
     Promise.race([wsPromise, timeoutPromise])
       .then(result => {
         if (result === TIMEOUT_SENTINEL) {
-          // WebSocket hung — fall back to REST
+          // WebSocket hung — cache the failure and fall back to REST
+          _wsAvailable = false;
           console.warn('[Sync] WebSocket timed out after ' + SYNC_TIMEOUT_MS + 'ms');
-          addLog('warn', 'Cloud sync: WebSocket timed out after ' + (SYNC_TIMEOUT_MS / 1000) + 's — falling back to REST API.');
+          addLog('warn', 'Cloud sync: WebSocket timed out after ' + (SYNC_TIMEOUT_MS / 1000) + 's — falling back to REST API. Will skip WebSocket for this session.');
           firebaseRestPull(user.uid, callback, forcePull);
         } else {
-          // WebSocket succeeded
+          // WebSocket succeeded — cache the success
+          _wsAvailable = true;
           console.log('[Sync] WebSocket pull succeeded');
           addLog('info', 'Cloud sync: WebSocket connection succeeded.');
           applyCloudState(result, forcePull, callback);
         }
       })
       .catch(err => {
+        // WebSocket errored — cache the failure and fall back to REST
+        _wsAvailable = false;
         console.error('[Sync] WebSocket pull errored, trying REST:', err);
-        addLog('warn', 'Cloud sync: WebSocket error — ' + (err.message || String(err)) + '. Falling back to REST API.');
+        addLog('warn', 'Cloud sync: WebSocket error — ' + (err.message || String(err)) + '. Falling back to REST API. Will skip WebSocket for this session.');
         firebaseRestPull(user.uid, callback, forcePull);
       });
   } catch (err) {
+    _wsAvailable = false;
     console.error("Firebase database pull initialization failed:", err);
     addLog('warn', 'Cloud sync: WebSocket init failed — ' + (err.message || String(err)));
     if (statusEl) statusEl.textContent = 'Status: database error - ' + err.message;
