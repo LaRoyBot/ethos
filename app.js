@@ -351,7 +351,12 @@ function getSyncErrorMessage(err) {
 function probeGateway() {
   if (_vercelGatewayAvailable !== null) return Promise.resolve(_vercelGatewayAvailable);
   return fetch('/api/health', { method: 'GET', cache: 'no-store' })
-    .then(function(r) { _vercelGatewayAvailable = r.ok; console.log('[Sync] Gateway probe:', _vercelGatewayAvailable ? 'AVAILABLE' : 'NOT AVAILABLE'); return _vercelGatewayAvailable; })
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(data) {
+      _vercelGatewayAvailable = !!(data && data.sync_ready);
+      console.log('[Sync] Gateway probe:', _vercelGatewayAvailable ? 'AVAILABLE (sync_ready)' : 'NOT AVAILABLE (sync not configured)');
+      return _vercelGatewayAvailable;
+    })
     .catch(function() { _vercelGatewayAvailable = false; console.log('[Sync] Gateway probe: NOT AVAILABLE (fetch error)'); return false; });
 }
 probeGateway();
@@ -2114,20 +2119,18 @@ function handleCommand(cmd) {
         .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
         .catch(function(err) { return { status: 'unreachable', error: err.message }; })
         .then(function(health) {
-          var gwOk = health && health.status === 'ok';
-          _vercelGatewayAvailable = gwOk;
+          var gwOnline = health && health.status === 'ok';
+          var syncReady = !!(health && health.sync_ready);
+          _vercelGatewayAvailable = syncReady;
           var rpt = '<span style="color:var(--accent); font-weight:bold;">--- GATEWAY HEALTH ---</span><br>' +
-            '  /api/health: ' + (gwOk ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE</span> (' + (health.error || 'unknown') + ')') + '<br>';
-          if (gwOk) {
-            var storageConfigured = health.kv_configured || health.firebase_configured;
-            var storageType = health.kv_configured ? 'Vercel KV' : (health.firebase_configured ? 'Firebase' : 'None');
-            rpt += '  Storage configured: ' + (storageConfigured ? '<span style="color:var(--accent)">YES</span> (' + storageType + ')' : '<span style="color:var(--red)">NO</span>') + '<br>';
-            rpt += '  Auth mode: <span style="color:var(--accent)">' + (health.auth_type || 'firebase-id-token') + '</span><br>';
+            '  /api/health: ' + (gwOnline ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE</span> (' + (health.error || 'unknown') + ')') + '<br>';
+          if (gwOnline) {
+            rpt += '  Sync ready: ' + (syncReady ? '<span style="color:var(--accent)">YES</span> (API key + KV configured)' : '<span style="color:var(--red)">NO</span> (env vars missing, using direct Firebase)') + '<br>';
           }
           rpt += '  Proxy override: ' + (escapeHtml(S.customSyncProxy) || '&lt;none&gt;') + '<br>';
           var gw = getSyncGatewayUrl(diagUid);
           rpt += '  UID: <span style="color:var(--amber)">' + diagUid + '</span><br>';
-          rpt += '  Active path: <span style="color:var(--amber)">' + (gw ? gw.type.toUpperCase() + ' \u2192 ' + gw.url.substring(0, 60) : 'DIRECT FIREBASE') + '</span>';
+          rpt += '  Active path: <span style="color:var(--amber)">' + (gw ? gw.type.toUpperCase() + ' \u2192 ' + gw.url.substring(0, 60) : 'DIRECT FIREBASE REST') + '</span>';
           printTerm(rpt, 'info');
           function showDiag(val) {
             if (!val || !val.state) { printTerm('Cloud: No state found.', 'warn'); return; }
@@ -3959,22 +3962,23 @@ function importStateData(rawString) {
       'weekOffset', 'todayOnlyToggle', 'todayNote', 'paperNote', 'ethosViewMode', 
       'protocolCollapsed', 'lastUpdated', 'authUsername', 'authEmail', 
       'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate', 
-      'waterLogs', 'ecreMemory'
+      'waterLogs', 'ecreMemory', 'pushCount', 'focusStats', 'swimFilter',
+      'swimSearchQuery', 'crtEnabled'
     ];
 
     const cleanedState = {};
     VALID_KEYS.forEach(key => {
       if (parsed[key] !== undefined) {
         const val = parsed[key];
-        if (['xp', 'streak', 'totalHours', 'weekHours', 'xpToday', 'weekOffset', 'lastUpdated'].includes(key)) {
+        if (['xp', 'streak', 'totalHours', 'weekHours', 'xpToday', 'weekOffset', 'lastUpdated', 'pushCount'].includes(key)) {
           cleanedState[key] = typeof val === 'number' ? val : (parseInt(val) || 0);
-        } else if (['todayOnlyToggle'].includes(key)) {
+        } else if (['todayOnlyToggle', 'crtEnabled'].includes(key)) {
           cleanedState[key] = !!val;
-        } else if (['activeDate', 'activeGroupFilter', 'todayNote', 'paperNote', 'ethosViewMode', 'authUsername', 'authEmail', 'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate'].includes(key)) {
+        } else if (['activeDate', 'activeGroupFilter', 'todayNote', 'paperNote', 'ethosViewMode', 'authUsername', 'authEmail', 'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate', 'swimFilter', 'swimSearchQuery'].includes(key)) {
           cleanedState[key] = typeof val === 'string' ? val : '';
         } else if (['routines', 'ethosGroups', 'papers', 'logs', 'contrib', 'swimHistory', 'weightLogs', 'reminders', 'oracleHistory'].includes(key)) {
           cleanedState[key] = Array.isArray(val) ? val : [];
-        } else if (['history', 'skills', 'unlockedAchievements', 'waterLogs', 'protocolCollapsed', 'notificationSettings', 'ecreMemory'].includes(key)) {
+        } else if (['history', 'skills', 'unlockedAchievements', 'waterLogs', 'protocolCollapsed', 'notificationSettings', 'ecreMemory', 'focusStats'].includes(key)) {
           cleanedState[key] = (val && typeof val === 'object' && !Array.isArray(val)) ? val : {};
         }
       }
