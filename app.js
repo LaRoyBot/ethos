@@ -3963,7 +3963,9 @@ function importStateData(rawString) {
       'protocolCollapsed', 'lastUpdated', 'authUsername', 'authEmail', 
       'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate', 
       'waterLogs', 'ecreMemory', 'pushCount', 'focusStats', 'swimFilter',
-      'swimSearchQuery', 'crtEnabled'
+      'swimSearchQuery', 'crtEnabled', 'cmdHistory', 'dummyLoaded', 
+      'historyKeysMigrated', 'lastDate', 'theme', 'v22WaterSeeded', 
+      'v2LifestyleLoaded'
     ];
 
     const cleanedState = {};
@@ -3972,11 +3974,11 @@ function importStateData(rawString) {
         const val = parsed[key];
         if (['xp', 'streak', 'totalHours', 'weekHours', 'xpToday', 'weekOffset', 'lastUpdated', 'pushCount'].includes(key)) {
           cleanedState[key] = typeof val === 'number' ? val : (parseInt(val) || 0);
-        } else if (['todayOnlyToggle', 'crtEnabled'].includes(key)) {
+        } else if (['todayOnlyToggle', 'crtEnabled', 'dummyLoaded', 'v2LifestyleLoaded', 'v22WaterSeeded', 'historyKeysMigrated'].includes(key)) {
           cleanedState[key] = !!val;
-        } else if (['activeDate', 'activeGroupFilter', 'todayNote', 'paperNote', 'ethosViewMode', 'authUsername', 'authEmail', 'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate', 'swimFilter', 'swimSearchQuery'].includes(key)) {
+        } else if (['activeDate', 'activeGroupFilter', 'todayNote', 'paperNote', 'ethosViewMode', 'authUsername', 'authEmail', 'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate', 'swimFilter', 'swimSearchQuery', 'lastDate', 'theme'].includes(key)) {
           cleanedState[key] = typeof val === 'string' ? val : '';
-        } else if (['routines', 'ethosGroups', 'papers', 'logs', 'contrib', 'swimHistory', 'weightLogs', 'reminders', 'oracleHistory'].includes(key)) {
+        } else if (['routines', 'ethosGroups', 'papers', 'logs', 'contrib', 'swimHistory', 'weightLogs', 'reminders', 'oracleHistory', 'cmdHistory'].includes(key)) {
           cleanedState[key] = Array.isArray(val) ? val : [];
         } else if (['history', 'skills', 'unlockedAchievements', 'waterLogs', 'protocolCollapsed', 'notificationSettings', 'ecreMemory', 'focusStats'].includes(key)) {
           cleanedState[key] = (val && typeof val === 'object' && !Array.isArray(val)) ? val : {};
