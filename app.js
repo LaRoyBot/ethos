@@ -243,8 +243,84 @@ function getNetworkErrorTip(err) {
 checkDailyReset(true);
 
 let _bootSyncLocked = true; // Prevent ss() from bumping lastUpdated during boot pull
+let _destructiveMigrationsRan = false;
+
 function unlockBootSync() {
   _bootSyncLocked = false;
+  runDestructiveMigrations();
+}
+
+// === DEFERRED DESTRUCTIVE MIGRATIONS ===
+// These migrations reset state fields to defaults. They MUST run AFTER the cloud
+// pull completes (via unlockBootSync), not at module load time. On a fresh device,
+// running them before pull would seed defaults, then the sync arbitration could
+// push those defaults to cloud, destroying the real data from device 1.
+function runDestructiveMigrations() {
+  if (_destructiveMigrationsRan) return;
+  _destructiveMigrationsRan = true;
+
+  // v2 Lifestyle migration — seeds default routines/papers/swim data
+  if (!S.v2LifestyleLoaded) {
+    S.routines = DEFAULT_ROUTINES;
+    S.ethosGroups = JSON.parse(JSON.stringify(ETHOS_GROUPS));
+    S.papers = DEFAULT_PAPERS;
+    S.streak = 0;
+    S.xp = 0;
+    S.xpToday = 0;
+    S.totalHours = 0;
+    S.weekHours = 0;
+    S.logs = [];
+    S.contrib = [];
+    S.skills = {};
+    SKILLS.forEach(s => { S.skills[s.key] = 0; });
+    S.history = {};
+    S.unlockedAchievements = {};
+    S.focusStats = { sessions: 0, totalMins: 0, maxSessionMins: 0 };
+    S.dummyLoaded = false;
+    S.v2LifestyleLoaded = true;
+    S.swimHistory = DEFAULT_SWIM_HISTORY;
+    S.waterLogs = Object.assign({}, DEFAULT_WATER_LOGS);
+    S.weightLogs = [{ date: '2026-05-19', weight: 91.0, uricAcid: 7.2, hdl: 42, eosinophils: 5.5 }];
+    S.trilumaStartDate = '2026-05-01';
+    S.todayOnlyToggle = true;
+    S.swimFilter = 'all';
+    S.swimSearchQuery = '';
+    S.routines.forEach(r => r.ethe.forEach(e => { e.done = false; e.streak = 0; }));
+    ss(true); // save locally only — no timestamp bump, no push
+  }
+
+  // v2.2.0 Water seed migration
+  if (!S.v22WaterSeeded) {
+    S.waterLogs = Object.assign({}, DEFAULT_WATER_LOGS);
+    S.v22WaterSeeded = true;
+    ss(true);
+  }
+
+  // v2.3.2 History key format migration
+  if (!S.historyKeysMigrated) {
+    const isoRegex = /^\d{4}-\d{2}-\d{2}$/;
+    const newHistory = {};
+    Object.keys(S.history || {}).forEach(key => {
+      let normalizedKey = key;
+      if (isoRegex.test(key)) {
+        const d = new Date(key + 'T00:00:00');
+        normalizedKey = d.toDateString();
+      }
+      if (!newHistory[normalizedKey]) {
+        newHistory[normalizedKey] = S.history[key];
+      } else {
+        newHistory[normalizedKey] = Object.assign({}, newHistory[normalizedKey], S.history[key]);
+        Object.keys(S.history[key]).forEach(id => {
+          if (S.history[key][id] === true) {
+            newHistory[normalizedKey][id] = true;
+          }
+        });
+      }
+    });
+    S.history = newHistory;
+    S.historyKeysMigrated = true;
+    ss(true);
+  }
 }
 
 function ss(skipFirebase = false) {
@@ -497,11 +573,40 @@ function applyCloudState(val, forcePull, callback) {
       unlockBootSync();
       if (callback) callback(true, 'pulled');
     } else if (localIsNewer) {
-      firebaseSyncPush();
-      addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
-      if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
-      unlockBootSync();
-      if (callback) callback(true, 'pushed');
+      // Guard: never push an empty/fresh-device state over real cloud data.
+      // A fresh device has pushCount 0; if cloud has real pushes, cloud wins.
+      var localPc = S.pushCount || 0;
+      var cloudPc = cloudPushCount || 0;
+      if (localPc === 0 && cloudPc > 0) {
+        console.warn('[Sync] Fresh device tried to overwrite cloud (pushCount 0 vs ' + cloudPc + '). Cloud wins.');
+        backupLocalStateBeforeCloudReplace('fresh_device_protection');
+        var _prevAuthEmail = S.authEmail;
+        var _prevAuthUsername = S.authUsername;
+        var _prevCmdHistory = S.cmdHistory || [];
+        var _prevCustomSyncProxy = S.customSyncProxy || '';
+        var _prevCustomSyncKey = S.customSyncKey || '';
+        var _prevGeminiKey = S.geminiKey || '';
+        S = val.state;
+        sanitizeStateArrays(S);
+        S.authEmail = _prevAuthEmail;
+        S.authUsername = _prevAuthUsername;
+        S.cmdHistory = _prevCmdHistory;
+        S.customSyncProxy = _prevCustomSyncProxy;
+        S.customSyncKey = _prevCustomSyncKey;
+        S.geminiKey = _prevGeminiKey || S.geminiKey || '';
+        ss(true);
+        render();
+        addLog('info', 'Cloud sync: Fresh device yielded to cloud data (pushCount protection).');
+        if (statusEl) statusEl.textContent = 'Status: synced (cloud protected from fresh device)';
+        unlockBootSync();
+        if (callback) callback(true, 'pulled');
+      } else {
+        firebaseSyncPush();
+        addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
+        if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
+        unlockBootSync();
+        if (callback) callback(true, 'pushed');
+      }
     } else {
       if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
       unlockBootSync();
@@ -668,71 +773,12 @@ function handleLogout() {
   });
 }
 
-// === v2 LIFESTYLE MIGRATION ===
-// Replaces dummy data with real lifestyle + study routines
-if (!S.v2LifestyleLoaded) {
-  S.routines = DEFAULT_ROUTINES;
-  S.ethosGroups = JSON.parse(JSON.stringify(ETHOS_GROUPS));
-  S.papers = DEFAULT_PAPERS;
-  S.streak = 0;
-  S.xp = 0;
-  S.xpToday = 0;
-  S.totalHours = 0;
-  S.weekHours = 0;
-  S.logs = [];
-  S.contrib = [];
-  S.skills = {};
-  SKILLS.forEach(s => { S.skills[s.key] = 0; });
-  S.history = {};
-  S.unlockedAchievements = {};
-  S.focusStats = { sessions: 0, totalMins: 0, maxSessionMins: 0 };
-  S.dummyLoaded = false;
-  S.v2LifestyleLoaded = true;
-  S.swimHistory = DEFAULT_SWIM_HISTORY;
-  S.waterLogs = Object.assign({}, DEFAULT_WATER_LOGS);
-  S.weightLogs = [{ date: '2026-05-19', weight: 91.0, uricAcid: 7.2, hdl: 42, eosinophils: 5.5 }];
-  S.trilumaStartDate = '2026-05-01';
-  S.todayOnlyToggle = true;
-  S.swimFilter = 'all';
-  S.swimSearchQuery = '';
-  S.routines.forEach(r => r.ethe.forEach(e => { e.done = false; e.streak = 0; }));
-  ss();
-}
-
-// === v2.2.0 WATER SEED MIGRATION ===
-if (!S.v22WaterSeeded) {
-  S.waterLogs = Object.assign({}, DEFAULT_WATER_LOGS);
-  S.v22WaterSeeded = true;
-  ss();
-}
-
-// === v2.3.2 HISTORY KEY FORMAT MIGRATION ===
-if (!S.historyKeysMigrated) {
-  const isoRegex = /^\d{4}-\d{2}-\d{2}$/;
-  const newHistory = {};
-  Object.keys(S.history || {}).forEach(key => {
-    let normalizedKey = key;
-    if (isoRegex.test(key)) {
-      // Convert "2026-05-21" → "Thu May 21 2026"
-      const d = new Date(key + 'T00:00:00');
-      normalizedKey = d.toDateString();
-    }
-    if (!newHistory[normalizedKey]) {
-      newHistory[normalizedKey] = S.history[key];
-    } else {
-      // Merge: true wins over false
-      newHistory[normalizedKey] = Object.assign({}, newHistory[normalizedKey], S.history[key]);
-      Object.keys(S.history[key]).forEach(id => {
-        if (S.history[key][id] === true) {
-          newHistory[normalizedKey][id] = true;
-        }
-      });
-    }
-  });
-  S.history = newHistory;
-  S.historyKeysMigrated = true;
-  ss(true); // save locally, don't push yet
-}
+// === DESTRUCTIVE MIGRATIONS (v2Lifestyle, v22Water, historyKeys) ===
+// DEFERRED: These now run inside runDestructiveMigrations(), called by
+// unlockBootSync() AFTER the cloud pull completes. This prevents a fresh
+// device from seeding defaults, out-timestamping the cloud, and pushing
+// blank state that overwrites real data from device 1.
+// See runDestructiveMigrations() definition near unlockBootSync().
 
 // === BOOT & AUTH GATEWAY CONTROL ===
 let bootFinished = false;
@@ -1051,9 +1097,12 @@ if (typeof firebase !== 'undefined') {
       // Dismiss boot gate immediately for snappy responsiveness
       tryDismissBoot();
       
-      // Ensure gateway probe completes before first sync attempt
+      // Ensure gateway probe completes before first sync attempt.
+      // Force-pull when local state is fresh/empty (pushCount 0, lastUpdated 0)
+      // so the cloud is always the source of truth on a new device.
+      var isFreshDevice = ((S.pushCount || 0) === 0 && (S.lastUpdated || 0) === 0);
       probeGateway().then(function() {
-        firebaseSyncPull(null, false);
+        firebaseSyncPull(null, isFreshDevice);
         // Real-time synchronization across devices (Issue 8/8)
         attachFirebaseWebSocketListener(user);
       });
