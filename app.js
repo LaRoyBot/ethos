@@ -468,9 +468,14 @@ function firebaseDirectRestPull(uid, callback, forcePull, isDirectCall) {
       return fetch(restUrl, { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-store' });
     })
     .then(function(response) { if (!response.ok) throw new Error('Direct REST HTTP ' + response.status); return response.json(); })
-    .then(function(val) { console.log('[Sync] Direct REST pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
+    .then(function(val) {
+      console.log('[Sync] Direct REST pull succeeded:', val ? 'data found' : 'no data');
+      addLog('info', 'Cloud sync: Direct REST pull succeeded.');
+      applyCloudState(val, forcePull, callback);
+    })
     .catch(function(err) {
       console.error('[Sync] Direct REST pull failed:', err);
+      addLog('warn', 'Cloud sync: Direct REST pull failed — ' + (err.message || String(err)));
       if (statusEl) statusEl.textContent = 'Status: sync error (REST failed) - ' + err.message;
       unlockBootSync();
       if (callback) callback(false, err);
@@ -639,9 +644,14 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
       return fetch(gw.url, { method: 'GET', headers: headers, cache: 'no-store' });
     })
     .then(function(response) { if (!response.ok) throw new Error(gw.type + ' HTTP ' + response.status); return response.json(); })
-    .then(function(val) { console.log('[Sync] ' + gw.type + ' pull succeeded:', val ? 'data found' : 'no data'); applyCloudState(val, forcePull, callback); })
+    .then(function(val) {
+      console.log('[Sync] ' + gw.type + ' pull succeeded:', val ? 'data found' : 'no data');
+      addLog('info', 'Cloud sync: ' + gw.type + ' pull succeeded.');
+      applyCloudState(val, forcePull, callback);
+    })
     .catch(function(err) {
       console.warn('[Sync] ' + gw.type + ' pull failed, falling back to direct Firebase REST:', err.message);
+      addLog('warn', 'Cloud sync: ' + gw.type + ' pull failed, falling back to direct REST — ' + err.message);
       firebaseDirectRestPull(uid, callback, forcePull, isDirectCall);
     });
     return;
@@ -663,6 +673,7 @@ function firebaseSyncPull(callback, forcePull = false) {
   // Bypasses direct Firebase WebSocket check entirely if Same-Origin Gateway is active
   var gw = getSyncGatewayUrl(user.uid);
   if (gw) {
+    addLog('info', 'Cloud sync: Same-origin Gateway active — initiating REST API pull...');
     firebaseRestPull(user.uid, callback, forcePull, true);
     return;
   }
@@ -671,6 +682,7 @@ function firebaseSyncPull(callback, forcePull = false) {
   if (_wsAvailable === false) {
     addLog('info', 'Cloud sync: Skipping WebSocket (failed earlier this session) — using REST API directly.');
     console.log('[Sync] Skipping WebSocket (failed earlier this session). Using REST directly.');
+    addLog('info', 'Cloud sync: Initiating direct REST API pull...');
     firebaseDirectRestPull(user.uid, callback, forcePull, true);
     return;
   }
