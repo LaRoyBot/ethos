@@ -507,6 +507,7 @@ function applyCloudState(val, forcePull, callback) {
       S.everSynced = true;
       _syncSafe = true;
       checkDailyReset(true);
+      addLog('info', 'Cloud sync: Pulled state from cloud.');
       ss(true);
       render();
       if (statusEl) statusEl.textContent = 'Status: synced (pulled cloud state)';
@@ -519,6 +520,7 @@ function applyCloudState(val, forcePull, callback) {
     } else if (localIsNewer) {
       S.everSynced = true;
       _syncSafe = true;
+      addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
       firebaseSyncPush();
       if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
       unlockBootSync();
@@ -544,6 +546,7 @@ function applyCloudState(val, forcePull, callback) {
     S.everSynced = true;
     _syncSafe = true;
     checkDailyReset(true);
+    addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
     unlockBootSync();
     firebaseSyncPush(); // create the user's initial cloud record from (empty) defaults
     if (callback) callback(true, 'initialized_empty');
@@ -554,6 +557,7 @@ function applyCloudState(val, forcePull, callback) {
   S.everSynced = true;
   _syncSafe = true;
   checkDailyReset(true);
+  addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
   firebaseSyncPush();
   if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
   unlockBootSync();
@@ -603,6 +607,9 @@ function mergeState(local, cloud) {
 
   // 8) routines: union ethe by id; reconcile today's done from merged history below in app boot.
   out.routines = mergeRoutines(local.routines, cloud.routines);
+
+  // 9) logs: union by timestamp/date/message to prevent sync feedback wipes
+  out.logs = mergeLogs(local.logs, cloud.logs);
 
   return out;
 }
@@ -695,6 +702,27 @@ function mergeRoutines(localR, cloudR) {
     });
   });
   return base;
+}
+
+function mergeLogs(a, b) {
+  const seen = new Set();
+  const out = [];
+  const add = (src) => {
+    (src || []).forEach(item => {
+      if (!item || !item.ts || !item.date || !item.msg) return;
+      const key = item.ts + '|' + item.date + '|' + item.msg;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(item);
+      }
+    });
+  };
+  add(a); add(b);
+  return out.sort((x, y) => {
+    const tX = new Date(x.date + ' ' + x.ts).getTime() || 0;
+    const tY = new Date(y.date + ' ' + y.ts).getTime() || 0;
+    return tX - tY;
+  }).slice(-200);
 }
 
 // REST API pull — uses gateway → proxy → direct Firebase REST (with automatic fallback).
