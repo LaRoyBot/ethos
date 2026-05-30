@@ -4207,9 +4207,9 @@ function startFlowerAnimation() {
         }
       }
       
-      // Petals
+      // Petals (8-petaled Neon Lotus)
       let angle = Math.atan2(dy, dx) + Math.PI/2;
-      let petalFactor = Math.pow((Math.cos(5 * angle) + 1) / 2, 1.2);
+      let petalFactor = Math.pow((Math.cos(8 * angle) + 1) / 2, 1.2);
       let petalDist = 3 + 16 * petalFactor;
       
       if (dist <= petalDist && r <= cy + 16) {
@@ -4219,10 +4219,10 @@ function startFlowerAnimation() {
         
         if (rand() < density) {
           isPoint = true;
-          if (dist < 3) { color = '#ffffff'; char = '@'; size = 1.2; }
-          else if (dist < 6) { color = '#ffff88'; char = '#'; size = 1.1; }
-          else if (dist < 11) { color = '#aaff00'; char = rand() > 0.5 ? '*' : 'x'; }
-          else { color = '#00ffcc'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
+          if (dist < 3.5) { color = '#ffb86c'; char = '@'; size = 1.2; }
+          else if (dist < 6.5) { color = '#ffffff'; char = '#'; size = 1.1; }
+          else if (dist < 12.5) { color = '#ff79c6'; char = rand() > 0.5 ? '*' : 'x'; }
+          else { color = '#bd93f9'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
           appearTime = 0.4 + (dist / 22) * 0.4;
         }
       }
