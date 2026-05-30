@@ -95,10 +95,30 @@ let _syncSafe = false;
 let _syncRetryTimer = null;
 let _syncRetryDelay = 2000;
 
+function hasUserHistory(state) {
+  if (!state) return false;
+  if (state.history) {
+    for (let k in state.history) {
+      const rec = state.history[k] || {};
+      if (Object.values(rec).some(v => v === true)) return true;
+    }
+  }
+  const swims = state.swimHistory || [];
+  const hasRealSwims = swims.some(s => s && s.status === 'Swam' && s.sessions && s.sessions.length > 0);
+  if (hasRealSwims) return true;
+  if (state.waterLogs) {
+    for (let k in state.waterLogs) {
+      if (state.waterLogs[k] > 0 && (typeof DEFAULT_WATER_LOGS === 'undefined' || !DEFAULT_WATER_LOGS[k])) return true;
+    }
+  }
+  if (state.weightLogs && state.weightLogs.length > 1) return true;
+  return false;
+}
+
 function localIsUntrustedFresh(state) {
-  return (state.everSynced !== true)
-      && ((state.pushCount || 0) === 0)
-      && ((state.xp || 0) === 0);
+  if (state.everSynced === true) return false;
+  const ls = getStateStats(state);
+  return (ls.pushCount === 0) || (ls.etheCount === 0) || (!hasUserHistory(state) && (state.xp || 0) === 0);
 }
 
 function normalizeDateKey(k) {
