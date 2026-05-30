@@ -41,7 +41,7 @@ let S = load('mathInit_state', {
   skills: {}, xp: 0, xpToday: 0, streak: 0,
   totalHours: 0, weekHours: 0,
   todayNote: '', paperNote: '',
-  logs: [], contrib: [], lastDate: '', theme: 'default', flowerStyle: 2,
+  logs: [], contrib: [], lastDate: '', theme: 'default',
   weekOffset: 0, history: {}, activeDate: new Date().toDateString(),
   activeGroupFilter: 'all',
   swimHistory: [],
@@ -574,7 +574,7 @@ function mergeState(local, cloud) {
   const LOCAL_ONLY = ['authEmail','authUsername','cmdHistory','geminiKey',
     'customSyncProxy','customSyncKey','crtEnabled','everSynced',
     'activeGroupFilter','ethosViewMode','protocolCollapsed','todayOnlyToggle',
-    'swimFilter','swimSearchQuery','weekOffset','activeDate','theme','flowerStyle'];
+    'swimFilter','swimSearchQuery','weekOffset','activeDate','theme'];
   LOCAL_ONLY.forEach(k => { if (local[k] !== undefined) out[k] = local[k]; });
 
   // 2) Date-keyed maps: history (true-wins), waterLogs (max), normalized keys.
@@ -1478,7 +1478,7 @@ function initButtons() {
   }
   const tvInput = document.getElementById('tv-input');
   if (tvInput) {
-    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','flower','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','auth','logout','demo','backup','export','restore','import'];
+    var CLI_COMMANDS = ['help','clear','exit','quit','stats','groups','theme','log','check','uncheck','skills','achievements','ranks','focus','sysinfo','neofetch','crt','water','swim','protocol','auth','logout','demo','backup','export','restore','import'];
     tvInput.addEventListener('keydown', function(e) {
       if (e.key === 'Enter') {
         var val = tvInput.value.trim();
@@ -1784,7 +1784,7 @@ function handleCommand(cmd) {
     document.getElementById('interactive-terminal').classList.remove('open');
   } else if (action === 'help') {
     
-      printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- flower [1|2|3|4] : change ASCII flower animation style<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- oracle [query|--key|--clear] : converse with retro-cyberpunk LLM math tutor<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- backup / export : backup state data to file and clipboard<br>- restore / import : open restoration/import dialog<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
+      printTerm('ethos.init commands:<br>- check [ethos] : mark ethos as done<br>- uncheck [ethos] : mark ethos as not done<br>- log [hours] : log study hours<br>- stats : show current stats<br>- groups : show group summary<br>- theme [name] : change theme<br>- skills : show organic mathematical knowledge matrix<br>- focus [mins/pause/resume/abort] : built-in pomodoro focus timer<br>- remind [list|test|sound|delete|HH:MM] : retro task & routine alerts<br>- oracle [query|--key|--clear] : converse with retro-cyberpunk LLM math tutor<br>- achievements : display imperial training ranks & badges<br>- protocol : show sequential daily guided flow checklist<br>- crt [on|off|toggle] : toggle CRT scanline overlay<br>- auth [status|logout] : terminal security authorization control<br>- backup / export : backup state data to file and clipboard<br>- restore / import : open restoration/import dialog<br>- logout : gracefully log out of active session<br>- sysinfo / neofetch : system dashboard<br>- clear : clear terminal<br>- exit : close terminal');
     
   } else if (action === 'stats') {
     var level = 0, cum = 0;
@@ -1939,27 +1939,6 @@ function handleCommand(cmd) {
       }
       else printTerm('theme not found. available: ' + THEMES.map(x => x.id).join(', '), 'err');
     } else printTerm('usage: theme [name]', 'err');
-  } else if (action === 'flower') {
-    if (args[1]) {
-      const id = parseInt(args[1]);
-      if (id >= 1 && id <= 4) {
-        S.flowerStyle = id;
-        ss();
-        startFlowerAnimation();
-        const names = {
-          1: '8-petaled Neon Lotus (Pastel)',
-          2: 'Lush 6-petaled Neon Bloom (Vibrant)',
-          3: 'Fiery Cyber Sunflower (Amber/Red)',
-          4: 'Digital Matrix Orchid (Green/Blue)'
-        };
-        addLog('info', 'Cloud sync: Flower style updated to ' + names[id]);
-        printTerm('flower style set to style ' + id + ': ' + names[id], 'ok');
-      } else {
-        printTerm('flower style not found. available: 1 (Neon Lotus), 2 (Neon Bloom), 3 (Cyber Sunflower), 4 (Matrix Orchid)', 'err');
-      }
-    } else {
-      printTerm('usage: flower [1|2|3|4]', 'err');
-    }
   } else if (action === 'log') {
     const hrs = parseFloat(args[1]);
     if (isNaN(hrs)) printTerm('usage: log [hours]', 'err');
@@ -4228,72 +4207,23 @@ function startFlowerAnimation() {
         }
       }
       
-      // Petals (Multi-Style Neon Bloom Engine)
-      let style = S.flowerStyle || 2;
+      // Petals
       let angle = Math.atan2(dy, dx) + Math.PI/2;
-      let petalsCount = 8;
-      let exponent = 1.2;
-      let baseSize = 3;
-      let multiplier = 16;
-      let maxRadius = 16;
-
-      if (style === 2) {
-        petalsCount = 6;
-        exponent = 0.5;
-        baseSize = 4;
-        multiplier = 18;
-        maxRadius = 18;
-      } else if (style === 3) {
-        petalsCount = 12; // High-density sunflower petals
-        exponent = 0.9;
-        baseSize = 5;
-        multiplier = 15;
-        maxRadius = 17;
-      } else if (style === 4) {
-        petalsCount = 4; // Orchid shape (4 wings)
-        exponent = 0.7;
-        baseSize = 3;
-        multiplier = 20;
-        maxRadius = 19;
-      }
-
-      let petalFactor = Math.pow((Math.cos(petalsCount * angle) + 1) / 2, exponent);
-      let petalDist = baseSize + multiplier * petalFactor;
+      let petalFactor = Math.pow((Math.cos(5 * angle) + 1) / 2, 1.2);
+      let petalDist = 3 + 16 * petalFactor;
       
-      if (dist <= petalDist && r <= cy + maxRadius) {
+      if (dist <= petalDist && r <= cy + 16) {
         let density = 1.0;
         if (dist > petalDist - 2) density = 0.5;
         if (dist > petalDist - 1) density = 0.2;
         
         if (rand() < density) {
           isPoint = true;
+          if (dist < 3) { color = '#ffffff'; char = '@'; size = 1.2; }
+          else if (dist < 6) { color = '#ffff88'; char = '#'; size = 1.1; }
+          else if (dist < 11) { color = '#aaff00'; char = rand() > 0.5 ? '*' : 'x'; }
+          else { color = '#00ffcc'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
           appearTime = 0.4 + (dist / 22) * 0.4;
-
-          if (style === 1) {
-            // Style 1: 8-petaled Neon Lotus (Pastel)
-            if (dist < 3.5) { color = '#ffb86c'; char = '@'; size = 1.2; }
-            else if (dist < 6.5) { color = '#ffffff'; char = '#'; size = 1.1; }
-            else if (dist < 12.5) { color = '#ff79c6'; char = rand() > 0.5 ? '*' : 'x'; }
-            else { color = '#bd93f9'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
-          } else if (style === 2) {
-            // Style 2: Lush 6-petaled Neon Bloom (Vibrant)
-            if (dist < 3.5) { color = '#ffff00'; char = '@'; size = 1.2; }
-            else if (dist < 6.5) { color = '#ff00ff'; char = '#'; size = 1.1; }
-            else if (dist < 12.5) { color = '#aa00ff'; char = rand() > 0.5 ? '*' : 'x'; }
-            else { color = '#00ffff'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
-          } else if (style === 3) {
-            // Style 3: Fiery Cyber Sunflower (Amber/Red/Yellow)
-            if (dist < 4.5) { color = '#ffb86c'; char = '%'; size = 1.2; } // Amber center seeds
-            else if (dist < 8.5) { color = '#ff3300'; char = '#'; size = 1.1; } // Fiery Red
-            else if (dist < 13.5) { color = '#ffaa00'; char = rand() > 0.5 ? '*' : '='; } // Radiant Orange
-            else { color = '#ffff00'; char = rand() > 0.5 ? '+' : '^'; size = 0.8; } // Glowing Yellow petals
-          } else {
-            // Style 4: Digital Matrix Orchid (Green/Lime/Blue)
-            if (dist < 3.5) { color = '#0055ff'; char = '@'; size = 1.2; } // Electric Blue core
-            else if (dist < 7.5) { color = '#00ff66'; char = '#'; size = 1.1; } // Lime Green
-            else if (dist < 13.5) { color = '#39ff14'; char = rand() > 0.5 ? '*' : 'x'; } // Matrix Neon Green
-            else { color = '#00ffff'; char = rand() > 0.5 ? '$' : ';'; size = 0.8; } // Cyan accents
-          }
         }
       }
       
