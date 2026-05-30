@@ -4207,22 +4207,22 @@ function startFlowerAnimation() {
         }
       }
       
-      // Petals (8-petaled Neon Lotus)
+      // Petals (Lush, Full-Petaled Neon Bloom)
       let angle = Math.atan2(dy, dx) + Math.PI/2;
-      let petalFactor = Math.pow((Math.cos(8 * angle) + 1) / 2, 1.2);
-      let petalDist = 3 + 16 * petalFactor;
+      let petalFactor = Math.pow((Math.cos(6 * angle) + 1) / 2, 0.5); // Wider, fuller petals (low exponent)
+      let petalDist = 4 + 18 * petalFactor; // Expanded overall size
       
-      if (dist <= petalDist && r <= cy + 16) {
+      if (dist <= petalDist && r <= cy + 18) {
         let density = 1.0;
         if (dist > petalDist - 2) density = 0.5;
         if (dist > petalDist - 1) density = 0.2;
         
         if (rand() < density) {
           isPoint = true;
-          if (dist < 3.5) { color = '#ffb86c'; char = '@'; size = 1.2; }
-          else if (dist < 6.5) { color = '#ffffff'; char = '#'; size = 1.1; }
-          else if (dist < 12.5) { color = '#ff79c6'; char = rand() > 0.5 ? '*' : 'x'; }
-          else { color = '#bd93f9'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
+          if (dist < 3.5) { color = '#ffff00'; char = '@'; size = 1.2; } // Electric Yellow
+          else if (dist < 6.5) { color = '#ff00ff'; char = '#'; size = 1.1; } // Glowing Hot Pink
+          else if (dist < 12.5) { color = '#aa00ff'; char = rand() > 0.5 ? '*' : 'x'; } // Vivid Violet
+          else { color = '#00ffff'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; } // Ultra-bright Aqua Cyan
           appearTime = 0.4 + (dist / 22) * 0.4;
         }
       }
