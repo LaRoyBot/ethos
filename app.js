@@ -4062,8 +4062,14 @@ function addLog(type, msg) {
     S.logs.push({ ts: ts, date: new Date().toDateString(), type: type, msg: msg });
     if (S.logs.length > 200) S.logs = S.logs.slice(-200);
     
-    // Save locally and sync immediately to Firebase, then update the UI in real-time
-    ss(false);
+    // Save locally and update UI. Skip remote push if this is a sync engine log
+    // to prevent circular dependency infinite push loops.
+    const isSyncLog = msg && (
+      msg.indexOf('Cloud sync:') >= 0 || 
+      msg.indexOf('REST pull') >= 0 || 
+      msg.indexOf('local state to cloud') >= 0
+    );
+    ss(isSyncLog);
     renderLog();
   } catch (e) {
     console.error("Error inside addLog:", e);
