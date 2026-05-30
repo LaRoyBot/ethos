@@ -440,6 +440,12 @@ function firebaseRestPush(uid, callback) {
       save('mathInit_state', S);            // local-only persist, no re-push
     }
     _syncRetryDelay = 2000;                  // reset backoff on success
+
+    // Calculate pushed size
+    const payloadStr = JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount });
+    const sizeKb = (payloadStr.length / 1024).toFixed(1) + 'kb';
+    addLog('info', 'Cloud sync: Pushed newer local state to cloud. [' + sizeKb + ']');
+
     setSyncStatus('Status: synced (' + new Date(S.lastUpdated).toLocaleTimeString() + ')');
     if (callback) callback(true, 'pushed');
   })
@@ -692,6 +698,12 @@ function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
   })
   .then(function (payload) {
     _syncRetryDelay = 2000;
+
+    // Calculate pulled size
+    const payloadStr = JSON.stringify(payload || {});
+    const sizeKb = (payloadStr.length / 1024).toFixed(1) + 'kb';
+    addLog('info', 'Cloud sync: Direct REST pull succeeded. [' + sizeKb + ']');
+
     // Normalize new gateway shape -> the {state,lastUpdated,pushCount} or null applyCloudState expects.
     let val = null;
     if (payload && payload.exists === true) {
