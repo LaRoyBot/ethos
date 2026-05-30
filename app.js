@@ -53,7 +53,8 @@ let S = load('mathInit_state', {
   swimSearchQuery: '',
   authEmail: '',
   authUsername: '',
-  lastUpdated: 0
+  lastUpdated: 0,
+  everSynced: false
 });
 
 function sanitizeStateArrays(state) {
@@ -90,68 +91,119 @@ function sanitizeStateArrays(state) {
 }
 sanitizeStateArrays(S);
 
+let _syncSafe = false;
+let _syncRetryTimer = null;
+let _syncRetryDelay = 2000;
 
-// === MIGRATION ===
-// Old key migration
-if (!S.routines && localStorage.getItem('mathInit')) {
-  const old = load('mathInit', null);
-  if (old) {
-    S = old;
-    localStorage.removeItem('mathInit');
+function localIsUntrustedFresh(state) {
+  return (state.everSynced !== true)
+      && ((state.pushCount || 0) === 0)
+      && ((state.xp || 0) === 0);
+}
+
+function normalizeDateKey(k) {
+  if (!k) return k;
+  if (/^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{2} \d{4}$/.test(k)) return k;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(k)) {
+    const [y, m, d] = k.split('-').map(Number);
+    return new Date(y, m - 1, d).toDateString();
   }
+  const d = new Date(k);
+  return isNaN(d.getTime()) ? k : d.toDateString();
 }
-// habits[] -> ethe[] migration
-if (S.groups && !S.routines) {
-  S.routines = S.groups.map(g => {
-    const r = Object.assign({}, g);
-    if (r.habits) { r.ethe = r.habits; delete r.habits; }
-    if (!r.ethe) r.ethe = [];
-    r.ethe.forEach(e => { if (!e.groupId) e.groupId = 'math'; });
-    return r;
-  });
-  delete S.groups;
-}
-if (S.habits && !S.routines) {
-  S.routines = DEFAULT_ROUTINES;
-  delete S.habits;
-}
-// Ensure routines have ethe not habits
-if (S.routines) {
-  S.routines.forEach(r => {
-    if (r.habits && !r.ethe) { r.ethe = r.habits; delete r.habits; }
-    if (!r.ethe) r.ethe = [];
-    r.ethe.forEach(e => { if (!e.groupId) e.groupId = 'math'; });
-  });
-}
-// Migration: Ensure habit ID 303 is named "Swimming session (90 min)" if it was set to the default "Cardio / aerobic conditioning" or "Swimming"
-if (S.routines) {
-  S.routines.forEach(r => {
-    if (r.ethe) {
-      r.ethe.forEach(e => {
-        if (Number(e.id) === 303 && (e.name === 'Cardio / aerobic conditioning' || e.name === 'Swimming')) {
-          e.name = 'Swimming session (90 min)';
-        }
-      });
-    }
-  });
-}
-if (!S.ethosGroups) S.ethosGroups = JSON.parse(JSON.stringify(ETHOS_GROUPS));
-if (S.weekOffset === undefined) S.weekOffset = 0;
-if (!S.history) S.history = {};
-if (!S.activeDate) S.activeDate = new Date().toDateString();
-if (!S.activeGroupFilter) S.activeGroupFilter = 'all';
-SKILLS.forEach(s => { if (S.skills[s.key] === undefined) S.skills[s.key] = 0; });
-if (!S.focusStats) S.focusStats = { sessions: 0, totalMins: 0, maxSessionMins: 0 };
-if (!S.unlockedAchievements) S.unlockedAchievements = {};
 
-// Safe migrations for lifestyle parameters
-if (S.swimHistory === undefined) S.swimHistory = DEFAULT_SWIM_HISTORY;
-if (S.waterLogs === undefined) S.waterLogs = {};
-if (S.weightLogs === undefined) S.weightLogs = [{ date: '2026-05-19', weight: 70.0, uricAcid: 5.0, hdl: 50, eosinophils: 2.0 }];
-if (S.trilumaStartDate === undefined) S.trilumaStartDate = '2026-01-01';
-if (S.todayOnlyToggle === undefined) S.todayOnlyToggle = true;
-if (S.swimFilter === undefined) S.swimFilter = 'all';
-if (S.swimSearchQuery === undefined) S.swimSearchQuery = '';
+function scheduleSyncRetry(fn) {
+  if (_syncRetryTimer) clearTimeout(_syncRetryTimer);
+  _syncRetryTimer = setTimeout(() => {
+    _syncRetryTimer = null;
+    _syncRetryDelay = Math.min(_syncRetryDelay * 2, 60000);
+    fn();
+  }, _syncRetryDelay);
+}
+
+function setSyncStatus(text) {
+  const el = document.getElementById('auth-sync-status');
+  if (el) el.textContent = text;
+}
+
+
+function applyMigrations(state) {
+  // Old key migration
+  if (!state.routines && localStorage.getItem('mathInit')) {
+    const old = load('mathInit', null);
+    if (old) { state = old; localStorage.removeItem('mathInit'); }
+  }
+  // groups -> routines, habits -> ethe
+  if (state.groups && !state.routines) {
+    state.routines = state.groups.map(g => {
+      const r = Object.assign({}, g);
+      if (r.habits) { r.ethe = r.habits; delete r.habits; }
+      if (!r.ethe) r.ethe = [];
+      r.ethe.forEach(e => { if (!e.groupId) e.groupId = 'math'; });
+      return r;
+    });
+    delete state.groups;
+  }
+  if (state.habits && !state.routines) { state.routines = DEFAULT_ROUTINES; delete state.habits; }
+  if (state.routines) {
+    state.routines.forEach(r => {
+      if (r.habits && !r.ethe) { r.ethe = r.habits; delete r.habits; }
+      if (!r.ethe) r.ethe = [];
+      r.ethe.forEach(e => { if (!e.groupId) e.groupId = 'math'; });
+    });
+  }
+  // id 303 rename
+  if (state.routines) {
+    state.routines.forEach(r => (r.ethe || []).forEach(e => {
+      if (Number(e.id) === 303 && (e.name === 'Cardio / aerobic conditioning' || e.name === 'Swimming')) {
+        e.name = 'Swimming session (90 min)';
+      }
+    }));
+  }
+
+  // Defensive defaults
+  if (!state.ethosGroups) state.ethosGroups = JSON.parse(JSON.stringify(ETHOS_GROUPS));
+  if (state.weekOffset === undefined) state.weekOffset = 0;
+  if (!state.history) state.history = {};
+  if (!state.activeDate) state.activeDate = new Date().toDateString();
+  if (!state.activeGroupFilter) state.activeGroupFilter = 'all';
+  if (!state.skills) state.skills = {};
+  SKILLS.forEach(s => { if (state.skills[s.key] === undefined) state.skills[s.key] = 0; });
+  if (!state.focusStats) state.focusStats = { sessions: 0, totalMins: 0, maxSessionMins: 0 };
+  if (!state.unlockedAchievements) state.unlockedAchievements = {};
+  if (state.everSynced === undefined) state.everSynced = false;
+
+  // v2 lifestyle — DE-FANGED: never reset a real/returning user.
+  if (!state.v2LifestyleLoaded) {
+    if (state.everSynced === true || (state.pushCount || 0) > 0 || (state.xp || 0) > 0) {
+      state.v2LifestyleLoaded = true; // mark migrated, do NOT reset
+    } else {
+      // genuinely first-run, empty device: it is safe to seed structure (not fake history)
+      state.routines = state.routines && state.routines.length ? state.routines : DEFAULT_ROUTINES;
+      state.ethosGroups = JSON.parse(JSON.stringify(ETHOS_GROUPS));
+      state.papers = state.papers && state.papers.length ? state.papers : DEFAULT_PAPERS;
+      state.v2LifestyleLoaded = true;
+    }
+  }
+  if (!state.v22WaterSeeded) { state.v22WaterSeeded = true; } // do NOT inject fake water on a synced user
+
+  // history key normalization (merge, not overwrite)
+  if (!state.historyKeysMigrated) {
+    const newHistory = {};
+    Object.keys(state.history || {}).forEach(key => {
+      const nk = normalizeDateKey(key);
+      if (!newHistory[nk]) newHistory[nk] = {};
+      const rec = state.history[key] || {};
+      Object.keys(rec).forEach(id => { if (rec[id] === true) newHistory[nk][id] = true; else if (newHistory[nk][id] !== true) newHistory[nk][id] = !!rec[id]; });
+    });
+    state.history = newHistory;
+    state.historyKeysMigrated = true;
+  }
+
+  return state;
+}
+
+S = applyMigrations(S);
 
 // v2.3.0 migrations
 if (S.crtEnabled === undefined) S.crtEnabled = false;
@@ -205,7 +257,7 @@ function checkDailyReset(skipFirebase = false) {
   } else {
     S.routines.forEach(r => r.ethe.forEach(e => {
       if(!e.isWater) {
-        e.done = S.history[S.activeDate] ? !!S.history[S.activeDate][e.id] : (S.activeDate === TODAY ? e.done : false);
+        e.done = S.history[normalizeDateKey(S.activeDate)] ? !!S.history[normalizeDateKey(S.activeDate)][e.id] : (S.activeDate === TODAY ? e.done : false);
       }
     }));
   }
@@ -239,88 +291,10 @@ function getNetworkErrorTip(err) {
   return '';
 }
 
-// Run daily reset on boot locally without bumping timestamp
-checkDailyReset(true);
-
 let _bootSyncLocked = true; // Prevent ss() from bumping lastUpdated during boot pull
-let _destructiveMigrationsRan = false;
 
 function unlockBootSync() {
   _bootSyncLocked = false;
-  runDestructiveMigrations();
-}
-
-// === DEFERRED DESTRUCTIVE MIGRATIONS ===
-// These migrations reset state fields to defaults. They MUST run AFTER the cloud
-// pull completes (via unlockBootSync), not at module load time. On a fresh device,
-// running them before pull would seed defaults, then the sync arbitration could
-// push those defaults to cloud, destroying the real data from device 1.
-function runDestructiveMigrations() {
-  if (_destructiveMigrationsRan) return;
-  _destructiveMigrationsRan = true;
-
-  // v2 Lifestyle migration — seeds default routines/papers/swim data
-  if (!S.v2LifestyleLoaded) {
-    S.routines = DEFAULT_ROUTINES;
-    S.ethosGroups = JSON.parse(JSON.stringify(ETHOS_GROUPS));
-    S.papers = DEFAULT_PAPERS;
-    S.streak = 0;
-    S.xp = 0;
-    S.xpToday = 0;
-    S.totalHours = 0;
-    S.weekHours = 0;
-    S.logs = [];
-    S.contrib = [];
-    S.skills = {};
-    SKILLS.forEach(s => { S.skills[s.key] = 0; });
-    S.history = {};
-    S.unlockedAchievements = {};
-    S.focusStats = { sessions: 0, totalMins: 0, maxSessionMins: 0 };
-    S.dummyLoaded = false;
-    S.v2LifestyleLoaded = true;
-    S.swimHistory = DEFAULT_SWIM_HISTORY;
-    S.waterLogs = Object.assign({}, DEFAULT_WATER_LOGS);
-    S.weightLogs = [{ date: '2026-05-19', weight: 91.0, uricAcid: 7.2, hdl: 42, eosinophils: 5.5 }];
-    S.trilumaStartDate = '2026-05-01';
-    S.todayOnlyToggle = true;
-    S.swimFilter = 'all';
-    S.swimSearchQuery = '';
-    S.routines.forEach(r => r.ethe.forEach(e => { e.done = false; e.streak = 0; }));
-    ss(true); // save locally only — no timestamp bump, no push
-  }
-
-  // v2.2.0 Water seed migration
-  if (!S.v22WaterSeeded) {
-    S.waterLogs = Object.assign({}, DEFAULT_WATER_LOGS);
-    S.v22WaterSeeded = true;
-    ss(true);
-  }
-
-  // v2.3.2 History key format migration
-  if (!S.historyKeysMigrated) {
-    const isoRegex = /^\d{4}-\d{2}-\d{2}$/;
-    const newHistory = {};
-    Object.keys(S.history || {}).forEach(key => {
-      let normalizedKey = key;
-      if (isoRegex.test(key)) {
-        const d = new Date(key + 'T00:00:00');
-        normalizedKey = d.toDateString();
-      }
-      if (!newHistory[normalizedKey]) {
-        newHistory[normalizedKey] = S.history[key];
-      } else {
-        newHistory[normalizedKey] = Object.assign({}, newHistory[normalizedKey], S.history[key]);
-        Object.keys(S.history[key]).forEach(id => {
-          if (S.history[key][id] === true) {
-            newHistory[normalizedKey][id] = true;
-          }
-        });
-      }
-    });
-    S.history = newHistory;
-    S.historyKeysMigrated = true;
-    ss(true);
-  }
 }
 
 function ss(skipFirebase = false) {
@@ -328,15 +302,17 @@ function ss(skipFirebase = false) {
     S.lastUpdated = Date.now();
   }
   save('mathInit_state', S);
-  if (!skipFirebase && !_bootSyncLocked && typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+  if (!skipFirebase && !_bootSyncLocked && _syncSafe &&
+      typeof firebase !== 'undefined' && firebase.auth().currentUser) {
     queueFirebaseSyncPush();
   }
 }
 
 let _syncPushTimer = null;
 function queueFirebaseSyncPush() {
+  if (!_syncSafe) return;
   if (_syncPushTimer) clearTimeout(_syncPushTimer);
-  _syncPushTimer = setTimeout(function() {
+  _syncPushTimer = setTimeout(function () {
     _syncPushTimer = null;
     firebaseSyncPush();
   }, 1200);
@@ -373,7 +349,6 @@ function backupLocalStateBeforeCloudReplace(reason) {
 // Same-origin Vercel API gateway: the best sync path.
 // Priority: 1) /api/sync (same domain, zero CORS) → 2) customSyncProxy → 3) direct Firebase REST → 4) Firebase WebSocket
 let _vercelGatewayAvailable = null; // null = untested, true/false = cached probe result
-let _wsAvailable = null;            // null = untested, true = worked last time, false = skip WebSocket this session
 
 function getCleanSyncKey() {
   return (S.customSyncKey || '').trim().replace(/^["']|["']$/g, '');
@@ -438,309 +413,308 @@ function probeGateway() {
 }
 probeGateway();
 
-function firebaseDirectRestPush(uid, callback) {
-  if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
-  if (!firebase.auth().currentUser) { if (callback) callback(false, 'User not authenticated'); return; }
-  S.pushCount = (S.pushCount || 0) + 1;
-  firebase.auth().currentUser.getIdToken(false)
-    .then(function(idToken) {
-      var restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
-      var syncableState = Object.assign({}, S);
-      delete syncableState.cmdHistory;
-      return fetch(restUrl, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount }) });
-    })
-    .then(function(response) { if (!response.ok) throw new Error('Direct REST push HTTP ' + response.status); return response.json(); })
-    .then(function(data) { console.log('[Sync] Direct REST push succeeded:', data); if (callback) callback(true, 'pushed'); })
-    .catch(function(err) { console.error('[Sync] Direct REST push failed:', err); if (callback) callback(false, err); });
-}
 
-function firebaseDirectRestPull(uid, callback, forcePull, isDirectCall) {
-  var statusEl = document.getElementById('auth-sync-status');
-  if (typeof firebase === 'undefined' || !firebase.auth().currentUser) {
-    if (statusEl) statusEl.textContent = 'Status: not authenticated';
-    unlockBootSync();
-    if (callback) callback(false, 'Not authenticated');
-    return;
-  }
-  firebase.auth().currentUser.getIdToken(false)
-    .then(function(idToken) {
-      var restUrl = firebaseConfig.databaseURL + '/sync/' + uid + '.json?auth=' + encodeURIComponent(idToken);
-      return fetch(restUrl, { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-store' });
-    })
-    .then(function(response) { if (!response.ok) throw new Error('Direct REST HTTP ' + response.status); return response.json(); })
-    .then(function(val) {
-      console.log('[Sync] Direct REST pull succeeded:', val ? 'data found' : 'no data');
-      addLog('info', 'Cloud sync: Direct REST pull succeeded.');
-      applyCloudState(val, forcePull, callback);
-    })
-    .catch(function(err) {
-      console.error('[Sync] Direct REST pull failed:', err);
-      addLog('warn', 'Cloud sync: Direct REST pull failed — ' + (err.message || String(err)));
-      if (statusEl) statusEl.textContent = 'Status: sync error (REST failed) - ' + err.message;
-      unlockBootSync();
-      if (callback) callback(false, err);
-      if (isDirectCall) { var tip = getNetworkErrorTip(err); if (tip) printTerm(tip, 'info'); }
-    });
-}
 
 function firebaseRestPush(uid, callback) {
-  var gw = getSyncGatewayUrl(uid);
-  if (gw) {
-    S.pushCount = (S.pushCount || 0) + 1;
-    var syncableState = Object.assign({}, S);
-    delete syncableState.cmdHistory;
-    getSyncRequestHeaders(gw).then(function(headers) {
-      return fetch(gw.url, {
-        method: 'PUT',
-        headers: headers,
-        body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount })
-      });
-    })
-    .then(function(response) { if (!response.ok) throw new Error(gw.type + ' push HTTP ' + response.status); return response.json(); })
-    .then(function(data) { console.log('[Sync] ' + gw.type + ' push succeeded:', data); if (callback) callback(true, 'pushed'); })
-    .catch(function(err) {
-      console.warn('[Sync] ' + gw.type + ' push failed, falling back to direct Firebase REST:', err.message);
-      firebaseDirectRestPush(uid, callback);
+  const gw = getSyncGatewayUrl(uid);
+  if (!gw) { if (callback) callback(false, 'No sync gateway available'); return; }
+
+  S.pushCount = (S.pushCount || 0) + 1;
+  const syncableState = Object.assign({}, S);
+  delete syncableState.cmdHistory;
+
+  getSyncRequestHeaders(gw).then(function (headers) {
+    return fetch(gw.url, {
+      method: 'PUT',
+      headers: headers,
+      body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount }),
     });
-    return;
-  }
-  firebaseDirectRestPush(uid, callback);
+  })
+  .then(function (response) {
+    if (!response.ok) throw new Error('gateway push HTTP ' + response.status);
+    return response.json();
+  })
+  .then(function (data) {
+    if (data && typeof data.lastUpdated === 'number') {
+      S.lastUpdated = data.lastUpdated;     // adopt server-authoritative time
+      save('mathInit_state', S);            // local-only persist, no re-push
+    }
+    _syncRetryDelay = 2000;                  // reset backoff on success
+    setSyncStatus('Status: synced (' + new Date(S.lastUpdated).toLocaleTimeString() + ')');
+    if (callback) callback(true, 'pushed');
+  })
+  .catch(function (err) {
+    console.warn('[Sync] gateway push failed (no fallback):', err.message);
+    setSyncStatus('Status: sync unavailable — retrying…');
+    scheduleSyncRetry(function () { firebaseSyncPush(); });
+    if (callback) callback(false, err);
+  });
 }
 
 function firebaseSyncPush(callback) {
+  if (!_syncSafe) { if (callback) callback(false, 'sync not ready'); return; }
   if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
-  var user = firebase.auth().currentUser;
+  const user = firebase.auth().currentUser;
   if (!user) { if (callback) callback(false, 'User not authenticated'); return; }
-  var gw = getSyncGatewayUrl(user.uid);
-  if (gw) { firebaseRestPush(user.uid, callback); return; }
-  try { firebase.database().goOnline(); } catch (e) { console.warn("Firebase goOnline failed:", e); }
-  S.pushCount = (S.pushCount || 0) + 1;
-  try {
-    var syncableState = Object.assign({}, S);
-    delete syncableState.cmdHistory;
-    firebase.database().ref('sync/' + user.uid).set({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount })
-      .then(function() { if (callback) callback(true, 'pushed'); })
-      .catch(function(err) { console.error("Firebase push failed:", err); if (callback) callback(false, err); });
-  } catch (err) { console.error("Firebase database push initialization failed:", err); if (callback) callback(false, err); }
+  firebaseRestPush(user.uid, callback);
 }
 
 // === ROBUST CLOUD PULL ENGINE ===
 // Applies cloud state to the local app. Shared by both WebSocket and REST paths.
 function applyCloudState(val, forcePull, callback) {
   const statusEl = document.getElementById('auth-sync-status');
+
   if (val && val.state) {
     const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
     const cloudPushCount = val.pushCount || val.state.pushCount || 0;
     const localTime = S.lastUpdated || 0;
     const localPushCount = S.pushCount || 0;
 
-    const cloudIsNewer = cloudTime > localTime
-      || (cloudTime === localTime && cloudPushCount > localPushCount);
-    const localIsNewer = localTime > cloudTime
-      || (localTime === cloudTime && localPushCount > cloudPushCount);
+    const cloudIsNewer = cloudTime > localTime || (cloudTime === localTime && cloudPushCount > localPushCount);
+    const localIsNewer = localTime > cloudTime || (localTime === cloudTime && localPushCount > cloudPushCount);
 
-    if (forcePull || cloudIsNewer) {
-      const prevAuthEmail = S.authEmail;
-      const prevAuthUsername = S.authUsername;
-      const prevCmdHistory = S.cmdHistory || [];
-      const prevCustomSyncProxy = S.customSyncProxy || '';
-      const prevCustomSyncKey = S.customSyncKey || '';
-      const prevGeminiKey = S.geminiKey || '';
-      const localStats = getStateStats(S);
-      const cloudStats = getStateStats(val.state);
-
-      if (forcePull && localStats.pushCount > cloudStats.pushCount && localStats.size > cloudStats.size) {
-        const msg = 'Refused forced cloud pull because remote state looks older/smaller than local. Local pushCount=' + localStats.pushCount + ', remote pushCount=' + cloudStats.pushCount + '.';
-        console.warn('[Sync] ' + msg);
-        addLog('warn', 'Cloud sync: ' + msg);
-        if (statusEl) statusEl.textContent = 'Status: pull refused (remote state looks stale)';
-        unlockBootSync();
-        if (callback) callback(false, msg);
-        return;
-      }
-
-      backupLocalStateBeforeCloudReplace(forcePull ? 'force_pull' : 'cloud_newer');
-      S = val.state;
+    if (forcePull || cloudIsNewer || localIsUntrustedFresh(S)) {
+      backupLocalStateBeforeCloudReplace(forcePull ? 'force_pull' : 'cloud_newer_or_fresh');
+      S = mergeState(S, val.state);
       sanitizeStateArrays(S);
-      S.authEmail = prevAuthEmail;
-      S.authUsername = prevAuthUsername;
-      S.cmdHistory = prevCmdHistory;
-      S.customSyncProxy = prevCustomSyncProxy;
-      S.customSyncKey = prevCustomSyncKey;
-      S.geminiKey = prevGeminiKey || S.geminiKey || '';
-
-      // DO NOT run checkDailyReset here — the cloud state's done flags
-      // are the source of truth. Running daily reset would wipe them.
+      S = applyMigrations(S);
+      S.everSynced = true;
+      _syncSafe = true;
+      checkDailyReset(true);
       ss(true);
       render();
-      addLog('info', 'Cloud sync: Pulled state from cloud.');
       if (statusEl) statusEl.textContent = 'Status: synced (pulled cloud state)';
       unlockBootSync();
+      // If the merge captured genuine local edits, converge once.
+      _syncSafe = true; queueFirebaseSyncPush();
       if (callback) callback(true, 'pulled');
+      return;
+
     } else if (localIsNewer) {
-      // Guard: never push an empty/fresh-device state over real cloud data.
-      // A fresh device has pushCount 0; if cloud has real pushes, cloud wins.
-      var localPc = S.pushCount || 0;
-      var cloudPc = cloudPushCount || 0;
-      if (localPc === 0 && cloudPc > 0) {
-        console.warn('[Sync] Fresh device tried to overwrite cloud (pushCount 0 vs ' + cloudPc + '). Cloud wins.');
-        backupLocalStateBeforeCloudReplace('fresh_device_protection');
-        var _prevAuthEmail = S.authEmail;
-        var _prevAuthUsername = S.authUsername;
-        var _prevCmdHistory = S.cmdHistory || [];
-        var _prevCustomSyncProxy = S.customSyncProxy || '';
-        var _prevCustomSyncKey = S.customSyncKey || '';
-        var _prevGeminiKey = S.geminiKey || '';
-        S = val.state;
-        sanitizeStateArrays(S);
-        S.authEmail = _prevAuthEmail;
-        S.authUsername = _prevAuthUsername;
-        S.cmdHistory = _prevCmdHistory;
-        S.customSyncProxy = _prevCustomSyncProxy;
-        S.customSyncKey = _prevCustomSyncKey;
-        S.geminiKey = _prevGeminiKey || S.geminiKey || '';
-        ss(true);
-        render();
-        addLog('info', 'Cloud sync: Fresh device yielded to cloud data (pushCount protection).');
-        if (statusEl) statusEl.textContent = 'Status: synced (cloud protected from fresh device)';
-        unlockBootSync();
-        if (callback) callback(true, 'pulled');
-      } else {
-        firebaseSyncPush();
-        addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
-        if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
-        unlockBootSync();
-        if (callback) callback(true, 'pushed');
-      }
+      S.everSynced = true;
+      _syncSafe = true;
+      firebaseSyncPush();
+      if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
+      unlockBootSync();
+      if (callback) callback(true, 'pushed');
+      return;
+
     } else {
+      S.everSynced = true;
+      _syncSafe = true;
       if (statusEl) statusEl.textContent = 'Status: synced (up to date)';
       unlockBootSync();
       if (callback) callback(true, 'synced');
+      return;
     }
-  } else {
-    firebaseSyncPush();
-    addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
-    if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
-    unlockBootSync();
-    if (callback) callback(true, 'pushed_initial');
   }
+
+  // No cloud data (exists:false / null).
+  if (localIsUntrustedFresh(S)) {
+    if (statusEl) statusEl.textContent = 'Status: no cloud data yet (not overwriting)';
+    // Genuinely-new user with a fresh device: it is safe to begin syncing,
+    // because there is nothing to lose locally or remotely.
+    S = applyMigrations(S);
+    S.everSynced = true;
+    _syncSafe = true;
+    checkDailyReset(true);
+    unlockBootSync();
+    firebaseSyncPush(); // create the user's initial cloud record from (empty) defaults
+    if (callback) callback(true, 'initialized_empty');
+    return;
+  }
+
+  // Returning device with real local data, cloud empty: legitimate first upload.
+  S.everSynced = true;
+  _syncSafe = true;
+  checkDailyReset(true);
+  firebaseSyncPush();
+  if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
+  unlockBootSync();
+  if (callback) callback(true, 'pushed_initial');
+}
+
+function mergeState(local, cloud) {
+  if (!cloud) return local;
+  if (!local) return cloud;
+
+  const out = JSON.parse(JSON.stringify(cloud)); // start from cloud
+
+  // 1) Device-local-only fields: always keep local.
+  const LOCAL_ONLY = ['authEmail','authUsername','cmdHistory','geminiKey',
+    'customSyncProxy','customSyncKey','crtEnabled','everSynced',
+    'activeGroupFilter','ethosViewMode','protocolCollapsed','todayOnlyToggle',
+    'swimFilter','swimSearchQuery','weekOffset','activeDate','theme'];
+  LOCAL_ONLY.forEach(k => { if (local[k] !== undefined) out[k] = local[k]; });
+
+  // 2) Date-keyed maps: history (true-wins), waterLogs (max), normalized keys.
+  out.history = mergeHistory(local.history, cloud.history);
+  out.waterLogs = mergeWaterLogs(local.waterLogs, cloud.waterLogs);
+
+  // 3) Date-keyed arrays: swimHistory, weightLogs (union by normalized date).
+  out.swimHistory = mergeByDate(local.swimHistory, cloud.swimHistory, function (a, b) {
+    const aN = (a.sessions || []).length, bN = (b.sessions || []).length;
+    return aN >= bN ? a : b;
+  });
+  out.weightLogs = mergeByDate(local.weightLogs, cloud.weightLogs, function (a, b) { return b; });
+
+  // 4) Achievements: union, keep earliest date.
+  out.unlockedAchievements = Object.assign({}, cloud.unlockedAchievements || {}, local.unlockedAchievements || {});
+
+  // 5) ecreMemory: union arrays, max sessionCount.
+  out.ecreMemory = mergeEcre(local.ecreMemory, cloud.ecreMemory);
+
+  // 6) papers: union by id, status furthest-along wins.
+  out.papers = mergePapers(local.papers, cloud.papers);
+
+  // 7) Monotonic scalars: take newer-lastUpdated side (TODO: append-only event log).
+  const cloudNewer = (cloud.lastUpdated || 0) >= (local.lastUpdated || 0);
+  const src = cloudNewer ? cloud : local;
+  ['xp','xpToday','totalHours','weekHours','streak','pushCount','lastUpdated'].forEach(k => {
+    if (src[k] !== undefined) out[k] = src[k];
+  });
+  out.focusStats = src.focusStats || cloud.focusStats || local.focusStats || { sessions:0, totalMins:0, maxSessionMins:0 };
+
+  // 8) routines: union ethe by id; reconcile today's done from merged history below in app boot.
+  out.routines = mergeRoutines(local.routines, cloud.routines);
+
+  return out;
+}
+
+function mergeHistory(a, b) {
+  const out = {};
+  const add = (src) => {
+    Object.keys(src || {}).forEach(rawDate => {
+      const date = normalizeDateKey(rawDate);
+      if (!out[date]) out[date] = {};
+      const rec = src[rawDate] || {};
+      Object.keys(rec).forEach(id => { if (rec[id] === true) out[date][id] = true; else if (out[date][id] !== true) out[date][id] = !!rec[id]; });
+    });
+  };
+  add(a); add(b);
+  return out;
+}
+
+function mergeWaterLogs(a, b) {
+  const out = {};
+  const add = (src) => {
+    Object.keys(src || {}).forEach(rawDate => {
+      const date = normalizeDateKey(rawDate);
+      const v = parseFloat(src[rawDate]) || 0;
+      out[date] = Math.max(out[date] || 0, v);
+    });
+  };
+  add(a); add(b);
+  return out;
+}
+
+function mergeByDate(a, b, pick) {
+  const map = {};
+  (a || []).forEach(e => { if (e && e.date) map[normalizeDateKey(e.date)] = Object.assign({}, e, { date: normalizeDateKey(e.date) }); });
+  (b || []).forEach(e => {
+    if (!e || !e.date) return;
+    const key = normalizeDateKey(e.date);
+    const norm = Object.assign({}, e, { date: key });
+    map[key] = map[key] ? pick(map[key], norm) : norm;
+  });
+  return Object.keys(map).sort((x, y) => new Date(x) - new Date(y)).map(k => map[k]);
+}
+
+function mergeEcre(a, b) {
+  a = a || {}; b = b || {};
+  const unionArr = (x, y) => {
+    const seen = new Set(); const out = [];
+    [...(x||[]), ...(y||[])].forEach(item => {
+      const key = JSON.stringify(item);
+      if (!seen.has(key)) { seen.add(key); out.push(item); }
+    });
+    return out;
+  };
+  return {
+    lastObservations: unionArr(a.lastObservations, b.lastObservations),
+    namedPatterns: unionArr(a.namedPatterns, b.namedPatterns),
+    openQuestions: unionArr(a.openQuestions, b.openQuestions),
+    userPromises: unionArr(a.userPromises, b.userPromises),
+    sessionCount: Math.max(a.sessionCount || 0, b.sessionCount || 0),
+    patternViolationActive: !!(a.patternViolationActive || b.patternViolationActive),
+  };
+}
+
+function mergePapers(a, b) {
+  const rank = { queued: 0, reading: 1, done: 2 };
+  const map = {};
+  (a || []).forEach(p => { if (p) map[p.id] = p; });
+  (b || []).forEach(p => {
+    if (!p) return;
+    const ex = map[p.id];
+    if (!ex) map[p.id] = p;
+    else map[p.id] = (rank[p.status] || 0) >= (rank[ex.status] || 0) ? p : ex;
+  });
+  return Object.values(map);
+}
+
+function mergeRoutines(localR, cloudR) {
+  // Prefer cloud routine structure; union ethe by id; for today's working `done`,
+  // take true-wins so a completion on either device sticks.
+  const base = JSON.parse(JSON.stringify(cloudR || localR || []));
+  const localById = {};
+  (localR || []).forEach(r => (r.ethe || []).forEach(e => { localById[e.id] = e; }));
+  base.forEach(r => {
+    (r.ethe || []).forEach(e => {
+      const le = localById[e.id];
+      if (le) {
+        e.done = !!(e.done || le.done);
+        e.streak = Math.max(e.streak || 0, le.streak || 0);
+      }
+    });
+  });
+  return base;
 }
 
 // REST API pull — uses gateway → proxy → direct Firebase REST (with automatic fallback).
 function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
-  var statusEl = document.getElementById('auth-sync-status');
-  if (isDirectCall) {
-    if (statusEl) statusEl.textContent = 'Status: pulling via REST API...';
-    console.log('[Sync] Direct REST API pull initiated.');
-  } else {
-    if (statusEl) statusEl.textContent = 'Status: WebSocket timed out, trying REST API...';
-    addLog('warn', 'Cloud sync: WebSocket hung — falling back to REST API.');
-    console.warn('[Sync] WebSocket once(value) timed out. Using REST API fallback.');
-  }
-  var gw = getSyncGatewayUrl(uid);
-  if (gw) {
-    getSyncRequestHeaders(gw).then(function(headers) {
-      delete headers['Content-Type'];
-      return fetch(gw.url, { method: 'GET', headers: headers, cache: 'no-store' });
-    })
-    .then(function(response) { if (!response.ok) throw new Error(gw.type + ' HTTP ' + response.status); return response.json(); })
-    .then(function(val) {
-      console.log('[Sync] ' + gw.type + ' pull succeeded:', val ? 'data found' : 'no data');
-      addLog('info', 'Cloud sync: ' + gw.type + ' pull succeeded.');
-      applyCloudState(val, forcePull, callback);
-    })
-    .catch(function(err) {
-      console.warn('[Sync] ' + gw.type + ' pull failed, falling back to direct Firebase REST:', err.message);
-      addLog('warn', 'Cloud sync: ' + gw.type + ' pull failed, falling back to direct REST — ' + err.message);
-      firebaseDirectRestPull(uid, callback, forcePull, isDirectCall);
-    });
+  const gw = getSyncGatewayUrl(uid);
+  if (!gw) {
+    setSyncStatus('Status: sync unavailable (no gateway)');
+    scheduleSyncRetry(function () { firebaseSyncPull(callback, forcePull); });
+    if (callback) callback(false, 'No sync gateway available');
     return;
   }
-  firebaseDirectRestPull(uid, callback, forcePull, isDirectCall);
+  setSyncStatus('Status: syncing with cloud…');
+
+  getSyncRequestHeaders(gw).then(function (headers) {
+    delete headers['Content-Type'];
+    return fetch(gw.url, { method: 'GET', headers: headers, cache: 'no-store' });
+  })
+  .then(function (response) {
+    if (!response.ok) throw new Error('gateway GET HTTP ' + response.status);
+    return response.json();
+  })
+  .then(function (payload) {
+    _syncRetryDelay = 2000;
+    // Normalize new gateway shape -> the {state,lastUpdated,pushCount} or null applyCloudState expects.
+    let val = null;
+    if (payload && payload.exists === true) {
+      val = { state: payload.state, lastUpdated: payload.lastUpdated, pushCount: payload.pushCount };
+    } else if (payload && payload.state) {
+      val = payload; // backward-compat if an old record exists
+    }
+    applyCloudState(val, forcePull, callback);
+  })
+  .catch(function (err) {
+    console.warn('[Sync] gateway pull failed (no fallback):', err.message);
+    setSyncStatus('Status: sync unavailable — retrying…');
+    // Do NOT unlock boot sync, do NOT push. Keep waiting.
+    scheduleSyncRetry(function () { firebaseSyncPull(callback, forcePull); });
+    if (callback) callback(false, err);
+  });
 }
 
 function firebaseSyncPull(callback, forcePull = false) {
-  if (typeof firebase === 'undefined') {
-    if (callback) callback(false, 'Firebase not loaded');
-    return;
-  }
+  if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
   const user = firebase.auth().currentUser;
-  if (!user) {
-    if (callback) callback(false, 'User not authenticated');
-    return;
-  }
-
-  // Bypasses direct Firebase WebSocket check entirely if Same-Origin Gateway is active
-  var gw = getSyncGatewayUrl(user.uid);
-  if (gw) {
-    addLog('info', 'Cloud sync: Same-origin Gateway active — initiating REST API pull...');
-    firebaseRestPull(user.uid, callback, forcePull, true);
-    return;
-  }
-
-  // Skip WebSocket if it failed previously this session — go straight to REST
-  if (_wsAvailable === false) {
-    addLog('info', 'Cloud sync: Skipping WebSocket (failed earlier this session) — using REST API directly.');
-    console.log('[Sync] Skipping WebSocket (failed earlier this session). Using REST directly.');
-    addLog('info', 'Cloud sync: Initiating direct REST API pull...');
-    firebaseDirectRestPull(user.uid, callback, forcePull, true);
-    return;
-  }
-
-  try {
-    firebase.database().goOnline();
-  } catch (e) {
-    console.warn("Firebase goOnline failed:", e);
-    addLog('warn', 'Cloud sync: Firebase goOnline() failed — ' + (e.message || String(e)));
-  }
-
-  const statusEl = document.getElementById('auth-sync-status');
-  if (statusEl) statusEl.textContent = 'Status: syncing with cloud...';
-  const SYNC_TIMEOUT_MS = 5000;
-  console.log('[Sync] Starting pull — racing WebSocket vs ' + (SYNC_TIMEOUT_MS / 1000) + 's timeout...');
-  addLog('info', 'Cloud sync: Attempting WebSocket connection (timeout: ' + (SYNC_TIMEOUT_MS / 1000) + 's)...');
-
-  // Create a timeout promise that resolves with a sentinel value
-  const TIMEOUT_SENTINEL = Symbol('TIMEOUT');
-  const timeoutPromise = new Promise(resolve => {
-    setTimeout(() => resolve(TIMEOUT_SENTINEL), SYNC_TIMEOUT_MS);
-  });
-
-  try {
-    const wsPromise = firebase.database().ref('sync/' + user.uid).once('value')
-      .then(snapshot => snapshot.val());
-
-    Promise.race([wsPromise, timeoutPromise])
-      .then(result => {
-        if (result === TIMEOUT_SENTINEL) {
-          // WebSocket hung — cache the failure and fall back to REST
-          _wsAvailable = false;
-          console.warn('[Sync] WebSocket timed out after ' + SYNC_TIMEOUT_MS + 'ms');
-          addLog('warn', 'Cloud sync: WebSocket timed out after ' + (SYNC_TIMEOUT_MS / 1000) + 's — falling back to REST API. Will skip WebSocket for this session.');
-          firebaseRestPull(user.uid, callback, forcePull);
-        } else {
-          // WebSocket succeeded — cache the success
-          _wsAvailable = true;
-          console.log('[Sync] WebSocket pull succeeded');
-          addLog('info', 'Cloud sync: WebSocket connection succeeded.');
-          applyCloudState(result, forcePull, callback);
-        }
-      })
-      .catch(err => {
-        // WebSocket errored — cache the failure and fall back to REST
-        _wsAvailable = false;
-        console.error('[Sync] WebSocket pull errored, trying REST:', err);
-        addLog('warn', 'Cloud sync: WebSocket error — ' + (err.message || String(err)) + '. Falling back to REST API. Will skip WebSocket for this session.');
-        firebaseRestPull(user.uid, callback, forcePull);
-      });
-  } catch (err) {
-    _wsAvailable = false;
-    console.error("Firebase database pull initialization failed:", err);
-    addLog('warn', 'Cloud sync: WebSocket init failed — ' + (err.message || String(err)));
-    if (statusEl) statusEl.textContent = 'Status: database error - ' + err.message;
-    unlockBootSync();
-    if (callback) callback(false, err);
-  }
+  if (!user) { if (callback) callback(false, 'User not authenticated'); return; }
+  firebaseRestPull(user.uid, callback, forcePull, true);
 }
 
 function renderSyncPanel() {
@@ -1093,36 +1067,38 @@ if (document.readyState === 'loading') {
 // Wire up Auth Observer
 let activeSyncRef = null;
 if (typeof firebase !== 'undefined') {
-  firebase.auth().onAuthStateChanged(user => {
+  firebase.auth().onAuthStateChanged(function (user) {
     authStateFetched = true;
     if (user) {
       currentUser = user;
-      const wasGuest = !S.authEmail; // Check if we were a guest session before logging in
-      S.authEmail = user.email;
-      let extractedUsername = user.displayName;
-      if (!extractedUsername && user.email) {
-        extractedUsername = user.email.split('@')[0];
-      }
-      S.authUsername = extractedUsername || 'unknown';
-      ss(true); // Save locally
+      S.authEmail = user.email || '';
+      S.authUsername = user.displayName || user.email || 'anon';
+      updateOracleKeyStatus();
+      renderSyncPanel();
       
+      // Gated sync lock: fresh devices pull first without clobbering.
+      _bootSyncLocked = true;
+      _syncSafe = false;
+
       // Dismiss boot gate immediately for snappy responsiveness
       tryDismissBoot();
-      
-      // Ensure gateway probe completes before first sync attempt.
-      // Force-pull when local state is fresh/empty (pushCount 0, lastUpdated 0)
-      // so the cloud is always the source of truth on a new device.
-      var isFreshDevice = ((S.pushCount || 0) === 0 && (S.lastUpdated || 0) === 0);
+
       probeGateway().then(function() {
-        firebaseSyncPull(null, isFreshDevice);
-        // Real-time synchronization across devices (Issue 8/8)
-        attachFirebaseWebSocketListener(user);
+        if (localIsUntrustedFresh(S)) {
+          setSyncStatus('Status: untrusted empty device — forcing cloud pull first');
+          firebaseSyncPull(function (success, msg) {
+            unlockBootSync();
+            render();
+          }, true); // force-pull cloud state into this fresh device
+        } else {
+          setSyncStatus('Status: connecting…');
+          firebaseSyncPull(function (success, msg) {
+            unlockBootSync();
+            render();
+          }, false); // safe pull-merge
+        }
       });
     } else {
-      if (activeSyncRef) {
-        activeSyncRef.off();
-        activeSyncRef = null;
-      }
       if (S.authUsername === 'demo') {
         currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
         tryDismissBoot();
@@ -1132,7 +1108,11 @@ if (typeof firebase !== 'undefined') {
         S.authUsername = '';
         tryDismissBoot();
       }
+      _syncSafe = false;
       unlockBootSync();
+      updateOracleKeyStatus();
+      renderSyncPanel();
+      render();
     }
   });
 } else {
@@ -1728,63 +1708,7 @@ function getSyncDetailsReport(state) {
   return rpt;
 }
 
-function attachFirebaseWebSocketListener(user) {
-  if (activeSyncRef) {
-    activeSyncRef.off();
-    activeSyncRef = null;
-  }
-  if (typeof firebase === 'undefined' || !user) return;
-  const gw = getSyncGatewayUrl(user.uid);
-  if (gw) {
-    console.log("[Sync] Same-origin Gateway active. Firebase WebSocket listener bypassed.");
-    return;
-  }
-  try {
-    activeSyncRef = firebase.database().ref('sync/' + user.uid);
-    activeSyncRef.on('value', snapshot => {
-      if (getSyncGatewayUrl(user.uid)) {
-        console.log("[Sync] Gateway became active; detaching stale Firebase WebSocket listener.");
-        if (activeSyncRef) {
-          activeSyncRef.off();
-          activeSyncRef = null;
-        }
-        return;
-      }
-      const val = snapshot.val();
-      if (val && val.state) {
-        const cloudTime = val.lastUpdated || val.state.lastUpdated || 0;
-        const cloudPushCount = val.pushCount || val.state.pushCount || 0;
-        const localTime = S.lastUpdated || 0;
-        const localPushCount = S.pushCount || 0;
-        
-        const cloudIsNewer = cloudTime > localTime
-          || (cloudTime === localTime && cloudPushCount > localPushCount);
-        
-        if (cloudIsNewer) {
-          const prevAuthEmail = S.authEmail;
-          const prevAuthUsername = S.authUsername;
-          const prevCmdHistory = S.cmdHistory || [];
-          
-          S = val.state;
-          sanitizeStateArrays(S);
-          S.authEmail = prevAuthEmail;
-          S.authUsername = prevAuthUsername;
-          S.cmdHistory = prevCmdHistory;
-          
-          ss(true);
-          render();
-          
-          const statusEl = document.getElementById('auth-sync-status');
-          if (statusEl) statusEl.textContent = 'Status: synced (auto-pulled newer state)';
-          addLog('info', 'Cloud sync: Real-time update auto-pulled from cloud.');
-        }
-      }
-    });
-    console.log("[Sync] Attached Firebase WebSocket listener successfully.");
-  } catch (e) {
-    console.warn("[Sync] Failed to attach Firebase WebSocket listener:", e);
-  }
-}
+
 
 function handleCommand(cmd) {
   cmd = cmd.trim();
@@ -2940,7 +2864,7 @@ function renderEtheTab() {
               const waterVal = S.waterLogs[normalizeDateKey(S.activeDate)] || 0;
               e.done = waterVal >= 3.5;
             } else {
-              e.done = S.history[S.activeDate] ? !!S.history[S.activeDate][e.id] : (S.activeDate === TODAY ? e.done : false);
+              e.done = S.history[normalizeDateKey(S.activeDate)] ? !!S.history[normalizeDateKey(S.activeDate)][e.id] : (S.activeDate === TODAY ? e.done : false);
             }
           }); });
           ss(); renderEtheTab(); renderExpectations();
@@ -3856,8 +3780,9 @@ function toggleEthos(rIdx, eId) {
   if (!e) return;
   e.done = !e.done;
   if (!S.history) S.history = {};
-  if (!S.history[S.activeDate]) S.history[S.activeDate] = {};
-  S.history[S.activeDate][e.id] = e.done;
+  const normDate = normalizeDateKey(S.activeDate);
+  if (!S.history[normDate]) S.history[normDate] = {};
+  S.history[normDate][e.id] = e.done;
 
   const isDeepSync = typeof compileCognitiveVector !== 'undefined' && compileCognitiveVector().state === 'DEEP_SYNC';
   const isLocked = isGroupXpLocked(e.groupId);
@@ -4046,7 +3971,7 @@ function importStateData(rawString) {
       'waterLogs', 'ecreMemory', 'pushCount', 'focusStats', 'swimFilter',
       'swimSearchQuery', 'crtEnabled', 'cmdHistory', 'dummyLoaded', 
       'historyKeysMigrated', 'lastDate', 'theme', 'v22WaterSeeded', 
-      'v2LifestyleLoaded'
+      'v2LifestyleLoaded', 'everSynced'
     ];
 
     const cleanedState = {};
@@ -4055,7 +3980,7 @@ function importStateData(rawString) {
         const val = parsed[key];
         if (['xp', 'streak', 'totalHours', 'weekHours', 'xpToday', 'weekOffset', 'lastUpdated', 'pushCount'].includes(key)) {
           cleanedState[key] = typeof val === 'number' ? val : (parseInt(val) || 0);
-        } else if (['todayOnlyToggle', 'crtEnabled', 'dummyLoaded', 'v2LifestyleLoaded', 'v22WaterSeeded', 'historyKeysMigrated'].includes(key)) {
+        } else if (['todayOnlyToggle', 'crtEnabled', 'dummyLoaded', 'v2LifestyleLoaded', 'v22WaterSeeded', 'historyKeysMigrated', 'everSynced'].includes(key)) {
           cleanedState[key] = !!val;
         } else if (['activeDate', 'activeGroupFilter', 'todayNote', 'paperNote', 'ethosViewMode', 'authUsername', 'authEmail', 'geminiKey', 'customSyncKey', 'customSyncProxy', 'trilumaStartDate', 'swimFilter', 'swimSearchQuery', 'lastDate', 'theme'].includes(key)) {
           cleanedState[key] = typeof val === 'string' ? val : '';
@@ -4512,8 +4437,9 @@ function changeWaterIntake(rIdx, eId, delta) {
     if (wasDone !== isDoneNow) {
       e.done = isDoneNow;
       if (!S.history) S.history = {};
-      if (!S.history[S.activeDate]) S.history[S.activeDate] = {};
-      S.history[S.activeDate][e.id] = isDoneNow;
+      const normDate = normalizeDateKey(S.activeDate);
+      if (!S.history[normDate]) S.history[normDate] = {};
+      S.history[normDate][e.id] = isDoneNow;
       
       if (isDoneNow) {
         S.xp += e.xp;

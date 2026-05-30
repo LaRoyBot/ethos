@@ -211,42 +211,42 @@ const THEMES = [
   { id: 'cmd', name: 'cmd console', color: '#ffffff' },
 ];
 
+function _seedKey(y, m, d) { return new Date(y, m - 1, d).toDateString(); } // local time, canonical
+
 // Seed exact swim history (March 22 - May 19)
 const DEFAULT_SWIM_HISTORY = [
-  { date: '2026-03-22', status: 'Swam', sessions: [{ time: '7:56 pm – 8:36 pm', duration: 40, comment: 'Initial session' }] },
-  // Mar 23 - Apr 11: 20 days missed (represented implicitly or explicitly. Let's make it explicit for perfect math!)
+  { date: _seedKey(2026, 3, 22), status: 'Swam', sessions: [{ time: '7:56 pm – 8:36 pm', duration: 40, comment: 'Initial session' }] },
+  // Mar 23 - Apr 11: 20 days missed
   ...Array.from({ length: 20 }, (_, i) => {
-    const d = new Date('2026-03-23');
-    d.setDate(d.getDate() + i);
-    return { date: d.toISOString().split('T')[0], status: 'Missed', sessions: [] };
+    return { date: new Date(2026, 2, 23 + i).toDateString(), status: 'Missed', sessions: [] };
   }),
-  { date: '2026-04-12', status: 'Swam', sessions: [{ time: '8:14 pm – 9:31 pm', duration: 77, comment: 'Post gap swim' }] },
-  { date: '2026-04-13', status: 'Swam', sessions: [{ time: '8:19 pm – 9:25 pm', duration: 66, comment: 'Back to daily' }] },
+  { date: _seedKey(2026, 4, 12), status: 'Swam', sessions: [{ time: '8:14 pm – 9:31 pm', duration: 77, comment: 'Post gap swim' }] },
+  { date: _seedKey(2026, 4, 13), status: 'Swam', sessions: [{ time: '8:19 pm – 9:25 pm', duration: 66, comment: 'Back to daily' }] },
   {
-    date: '2026-04-14',
+    date: _seedKey(2026, 4, 14),
     status: 'Swam',
     sessions: [
       { time: '8:14 am – 9:26 am', duration: 72, comment: 'Morning session' },
       { time: '7:50 pm – 10:00 pm', duration: 130, comment: 'Evening session' }
     ]
   },
-  { date: '2026-04-15', status: 'Missed', sessions: [] },
-  { date: '2026-04-16', status: 'Swam', sessions: [{ time: '8:21 am – 9:54 am', duration: 93, comment: '' }] },
+  { date: _seedKey(2026, 4, 15), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 4, 16), status: 'Swam', sessions: [{ time: '8:21 am – 9:54 am', duration: 93, comment: '' }] },
   {
-    date: '2026-04-17',
+    date: _seedKey(2026, 4, 17),
     status: 'Swam',
     sessions: [
       { time: '9:04 am – 10:16 am', duration: 71, comment: 'Morning session' },
       { time: '8:43 pm – 9:52 pm', duration: 69, comment: 'Evening session' }
     ]
   },
-  { date: '2026-04-18', status: 'Swam', sessions: [{ time: '8:15 am – 9:25 am', duration: 70, comment: '' }] },
-  { date: '2026-04-19', status: 'Swam', sessions: [{ time: '6:43 pm – 8:20 pm', duration: 97, comment: 'Local Pool' }] },
-  { date: '2026-04-20', status: 'Swam', sessions: [{ time: '7:53 pm – 10:06 pm', duration: 133, comment: '' }] },
-  { date: '2026-04-21', status: 'Missed', sessions: [] },
-  { date: '2026-04-22', status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 4, 18), status: 'Swam', sessions: [{ time: '8:15 am – 9:25 am', duration: 70, comment: '' }] },
+  { date: _seedKey(2026, 4, 19), status: 'Swam', sessions: [{ time: '6:43 pm – 8:20 pm', duration: 97, comment: 'Local Pool' }] },
+  { date: _seedKey(2026, 4, 20), status: 'Swam', sessions: [{ time: '7:53 pm – 10:06 pm', duration: 133, comment: '' }] },
+  { date: _seedKey(2026, 4, 21), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 4, 22), status: 'Missed', sessions: [] },
   {
-    date: '2026-04-23',
+    date: _seedKey(2026, 4, 23),
     status: 'Swam',
     sessions: [
       { time: '8:12 am – 10:15 am', duration: 123, comment: 'Morning session' },
@@ -254,61 +254,61 @@ const DEFAULT_SWIM_HISTORY = [
     ]
   },
   {
-    date: '2026-04-24',
+    date: _seedKey(2026, 4, 24),
     status: 'Swam',
     sessions: [
       { time: '8:21 am – 10:04 am', duration: 103, comment: 'Morning session' },
       { time: '8:34 pm – 9:41 pm', duration: 67, comment: 'Evening session' }
     ]
   },
-  { date: '2026-04-25', status: 'Missed', sessions: [] },
-  { date: '2026-04-26', status: 'Swam', sessions: [{ time: '8:14 pm – 9:56 pm', duration: 102, comment: '' }] },
-  { date: '2026-04-27', status: 'Swam', sessions: [{ time: '8:34 pm – 9:59 pm', duration: 85, comment: '' }] },
+  { date: _seedKey(2026, 4, 25), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 4, 26), status: 'Swam', sessions: [{ time: '8:14 pm – 9:56 pm', duration: 102, comment: '' }] },
+  { date: _seedKey(2026, 4, 27), status: 'Swam', sessions: [{ time: '8:34 pm – 9:59 pm', duration: 85, comment: '' }] },
   {
-    date: '2026-04-28',
+    date: _seedKey(2026, 4, 28),
     status: 'Swam',
     sessions: [
       { time: '9:34 am – 11:06 am', duration: 92, comment: 'Morning session' },
       { time: '8:08 pm – 9:45 pm', duration: 97, comment: 'Evening session' }
     ]
   },
-  { date: '2026-04-29', status: 'Missed', sessions: [] },
-  { date: '2026-04-30', status: 'Swam', sessions: [{ time: '8:20 pm – 10:04 pm', duration: 104, comment: '' }] },
-  { date: '2026-05-01', status: 'Missed', sessions: [] },
-  { date: '2026-05-02', status: 'Swam', sessions: [{ time: '8:23 am – 10:08 am', duration: 105, comment: '' }] },
-  { date: '2026-05-03', status: 'Swam', sessions: [{ time: '8:05 pm – 9:44 pm', duration: 99, comment: '' }] },
-  { date: '2026-05-04', status: 'Swam', sessions: [{ time: '8:11 pm – 9:19 pm', duration: 69, comment: '' }] },
-  { date: '2026-05-05', status: 'Missed', sessions: [] },
-  { date: '2026-05-06', status: 'Missed', sessions: [] },
-  { date: '2026-05-07', status: 'Swam', sessions: [{ time: '8:28 pm – 9:56 pm', duration: 88, comment: '' }] },
-  { date: '2026-05-08', status: 'Missed', sessions: [] },
-  { date: '2026-05-09', status: 'Swam', sessions: [{ time: '8:10 pm – 10:04 pm', duration: 114, comment: '' }] },
-  { date: '2026-05-10', status: 'Swam', sessions: [{ time: '8:45 pm – 9:49 pm', duration: 64, comment: '' }] },
-  { date: '2026-05-11', status: 'Swam', sessions: [{ time: '8:42 pm – 10:11 pm', duration: 89, comment: '' }] },
-  { date: '2026-05-12', status: 'Swam', sessions: [{ time: '8:07 pm – 9:55 pm', duration: 108, comment: '' }] },
-  { date: '2026-05-13', status: 'Missed', sessions: [] },
-  { date: '2026-05-14', status: 'Swam', sessions: [{ time: '1:35 pm – 3:31 pm', duration: 117, comment: '' }] },
-  { date: '2026-05-15', status: 'Swam', sessions: [{ time: '7:47 pm – 10:16 pm', duration: 149, comment: '' }] },
+  { date: _seedKey(2026, 4, 29), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 4, 30), status: 'Swam', sessions: [{ time: '8:20 pm – 10:04 pm', duration: 104, comment: '' }] },
+  { date: _seedKey(2026, 5, 1), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 5, 2), status: 'Swam', sessions: [{ time: '8:23 am – 10:08 am', duration: 105, comment: '' }] },
+  { date: _seedKey(2026, 5, 3), status: 'Swam', sessions: [{ time: '8:05 pm – 9:44 pm', duration: 99, comment: '' }] },
+  { date: _seedKey(2026, 5, 4), status: 'Swam', sessions: [{ time: '8:11 pm – 9:19 pm', duration: 69, comment: '' }] },
+  { date: _seedKey(2026, 5, 5), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 5, 6), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 5, 7), status: 'Swam', sessions: [{ time: '8:28 pm – 9:56 pm', duration: 88, comment: '' }] },
+  { date: _seedKey(2026, 5, 8), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 5, 9), status: 'Swam', sessions: [{ time: '8:10 pm – 10:04 pm', duration: 114, comment: '' }] },
+  { date: _seedKey(2026, 5, 10), status: 'Swam', sessions: [{ time: '8:45 pm – 9:49 pm', duration: 64, comment: '' }] },
+  { date: _seedKey(2026, 5, 11), status: 'Swam', sessions: [{ time: '8:42 pm – 10:11 pm', duration: 89, comment: '' }] },
+  { date: _seedKey(2026, 5, 12), status: 'Swam', sessions: [{ time: '8:07 pm – 9:55 pm', duration: 108, comment: '' }] },
+  { date: _seedKey(2026, 5, 13), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 5, 14), status: 'Swam', sessions: [{ time: '1:35 pm – 3:31 pm', duration: 117, comment: '' }] },
+  { date: _seedKey(2026, 5, 15), status: 'Swam', sessions: [{ time: '7:47 pm – 10:16 pm', duration: 149, comment: '' }] },
   {
-    date: '2026-05-16',
+    date: _seedKey(2026, 5, 16),
     status: 'Swam',
     sessions: [
       { time: '12:07 pm – 12:25 pm', duration: 18, comment: 'Morning session' },
       { time: '12:36 pm – 1:58 pm', duration: 81, comment: 'Fitness Center' }
     ]
   },
-  { date: '2026-05-17', status: 'Swam', sessions: [{ time: '8:25 pm – 9:40 pm', duration: 75, comment: '' }] },
-  { date: '2026-05-18', status: 'Missed', sessions: [] },
-  { date: '2026-05-19', status: 'Swam', sessions: [{ time: '8:06 pm – 9:55 pm', duration: 109, comment: '' }] }
+  { date: _seedKey(2026, 5, 17), status: 'Swam', sessions: [{ time: '8:25 pm – 9:40 pm', duration: 75, comment: '' }] },
+  { date: _seedKey(2026, 5, 18), status: 'Missed', sessions: [] },
+  { date: _seedKey(2026, 5, 19), status: 'Swam', sessions: [{ time: '8:06 pm – 9:55 pm', duration: 109, comment: '' }] }
 ];
 
 // Seed water logs since March 22 (minimum 4L per day)
 const DEFAULT_WATER_LOGS = {};
-const startWaterDate = new Date('2026-03-22');
-const endWaterDate = new Date('2026-05-20');
-for (let d = new Date(startWaterDate); d <= endWaterDate; d.setDate(d.getDate() + 1)) {
-  const dateStr = d.toISOString().split('T')[0];
-  const day = d.getDate();
-  const liters = 4.0 + (day % 8) * 0.1; // realistic variation between 4.0L and 4.7L
-  DEFAULT_WATER_LOGS[dateStr] = parseFloat(liters.toFixed(1));
+{
+  const start = new Date(2026, 2, 22);   // local
+  const end = new Date(2026, 4, 20);
+  for (let dt = new Date(start); dt <= end; dt.setDate(dt.getDate() + 1)) {
+    const liters = 4.0 + (dt.getDate() % 8) * 0.1;
+    DEFAULT_WATER_LOGS[dt.toDateString()] = parseFloat(liters.toFixed(1));
+  }
 }
