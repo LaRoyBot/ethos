@@ -4140,17 +4140,16 @@ function startFlowerAnimation() {
   const canvas = document.getElementById('ascii-flower');
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
-
-  const spacing = 4;
-  const cols = 69;
-  const rows = 100;
+  
+  const spacing = 5; // Slightly larger spacing for text
+  const cols = 55;
+  const rows = 80;
   canvas.width = cols * spacing;
   canvas.height = rows * spacing;
-
-  const fcx = 34; // flower center x (grid)
-  const fcy = 28; // flower center y (grid)
-
-  // --- Deterministic PRNG ---
+  
+  const cx = 27;
+  const cy = 25;
+  
   function mulberry32(a) {
     return function() {
       var t = a += 0x6D2B79F5;
@@ -4160,311 +4159,176 @@ function startFlowerAnimation() {
     }
   }
   const rand = mulberry32(42);
-
-  // --- HSL to RGB ---
-  function hslToRgb(h, s, l) {
-    h = ((h % 360) + 360) % 360;
-    s = Math.max(0, Math.min(100, s)) / 100;
-    l = Math.max(0, Math.min(100, l)) / 100;
-    var c = (1 - Math.abs(2 * l - 1)) * s;
-    var x = c * (1 - Math.abs((h / 60) % 2 - 1));
-    var m = l - c / 2;
-    var r, g, b;
-    if (h < 60) { r=c; g=x; b=0; }
-    else if (h < 120) { r=x; g=c; b=0; }
-    else if (h < 180) { r=0; g=c; b=x; }
-    else if (h < 240) { r=0; g=x; b=c; }
-    else if (h < 300) { r=x; g=0; b=c; }
-    else { r=c; g=0; b=x; }
-    return [Math.round((r+m)*255), Math.round((g+m)*255), Math.round((b+m)*255)];
-  }
-
-  // --- Define procedural rose petals (4 depth layers) ---
-  var petals = [];
-
-  // Layer 0: Outer petals — large, pink-rose
-  for (var i = 0; i < 6; i++) {
-    petals.push({
-      angle: (i / 6) * Math.PI * 2 + (rand() - 0.5) * 0.5,
-      startR: 3 + rand() * 2,
-      length: 16 + rand() * 6,
-      width: 7 + rand() * 3,
-      taper: 0.25 + rand() * 0.2,
-      layer: 0,
-      hue: 335 + rand() * 15, sat: 50 + rand() * 15, lightBase: 42 + rand() * 10
-    });
-  }
-
-  // Layer 1: Mid-outer — crimson/rose
-  for (var i = 0; i < 7; i++) {
-    petals.push({
-      angle: (i / 7) * Math.PI * 2 + 0.2 + (rand() - 0.5) * 0.35,
-      startR: 2 + rand() * 1.5,
-      length: 12 + rand() * 4,
-      width: 5.5 + rand() * 2.5,
-      taper: 0.3 + rand() * 0.15,
-      layer: 1,
-      hue: 348 + rand() * 12, sat: 62 + rand() * 15, lightBase: 36 + rand() * 10
-    });
-  }
-
-  // Layer 2: Inner — deep red
-  for (var i = 0; i < 8; i++) {
-    petals.push({
-      angle: (i / 8) * Math.PI * 2 + 0.35 + (rand() - 0.5) * 0.4,
-      startR: 1 + rand(),
-      length: 8 + rand() * 3,
-      width: 4 + rand() * 2,
-      taper: 0.35 + rand() * 0.15,
-      layer: 2,
-      hue: 356 + rand() * 14, sat: 68 + rand() * 15, lightBase: 32 + rand() * 10
-    });
-  }
-
-  // Layer 3: Core petals — small, red-orange
-  for (var i = 0; i < 5; i++) {
-    petals.push({
-      angle: (i / 5) * Math.PI * 2 + 0.6 + (rand() - 0.5) * 0.6,
-      startR: 0.5 + rand() * 0.5,
-      length: 4 + rand() * 3,
-      width: 2 + rand() * 1.5,
-      taper: 0.4 + rand() * 0.2,
-      layer: 3,
-      hue: 8 + rand() * 18, sat: 72 + rand() * 18, lightBase: 33 + rand() * 12
-    });
-  }
-
-  // --- Petal hit test (teardrop shape) ---
-  function testPetal(c, r, petal) {
-    var ox = fcx + Math.cos(petal.angle) * petal.startR;
-    var oy = fcy + Math.sin(petal.angle) * petal.startR;
-    var dc = c - ox;
-    var dr = r - oy;
-    var dirX = Math.cos(petal.angle);
-    var dirY = Math.sin(petal.angle);
-    var along = dc * dirX + dr * dirY;
-    if (along < -1 || along > petal.length) return null;
-    var perpX = dc - along * dirX;
-    var perpY = dr - along * dirY;
-    var perp = Math.sqrt(perpX * perpX + perpY * perpY);
-    var t = Math.max(0, (along + 1) / (petal.length + 1));
-    var wp = Math.sin(t * Math.PI) * Math.pow(Math.max(0, 1 - t * 0.8), petal.taper);
-    var maxW = petal.width * Math.max(0, wp);
-    if (maxW < 0.15 || perp > maxW) return null;
-    return { t: t, edge: perp / maxW };
-  }
-
-  // --- Petal color from HSL with lighting ---
-  function petalColor(petal, info) {
-    var h = petal.hue;
-    var s = petal.sat;
-    var l = petal.lightBase;
-    l += (1 - info.t) * 14;                  // brighter at base
-    l -= info.edge * info.edge * 10;          // darker at edges
-    var lightDot = Math.cos(petal.angle + Math.PI * 0.3);
-    l += lightDot * 8;                        // directional light
-    if (info.edge < 0.2 && info.t > 0.15 && info.t < 0.55) {
-      var v = (0.2 - info.edge) / 0.2;
-      var vt = 1 - Math.abs(info.t - 0.35) / 0.2;
-      if (vt > 0) { l += v * vt * 15; s -= v * vt * 8; }  // highlight vein
-    }
-    l += (rand() - 0.5) * 3;
-    return hslToRgb(h, s, l);
-  }
-
-  // --- Leaf geometry (reused from original) ---
-  function inLeaf(branchR, lcx, side, angleDeg, len, wid, c, r) {
-    var dr = r - branchR;
-    var dc = c - lcx;
+  const points = [];
+  
+  function inLeaf(branchR, cx, side, angleDeg, len, wid, c, r) {
+    let dr = r - branchR;
+    let dc = c - cx;
     if (side < 0 && dc > 0) return false;
     if (side > 0 && dc < 0) return false;
-    var dist = Math.sqrt(dc*dc + dr*dr);
+    
+    let dist = Math.sqrt(dc*dc + dr*dr);
     if (dist > len) return false;
-    var angle = Math.atan2(dr, dc);
-    var targetAngle = angleDeg * Math.PI / 180;
-    var angleDiff = angle - targetAngle;
+    
+    let angle = Math.atan2(dr, dc);
+    let targetAngle = angleDeg * Math.PI / 180;
+    
+    let angleDiff = angle - targetAngle;
     angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
-    var perpDist = Math.abs(dist * Math.sin(angleDiff));
-    var maxWid = wid * Math.sin((dist / len) * Math.PI);
+    
+    let perpDist = Math.abs(dist * Math.sin(angleDiff));
+    let maxWid = wid * Math.sin((dist / len) * Math.PI); 
+    
     return perpDist <= maxWid;
   }
-
-  // --- Build all dots ---
-  var dots = [];
-
-  for (var r = 0; r < rows; r++) {
-    var curve = Math.sin((rows - r) / 14) * 1.3 + Math.sin((rows - r) / 28) * 0.8;
-    var localCx = fcx + curve;
-
-    for (var c = 0; c < cols; c++) {
-      var dc = c - localCx;
-      var dr = r - fcy;
-      var dist = Math.sqrt(dc*dc + dr*dr);
-
-      var isDot = false;
-      var rgb = [0, 0, 0];
-      var dotA = 1;
-      var dotSz = 1;
-      var appear = 0;
-
-      // --- Petals (frontmost layer wins) ---
-      var bestPetal = null, bestInfo = null, bestLayer = -1;
-      for (var pi = 0; pi < petals.length; pi++) {
-        var info = testPetal(c, r, petals[pi]);
-        if (info && petals[pi].layer > bestLayer) {
-          bestPetal = petals[pi];
-          bestInfo = info;
-          bestLayer = petals[pi].layer;
+  
+  for (let r = 0; r < rows; r++) {
+    // Natural organic bend
+    let staticCurve = Math.sin((rows - r) / 12) * 1.5 + Math.sin((rows - r) / 25) * 1.5;
+    let localCx = cx + staticCurve;
+    
+    for (let c = 0; c < cols; c++) {
+      let isPoint = false;
+      let color = '#00ffcc';
+      let appearTime = 0;
+      let size = 1.0;
+      let char = '.';
+      
+      let dx = c - localCx;
+      let dy = r - cy;
+      let dist = Math.sqrt(dx*dx + dy*dy);
+      
+      // Stem
+      if (Math.abs(dx) < 1.2 && r >= cy) {
+        if (r % 2 === 0) {
+          isPoint = true;
+          appearTime = 0.4 * (1 - ((r - cy) / (rows - cy)));
+          char = rand() > 0.5 ? '|' : '¦';
         }
       }
-
-      if (bestPetal) {
-        isDot = true;
-        rgb = petalColor(bestPetal, bestInfo);
-        if (bestInfo.edge > 0.75) dotA = 1 - (bestInfo.edge - 0.75) / 0.25;
-        dotSz = 0.85 + rand() * 0.3;
-        appear = 0.2 + bestInfo.t * 0.25 + bestLayer * 0.04;
-      }
-
-      // --- Glowing core (overrides petals) ---
-      if (dist < 4) {
-        isDot = true;
-        var ct = dist / 4;
-        rgb = hslToRgb(32 + ct * 8, 92 - ct * 15, 68 - ct * 22);
-        dotA = 1;
-        dotSz = 1.15;
-        appear = 0.22;
-      }
-
-      // --- Stem ---
-      if (!isDot && Math.abs(dc) < 1.4 && r > fcy + 5) {
-        if (rand() < 0.55) {
-          isDot = true;
-          rgb = hslToRgb(95 + rand() * 25, 30 + rand() * 20, 18 + rand() * 10);
-          dotA = 0.7;
-          dotSz = 0.6;
-          appear = 0.12 * (1 - (r - fcy) / (rows - fcy));
+      
+      // Petals
+      let angle = Math.atan2(dy, dx) + Math.PI/2;
+      let petalFactor = Math.pow((Math.cos(5 * angle) + 1) / 2, 1.2);
+      let petalDist = 3 + 16 * petalFactor;
+      
+      if (dist <= petalDist && r <= cy + 16) {
+        let density = 1.0;
+        if (dist > petalDist - 2) density = 0.5;
+        if (dist > petalDist - 1) density = 0.2;
+        
+        if (rand() < density) {
+          isPoint = true;
+          if (dist < 3) { color = '#ffffff'; char = '@'; size = 1.2; }
+          else if (dist < 6) { color = '#ffff88'; char = '#'; size = 1.1; }
+          else if (dist < 11) { color = '#aaff00'; char = rand() > 0.5 ? '*' : 'x'; }
+          else { color = '#00ffcc'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
+          appearTime = 0.4 + (dist / 22) * 0.4;
         }
       }
-
-      // --- Leaves ---
-      if (!isDot) {
-        var isL = false;
-        var leafS = 0;
-        if (inLeaf(fcy + 25, localCx, -1, 160, 20, 7, c, r)) { isL = true; leafS = fcy + 25; }
-        if (inLeaf(fcy + 40, localCx, 1, 20, 16, 6, c, r))   { isL = true; leafS = fcy + 40; }
-        if (inLeaf(fcy + 52, localCx, -1, 145, 13, 5, c, r))  { isL = true; leafS = fcy + 52; }
-
-        if (isL && rand() < 0.45) {
-          isDot = true;
-          var lb = 0.7 + rand() * 0.3;
-          rgb = hslToRgb(85 + rand() * 30, 35 + rand() * 25, (20 + rand() * 12) * lb);
-          dotA = 0.65;
-          dotSz = 0.65;
-          var stemT = 0.4 * (1 - ((leafS - fcy) / (rows - fcy)));
-          appear = stemT + Math.abs(dc) / 25 * 0.3 + rand() * 0.1;
+      
+      // Leaves
+      let isLeaf = false;
+      let leafStart = 0;
+      if (inLeaf(50, localCx, -1, 160, 22, 6, c, r)) { isLeaf = true; leafStart = 50; }
+      if (inLeaf(62, localCx, 1, 20, 18, 5, c, r)) { isLeaf = true; leafStart = 62; }
+      if (inLeaf(74, localCx, -1, 140, 15, 4, c, r)) { isLeaf = true; leafStart = 74; }
+      
+      if (isLeaf && !isPoint) {
+        if (rand() < 0.4) {
+          isPoint = true;
+          color = rand() < 0.1 ? '#ffff88' : '#00ffcc';
+          char = rand() < 0.4 ? ',' : (rand() < 0.5 ? '.' : '`');
+          let stemTime = 0.4 * (1 - ((leafStart - cy) / (rows - cy)));
+          appearTime = stemTime + Math.abs(dx) / 25 * 0.3 + rand() * 0.1;
+          size = 0.8;
         }
       }
-
-      // --- Floating particles ---
-      if (!isDot && rand() < 0.004 && dist < 30 && r < rows - 12) {
-        isDot = true;
-        var ph = rand() < 0.3 ? (30 + rand() * 20) : (335 + rand() * 25);
-        rgb = hslToRgb(ph, 40 + rand() * 30, 40 + rand() * 20);
-        dotA = 0.4;
-        dotSz = 0.5;
-        appear = 0.5 + rand() * 0.35;
+      
+      // Floating particles
+      if (!isPoint && rand() < 0.005 && dist < 35 && r < rows - 10) {
+        isPoint = true;
+        color = rand() < 0.2 ? '#ffff88' : '#00ffcc';
+        char = rand() < 0.5 ? '*' : '.';
+        appearTime = 0.5 + rand() * 0.4;
+        size = 0.7;
       }
-
-      if (isDot) {
-        dots.push({
-          x: c * spacing,
-          y: r * spacing,
-          cr: Math.max(0, Math.min(255, Math.round(rgb[0]))),
-          cg: Math.max(0, Math.min(255, Math.round(rgb[1]))),
-          cb: Math.max(0, Math.min(255, Math.round(rgb[2]))),
-          a: dotA,
-          sz: dotSz,
-          at: appear
-        });
+      
+      if (isPoint) {
+        points.push({ x: c * spacing, y: r * spacing, color, appearTime, size, char, currentChar: char });
       }
     }
   }
-
-  var startTime = Date.now();
-  var originY = rows * spacing;
-
+  
+  let startTime = Date.now();
+  const matrixStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const originY = rows * spacing;
+  
   function draw() {
-    var now = Date.now();
-    var elapsed = now - startTime;
-    var t = (elapsed % 12000) / 12000;
-
-    var progress = 0;
-    if (t < 0.3) progress = t / 0.3;
-    else if (t < 0.8) progress = 1;
-    else if (t < 0.9) progress = 1 - (t - 0.8) / 0.1;
-    else progress = 0;
-
+    let now = Date.now();
+    let t = ((now - startTime) % 12000) / 12000; 
+    
+    let progress = 0;
+    if (t < 0.3) progress = t / 0.3; 
+    else if (t < 0.8) progress = 1; 
+    else if (t < 0.9) progress = 1 - (t - 0.8) / 0.1; 
+    else progress = 0; 
+    
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // --- Pulse / breathing ---
-    var pulse = 1;
+    
+    let pulse = 1;
     if (progress === 1) {
-      pulse = 1 + 0.05 * Math.sin(elapsed / 350);
+      pulse = 1 + 0.1 * Math.sin((now - startTime) / 200);
     }
+    
     if (window.flowerGlowActive) {
-      pulse *= (1.25 + 0.2 * Math.sin(now / 80));
+      pulse *= (1.4 + 0.25 * Math.sin(now / 80));
     } else if (focusSession && focusSession.active && focusSession.type === 'focus') {
-      pulse *= (1.1 + 0.07 * Math.sin(now / 150));
+      pulse *= (1.15 + 0.1 * Math.sin(now / 150));
     }
-
-    // --- Wind sway ---
-    var tWind = now / 1800;
+    
+    // Wind sway (compound sine wave for organic movement)
+    let tWind = now / 1500;
     if (window.flowerGlowActive) {
-      tWind = now / 500;
+      tWind = now / 400;
     } else if (focusSession && focusSession.active && focusSession.type === 'focus') {
-      tWind = now / 900;
+      tWind = now / 800;
     }
-    var sway = Math.sin(tWind) * 0.025 + Math.sin(tWind * 1.3 + 1) * 0.015;
+    
+    let sway = Math.sin(tWind) * 0.035 + Math.sin(tWind * 1.4 + 1) * 0.02;
     if (window.flowerGlowActive) {
-      sway *= 1.8;
+      sway *= 2.0;
     }
-
-    // --- Background core glow ---
-    if (progress > 0.3) {
-      var gi = Math.min(1, (progress - 0.3) / 0.2);
-      var br = 0.7 + 0.3 * Math.sin(elapsed / 900);
-      var ga = gi * br * 0.09;
-      var grd = ctx.createRadialGradient(fcx*spacing, fcy*spacing, 0, fcx*spacing, fcy*spacing, 65);
-      grd.addColorStop(0, 'rgba(255, 180, 80, ' + (ga * 1.3).toFixed(3) + ')');
-      grd.addColorStop(0.35, 'rgba(180, 40, 50, ' + (ga * 0.5).toFixed(3) + ')');
-      grd.addColorStop(1, 'rgba(80, 15, 30, 0)');
-      ctx.fillStyle = grd;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    for (let i = 0; i < points.length; i++) {
+      let p = points[i];
+      if (progress > p.appearTime) {
+        let localProgress = Math.min(1, (progress - p.appearTime) * 5); 
+        
+        let alpha = localProgress * pulse * p.size;
+        if (p.size < 1 && Math.random() < 0.05) alpha *= 0.5; 
+        
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+        ctx.fillStyle = p.color;
+        
+        if ((p.char === '@' || p.char === '#') && Math.random() < 0.03) {
+          p.currentChar = matrixStr[Math.floor(Math.random() * matrixStr.length)];
+        }
+        
+        // Apply wind shear anchored at the bottom
+        let dy = p.y - originY; 
+        let swayOffset = dy * sway; 
+        let finalX = p.x + swayOffset;
+        
+        ctx.fillText(p.currentChar, finalX, p.y);
+      }
     }
-
-    // --- Render dots ---
-    for (var i = 0; i < dots.length; i++) {
-      var d = dots[i];
-      if (progress <= d.at) continue;
-
-      var lp = Math.min(1, (progress - d.at) * 4);
-      var alpha = lp * d.a * pulse;
-      if (alpha <= 0.01) continue;
-
-      ctx.globalAlpha = Math.min(1, alpha);
-      ctx.fillStyle = 'rgb(' + d.cr + ',' + d.cg + ',' + d.cb + ')';
-
-      var dy = d.y - originY;
-      var fx = d.x + dy * sway;
-      var radius = 1.4 * d.sz;
-
-      ctx.beginPath();
-      ctx.arc(fx, d.y, radius, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.globalAlpha = 1;
+    
+    ctx.globalAlpha = 1.0;
     requestAnimationFrame(draw);
   }
   draw();
