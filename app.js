@@ -4141,7 +4141,7 @@ function startFlowerAnimation() {
   if (!canvas) return;
   const ctx = canvas.getContext('2d');
   
-  const spacing = 5;
+  const spacing = 5; // Slightly larger spacing for text
   const cols = 55;
   const rows = 80;
   canvas.width = cols * spacing;
@@ -4150,7 +4150,6 @@ function startFlowerAnimation() {
   const cx = 27;
   const cy = 25;
   
-  // --- Deterministic PRNG ---
   function mulberry32(a) {
     return function() {
       var t = a += 0x6D2B79F5;
@@ -4162,63 +4161,29 @@ function startFlowerAnimation() {
   const rand = mulberry32(42);
   const points = [];
   
-  // --- Mouse tracking ---
-  let mouseX = -9999, mouseY = -9999;
-  let mouseActive = false;
-  const MOUSE_RADIUS = 45;      // px radius of influence
-  const SCATTER_FORCE = 8;      // max scatter displacement
-  const SPRING_STIFFNESS = 0.08; // snap-back spring constant
-  const DAMPING = 0.82;         // velocity damping for smooth settle
-  
-  canvas.addEventListener('mousemove', function(e) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    mouseX = (e.clientX - rect.left) * scaleX;
-    mouseY = (e.clientY - rect.top) * scaleY;
-    mouseActive = true;
-  });
-  canvas.addEventListener('mouseleave', function() {
-    mouseActive = false;
-    mouseX = -9999;
-    mouseY = -9999;
-  });
-  // Touch support for mobile
-  canvas.addEventListener('touchmove', function(e) {
-    e.preventDefault();
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    const touch = e.touches[0];
-    mouseX = (touch.clientX - rect.left) * scaleX;
-    mouseY = (touch.clientY - rect.top) * scaleY;
-    mouseActive = true;
-  }, { passive: false });
-  canvas.addEventListener('touchend', function() {
-    mouseActive = false;
-    mouseX = -9999;
-    mouseY = -9999;
-  });
-  
-  // --- Leaf geometry ---
   function inLeaf(branchR, cx, side, angleDeg, len, wid, c, r) {
     let dr = r - branchR;
     let dc = c - cx;
     if (side < 0 && dc > 0) return false;
     if (side > 0 && dc < 0) return false;
+    
     let dist = Math.sqrt(dc*dc + dr*dr);
     if (dist > len) return false;
+    
     let angle = Math.atan2(dr, dc);
     let targetAngle = angleDeg * Math.PI / 180;
+    
     let angleDiff = angle - targetAngle;
     angleDiff = Math.atan2(Math.sin(angleDiff), Math.cos(angleDiff));
+    
     let perpDist = Math.abs(dist * Math.sin(angleDiff));
     let maxWid = wid * Math.sin((dist / len) * Math.PI); 
+    
     return perpDist <= maxWid;
   }
   
-  // --- Build point grid (same geometry as before) ---
   for (let r = 0; r < rows; r++) {
+    // Natural organic bend
     let staticCurve = Math.sin((rows - r) / 12) * 1.5 + Math.sin((rows - r) / 25) * 1.5;
     let localCx = cx + staticCurve;
     
@@ -4228,7 +4193,6 @@ function startFlowerAnimation() {
       let appearTime = 0;
       let size = 1.0;
       let char = '.';
-      let zone = 'outer'; // track which part of flower for lighting
       
       let dx = c - localCx;
       let dy = r - cy;
@@ -4240,7 +4204,6 @@ function startFlowerAnimation() {
           isPoint = true;
           appearTime = 0.4 * (1 - ((r - cy) / (rows - cy)));
           char = rand() > 0.5 ? '|' : '¦';
-          zone = 'stem';
         }
       }
       
@@ -4256,10 +4219,10 @@ function startFlowerAnimation() {
         
         if (rand() < density) {
           isPoint = true;
-          if (dist < 3) { color = '#ffffff'; char = '@'; size = 1.2; zone = 'core'; }
-          else if (dist < 6) { color = '#ffff88'; char = '#'; size = 1.1; zone = 'inner'; }
-          else if (dist < 11) { color = '#aaff00'; char = rand() > 0.5 ? '*' : 'x'; zone = 'mid'; }
-          else { color = '#00ffcc'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; zone = 'outer'; }
+          if (dist < 3) { color = '#ffffff'; char = '@'; size = 1.2; }
+          else if (dist < 6) { color = '#ffff88'; char = '#'; size = 1.1; }
+          else if (dist < 11) { color = '#aaff00'; char = rand() > 0.5 ? '*' : 'x'; }
+          else { color = '#00ffcc'; char = rand() > 0.5 ? '+' : ':'; size = 0.8; }
           appearTime = 0.4 + (dist / 22) * 0.4;
         }
       }
@@ -4279,7 +4242,6 @@ function startFlowerAnimation() {
           let stemTime = 0.4 * (1 - ((leafStart - cy) / (rows - cy)));
           appearTime = stemTime + Math.abs(dx) / 25 * 0.3 + rand() * 0.1;
           size = 0.8;
-          zone = 'leaf';
         }
       }
       
@@ -4290,294 +4252,80 @@ function startFlowerAnimation() {
         char = rand() < 0.5 ? '*' : '.';
         appearTime = 0.5 + rand() * 0.4;
         size = 0.7;
-        zone = 'particle';
       }
       
       if (isPoint) {
-        points.push({
-          // Original home position
-          homeX: c * spacing,
-          homeY: r * spacing,
-          // Current rendered position (for physics)
-          x: c * spacing,
-          y: r * spacing,
-          // Velocity for spring physics
-          vx: 0,
-          vy: 0,
-          // Visual properties
-          color: color,
-          appearTime: appearTime,
-          size: size,
-          char: char,
-          currentChar: char,
-          zone: zone,
-          distFromCenter: dist,
-          // Per-particle scatter randomness
-          scatterAngleBias: (rand() - 0.5) * 0.6
-        });
+        points.push({ x: c * spacing, y: r * spacing, color, appearTime, size, char, currentChar: char });
       }
     }
   }
-  
-  // --- Flower center coordinates in canvas space ---
-  const flowerCenterX = cx * spacing;
-  const flowerCenterY = cy * spacing;
   
   let startTime = Date.now();
   const matrixStr = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   const originY = rows * spacing;
   
-  // --- Parse hex color to {r,g,b} ---
-  function hexToRgb(hex) {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 0, g: 255, b: 204 };
-  }
-  
   function draw() {
     let now = Date.now();
-    let elapsed = now - startTime;
-    let t = (elapsed % 12000) / 12000;
+    let t = ((now - startTime) % 12000) / 12000; 
     
-    // --- Bloom cycle progress ---
     let progress = 0;
-    if (t < 0.3) progress = t / 0.3;
-    else if (t < 0.8) progress = 1;
-    else if (t < 0.9) progress = 1 - (t - 0.8) / 0.1;
-    else progress = 0;
+    if (t < 0.3) progress = t / 0.3; 
+    else if (t < 0.8) progress = 1; 
+    else if (t < 0.9) progress = 1 - (t - 0.8) / 0.1; 
+    else progress = 0; 
     
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-    // --- Pulse (breathing) ---
     let pulse = 1;
     if (progress === 1) {
-      pulse = 1 + 0.1 * Math.sin(elapsed / 200);
+      pulse = 1 + 0.1 * Math.sin((now - startTime) / 200);
     }
+    
     if (window.flowerGlowActive) {
       pulse *= (1.4 + 0.25 * Math.sin(now / 80));
     } else if (focusSession && focusSession.active && focusSession.type === 'focus') {
       pulse *= (1.15 + 0.1 * Math.sin(now / 150));
     }
     
-    // --- Wind sway ---
+    // Wind sway (compound sine wave for organic movement)
     let tWind = now / 1500;
     if (window.flowerGlowActive) {
       tWind = now / 400;
     } else if (focusSession && focusSession.active && focusSession.type === 'focus') {
       tWind = now / 800;
     }
+    
     let sway = Math.sin(tWind) * 0.035 + Math.sin(tWind * 1.4 + 1) * 0.02;
     if (window.flowerGlowActive) {
       sway *= 2.0;
     }
     
-    // ============================================
-    // DYNAMIC VOLUMETRIC LIGHTING (Background Layer)
-    // ============================================
-    if (progress > 0.3) {
-      let lightIntensity = Math.min(1, (progress - 0.3) / 0.2);
-      // Breathing brightness for the core glow
-      let breathe = 0.6 + 0.4 * Math.sin(elapsed / 800);
-      let glowAlpha = lightIntensity * breathe * 0.12;
-      
-      // Radial core glow
-      let coreGrad = ctx.createRadialGradient(
-        flowerCenterX, flowerCenterY, 0,
-        flowerCenterX, flowerCenterY, 80
-      );
-      coreGrad.addColorStop(0, 'rgba(255, 255, 200, ' + (glowAlpha * 1.5) + ')');
-      coreGrad.addColorStop(0.3, 'rgba(255, 255, 100, ' + (glowAlpha * 0.8) + ')');
-      coreGrad.addColorStop(0.6, 'rgba(170, 255, 0, ' + (glowAlpha * 0.3) + ')');
-      coreGrad.addColorStop(1, 'rgba(0, 255, 204, 0)');
-      ctx.fillStyle = coreGrad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Anamorphic horizontal lens flare
-      let flareBreath = 0.5 + 0.5 * Math.sin(elapsed / 600 + 0.5);
-      let flareAlpha = lightIntensity * flareBreath * 0.06;
-      let flareWidth = 120 + 60 * flareBreath;
-      let flareGrad = ctx.createRadialGradient(
-        flowerCenterX, flowerCenterY, 0,
-        flowerCenterX, flowerCenterY, flareWidth
-      );
-      flareGrad.addColorStop(0, 'rgba(255, 255, 220, ' + (flareAlpha * 2) + ')');
-      flareGrad.addColorStop(0.5, 'rgba(255, 255, 150, ' + (flareAlpha * 0.5) + ')');
-      flareGrad.addColorStop(1, 'rgba(255, 255, 100, 0)');
-      
-      ctx.save();
-      ctx.translate(flowerCenterX, flowerCenterY);
-      ctx.scale(3.5 + flareBreath * 1.5, 0.15 + flareBreath * 0.05); // anamorphic stretch
-      ctx.translate(-flowerCenterX, -flowerCenterY);
-      ctx.fillStyle = flareGrad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
-      
-      // Secondary diagonal flare streak (subtle)
-      let flare2Alpha = lightIntensity * flareBreath * 0.025;
-      ctx.save();
-      ctx.translate(flowerCenterX, flowerCenterY);
-      ctx.rotate(0.35 + 0.1 * Math.sin(elapsed / 2000));
-      ctx.scale(2.5, 0.08);
-      ctx.translate(-flowerCenterX, -flowerCenterY);
-      let flareGrad2 = ctx.createRadialGradient(
-        flowerCenterX, flowerCenterY, 0,
-        flowerCenterX, flowerCenterY, 100
-      );
-      flareGrad2.addColorStop(0, 'rgba(200, 255, 255, ' + (flare2Alpha * 2) + ')');
-      flareGrad2.addColorStop(1, 'rgba(200, 255, 255, 0)');
-      ctx.fillStyle = flareGrad2;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.restore();
-    }
-    
-    // ============================================
-    // PARTICLE PHYSICS UPDATE + RENDER
-    // ============================================
     ctx.font = '10px monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
     for (let i = 0; i < points.length; i++) {
       let p = points[i];
-      
-      // --- Spring physics: scatter & snap-back ---
-      let forceX = 0, forceY = 0;
-      
-      if (mouseActive) {
-        // Apply wind sway to home position for accurate mouse distance calc
-        let homeDy = p.homeY - originY;
-        let homeSwayed = p.homeX + homeDy * sway;
-        
-        let dxM = p.x - mouseX;
-        let dyM = p.y - mouseY;
-        let distM = Math.sqrt(dxM * dxM + dyM * dyM);
-        
-        if (distM < MOUSE_RADIUS && distM > 0.1) {
-          // Repulsion force inversely proportional to distance
-          let strength = (1 - distM / MOUSE_RADIUS);
-          strength = strength * strength * SCATTER_FORCE;
-          
-          // Scatter direction: away from cursor with slight angular bias
-          let scatterAngle = Math.atan2(dyM, dxM) + p.scatterAngleBias;
-          forceX += Math.cos(scatterAngle) * strength;
-          forceY += Math.sin(scatterAngle) * strength;
-        }
-      }
-      
-      // Spring force toward home position (with wind sway applied)
-      let homeDyWind = p.homeY - originY;
-      let homeSwayedX = p.homeX + homeDyWind * sway;
-      
-      let springDx = homeSwayedX - p.x;
-      let springDy = p.homeY - p.y;
-      forceX += springDx * SPRING_STIFFNESS;
-      forceY += springDy * SPRING_STIFFNESS;
-      
-      // Integrate velocity
-      p.vx = (p.vx + forceX) * DAMPING;
-      p.vy = (p.vy + forceY) * DAMPING;
-      p.x += p.vx;
-      p.y += p.vy;
-      
-      // --- Render if within bloom progress ---
       if (progress > p.appearTime) {
-        let localProgress = Math.min(1, (progress - p.appearTime) * 5);
+        let localProgress = Math.min(1, (progress - p.appearTime) * 5); 
         
-        // Calculate displacement from home for fade effect
-        let displaceX = p.x - (p.homeX + homeDyWind * sway);
-        let displaceY = p.y - p.homeY;
-        let displacement = Math.sqrt(displaceX * displaceX + displaceY * displaceY);
-        
-        // Fade and shrink as particles scatter further
-        let scatterFade = 1;
-        let scatterScale = 1;
-        if (displacement > 2) {
-          scatterFade = Math.max(0.05, 1 - (displacement / (MOUSE_RADIUS * 1.2)));
-          scatterScale = Math.max(0.3, 1 - (displacement / (MOUSE_RADIUS * 2)));
-        }
-        
-        // --- Volumetric light influence on character brightness ---
-        let lightBoost = 1;
-        if (progress > 0.3) {
-          let breathe = 0.6 + 0.4 * Math.sin(elapsed / 800);
-          if (p.zone === 'core') {
-            lightBoost = 1.0 + 0.6 * breathe;
-          } else if (p.zone === 'inner') {
-            lightBoost = 1.0 + 0.35 * breathe;
-          } else if (p.zone === 'mid') {
-            // Horizontal flare boost: characters near the flare band get boosted
-            let flareProximity = Math.abs(p.homeY - flowerCenterY);
-            if (flareProximity < 15) {
-              let flareFactor = 1 - flareProximity / 15;
-              lightBoost = 1.0 + 0.25 * breathe * flareFactor;
-            }
-          }
-        }
-        
-        let alpha = localProgress * pulse * p.size * scatterFade * lightBoost;
-        if (p.size < 1 && Math.random() < 0.05) alpha *= 0.5;
+        let alpha = localProgress * pulse * p.size;
+        if (p.size < 1 && Math.random() < 0.05) alpha *= 0.5; 
         
         ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+        ctx.fillStyle = p.color;
         
-        // --- Color with light-influenced bloom ---
-        let rgb = hexToRgb(p.color);
-        if (lightBoost > 1) {
-          // Brighten toward white when lit
-          let blend = Math.min(1, (lightBoost - 1) * 1.5);
-          rgb.r = Math.min(255, Math.round(rgb.r + (255 - rgb.r) * blend * 0.4));
-          rgb.g = Math.min(255, Math.round(rgb.g + (255 - rgb.g) * blend * 0.3));
-          rgb.b = Math.min(255, Math.round(rgb.b + (255 - rgb.b) * blend * 0.2));
-        }
-        ctx.fillStyle = 'rgb(' + rgb.r + ',' + rgb.g + ',' + rgb.b + ')';
-        
-        // Matrix character flicker
         if ((p.char === '@' || p.char === '#') && Math.random() < 0.03) {
           p.currentChar = matrixStr[Math.floor(Math.random() * matrixStr.length)];
         }
         
-        // Scattered characters get glitchy
-        if (displacement > 8 && Math.random() < 0.15) {
-          p.currentChar = matrixStr[Math.floor(Math.random() * matrixStr.length)];
-        } else if (displacement < 1) {
-          p.currentChar = p.char; // restore original when settled
-        }
+        // Apply wind shear anchored at the bottom
+        let dy = p.y - originY; 
+        let swayOffset = dy * sway; 
+        let finalX = p.x + swayOffset;
         
-        let fontSize = 10 * scatterScale;
-        if (fontSize < 10) {
-          ctx.font = Math.max(4, Math.round(fontSize)) + 'px monospace';
-        }
-        
-        ctx.fillText(p.currentChar, p.x, p.y);
-        
-        if (fontSize < 10) {
-          ctx.font = '10px monospace';
-        }
+        ctx.fillText(p.currentChar, finalX, p.y);
       }
-    }
-    
-    // ============================================
-    // VOLUMETRIC LIGHT OVERLAY (Foreground Bloom)
-    // ============================================
-    if (progress > 0.4) {
-      let lightIntensity = Math.min(1, (progress - 0.4) / 0.2);
-      let breathe = 0.5 + 0.5 * Math.sin(elapsed / 800);
-      let overlayAlpha = lightIntensity * breathe * 0.04;
-      
-      // Soft additive glow over the center
-      ctx.globalCompositeOperation = 'lighter';
-      let overlayGrad = ctx.createRadialGradient(
-        flowerCenterX, flowerCenterY, 0,
-        flowerCenterX, flowerCenterY, 50
-      );
-      overlayGrad.addColorStop(0, 'rgba(255, 255, 240, ' + (overlayAlpha * 2) + ')');
-      overlayGrad.addColorStop(0.5, 'rgba(255, 255, 180, ' + (overlayAlpha) + ')');
-      overlayGrad.addColorStop(1, 'rgba(170, 255, 0, 0)');
-      ctx.fillStyle = overlayGrad;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.globalCompositeOperation = 'source-over';
     }
     
     ctx.globalAlpha = 1.0;
