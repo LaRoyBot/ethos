@@ -6,3 +6,10 @@ renderProtocolView*.js
 extracted_app*.js
 leveldb_temp/
 read_log.js
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
