@@ -1006,7 +1006,7 @@ function initGoogleAuth() {
   }
   _googleTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
-    scope: 'https://www.googleapis.com/auth/drive.appdata',
+    scope: 'https://www.googleapis.com/auth/drive.appdata email profile',
     callback: (tokenResponse) => {
       if (tokenResponse.error) {
         console.error("Google Auth error:", tokenResponse.error);
