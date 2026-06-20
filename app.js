@@ -397,6 +397,10 @@ function driveFindStateFile(token) {
     headers: { 'Authorization': `Bearer ${token}` }
   })
   .then(res => {
+    if (res.status === 401) {
+      handleLogout();
+      throw new Error("Unauthorized");
+    }
     if (!res.ok) throw new Error("Drive search failed: " + res.statusText);
     return res.json();
   })
@@ -414,6 +418,10 @@ function driveReadState(token, fileId) {
     headers: { 'Authorization': `Bearer ${token}` }
   })
   .then(res => {
+    if (res.status === 401) {
+      handleLogout();
+      throw new Error("Unauthorized");
+    }
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("Drive read failed: " + res.statusText);
     return res.json();
@@ -432,6 +440,10 @@ function driveWriteState(token, statePayload) {
         body: JSON.stringify(statePayload)
       })
       .then(res => {
+        if (res.status === 401) {
+          handleLogout();
+          throw new Error("Unauthorized");
+        }
         if (!res.ok) throw new Error("Drive patch failed: " + res.statusText);
         return res.json();
       });
@@ -448,6 +460,10 @@ function driveWriteState(token, statePayload) {
         })
       })
       .then(res => {
+        if (res.status === 401) {
+          handleLogout();
+          throw new Error("Unauthorized");
+        }
         if (!res.ok) throw new Error("Drive create failed: " + res.statusText);
         return res.json();
       })
@@ -463,6 +479,10 @@ function driveWriteState(token, statePayload) {
         });
       })
       .then(res => {
+        if (res.status === 401) {
+          handleLogout();
+          throw new Error("Unauthorized");
+        }
         if (!res.ok) throw new Error("Drive write failed: " + res.statusText);
         return res.json();
       });
@@ -806,6 +826,7 @@ function handleLogout() {
     _driveFileId = null;
     localStorage.removeItem('google_access_token');
     localStorage.removeItem('google_token_expiry');
+    localStorage.removeItem('google_user_profile');
     save('mathInit_state', S);
     window.location.reload();
   };
@@ -1042,6 +1063,7 @@ function onGoogleAuthSuccess(tokenResponse) {
     };
     S.authEmail = currentUser.email;
     S.authUsername = currentUser.email.split('@')[0];
+    localStorage.setItem('google_user_profile', JSON.stringify(currentUser));
     
     authStateFetched = true;
     updateOracleKeyStatus();
@@ -1086,25 +1108,14 @@ document.addEventListener('DOMContentLoaded', () => {
   
   const token = localStorage.getItem('google_access_token');
   const expiry = localStorage.getItem('google_token_expiry');
+  const cachedProfile = localStorage.getItem('google_user_profile');
   
-  if (token && expiry && Date.now() < parseInt(expiry)) {
+  if (token && expiry && Date.now() < parseInt(expiry) && cachedProfile) {
     _googleAccessToken = token;
     _googleTokenExpiry = parseInt(expiry);
     
-    setSyncStatus('Status: restoring session...');
-    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-      headers: { 'Authorization': `Bearer ${_googleAccessToken}` }
-    })
-    .then(res => {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then(userInfo => {
-      currentUser = {
-        uid: userInfo.sub,
-        displayName: userInfo.name || userInfo.given_name || userInfo.email.split('@')[0],
-        email: userInfo.email
-      };
+    try {
+      currentUser = JSON.parse(cachedProfile);
       S.authEmail = currentUser.email;
       S.authUsername = currentUser.email.split('@')[0];
       
@@ -1117,24 +1128,15 @@ document.addEventListener('DOMContentLoaded', () => {
       _syncSafe = false;
       tryDismissBoot();
       
+      setSyncStatus('Status: restoring session...');
       driveSyncPull((success, result) => {
         unlockBootSync();
         render();
       }, false);
-    })
-    .catch(err => {
-      console.warn("Restoring Google session failed:", err);
-      _googleAccessToken = null;
-      _googleTokenExpiry = 0;
-      localStorage.removeItem('google_access_token');
-      localStorage.removeItem('google_token_expiry');
-      currentUser = null;
-      authStateFetched = true;
-      tryDismissBoot();
-      unlockBootSync();
-      renderSyncPanel();
-      render();
-    });
+    } catch (e) {
+      console.warn("Restoring Google session failed:", e);
+      handleLogout();
+    }
   } else {
     authStateFetched = true;
     if (S.authUsername === 'demo') {
