@@ -1,25 +1,10 @@
-// === FIREBASE CONFIGURATION ===
-// NOTE: Client-side Firebase keys are designed to be public.
-// Project safety is guaranteed by strict Database Security Rules (Issue 2/9)
-// and API restrictions/App Check set up in the Firebase Console.
-const firebaseConfig = {
-  apiKey: "AIzaSyCOQmc-GacWr2OrGqRKaU3Na4NAePe7_T4",
-  authDomain: "ethos-jet.firebaseapp.com",
-  projectId: "ethos-jet",
-  storageBucket: "ethos-jet.firebasestorage.app",
-  messagingSenderId: "936086701935",
-  appId: "1:936086701935:web:0b891975a9ee1a5bfe0a9a",
-  databaseURL: "https://ethos-jet-default-rtdb.asia-southeast1.firebasedatabase.app"
-};
+// === GOOGLE OAUTH & DRIVE CONFIGURATION ===
+const GOOGLE_CLIENT_ID = "936086701935-l8rpp157i9lcm3fka67et9ntgeurbruh.apps.googleusercontent.com";
+let _googleTokenClient = null;
+let _googleAccessToken = null;
+let _googleTokenExpiry = 0;
+let _driveFileId = null; // cached Drive file ID for ethos_state.json
 
-// Initialize Firebase
-if (typeof firebase !== 'undefined') {
-  try {
-    firebase.initializeApp(firebaseConfig);
-  } catch (e) {
-    console.error("Firebase initialization failed:", e);
-  }
-}
 
 // === STATE ===
 function escapeHtml(s) {
@@ -295,12 +280,11 @@ function updateTodayDate() {
 setInterval(updateTodayDate, 30000);
 
 function getNetworkErrorTip(err) {
-  const isNetworkErr = (err && (err.code === 'auth/network-request-failed' || 
-                                (err.message && err.message.toLowerCase().includes('network'))));
+  const isNetworkErr = (err && (err.message && err.message.toLowerCase().includes('network')));
   if (isNetworkErr) {
     return '<div style="margin-top: 8px; padding: 10px; background: rgba(255, 68, 68, 0.08); border: 1px solid rgba(255, 68, 68, 0.3); border-radius: 4px; font-size: 11px; line-height: 1.4; color: var(--text);">' +
            '<strong style="color:var(--red);">[NETWORK BLOCK DETECTED]</strong><br>' +
-           '// Connection to Firebase Auth servers (googleapis.com) was blocked.<br>' +
+           '// Connection to Google Identity / Drive servers (googleapis.com) was blocked.<br>' +
            '<b>Probable Causes & Solutions:</b><br>' +
            ' 1. <b>Ad Blockers / Privacy Shields:</b> Extensions like uBlock Origin, Privacy Badger, or Brave Shields often block googleapis.com. Disable them temporarily for this app.<br>' +
            ' 2. <b>DNS Blockers:</b> Using custom DNS (AdGuard DNS, NextDNS, Pi-hole)? They might block googleapis.com. Try using standard DNS (e.g. 1.1.1.1 or 8.8.8.8) or cellular hotspot.<br>' +
@@ -322,19 +306,18 @@ function ss(skipFirebase = false) {
     S.lastUpdated = Date.now();
   }
   save('mathInit_state', S);
-  if (!skipFirebase && !_bootSyncLocked && _syncSafe &&
-      typeof firebase !== 'undefined' && firebase.auth().currentUser) {
-    queueFirebaseSyncPush();
+  if (!skipFirebase && !_bootSyncLocked && _syncSafe && _googleAccessToken) {
+    queueDriveSyncPush();
   }
 }
 
 let _syncPushTimer = null;
-function queueFirebaseSyncPush() {
+function queueDriveSyncPush() {
   if (!_syncSafe) return;
   if (_syncPushTimer) clearTimeout(_syncPushTimer);
   _syncPushTimer = setTimeout(function () {
     _syncPushTimer = null;
-    firebaseSyncPush();
+    driveSyncPush();
   }, 1200);
 }
 
@@ -365,125 +348,198 @@ function backupLocalStateBeforeCloudReplace(reason) {
   }
 }
 
-// === FIREBASE CLOUD SYNC CORE ===
-// Same-origin Vercel API gateway: the best sync path.
-// Priority: 1) /api/sync (same domain, zero CORS) → 2) customSyncProxy → 3) direct Firebase REST → 4) Firebase WebSocket
-let _vercelGatewayAvailable = null; // null = untested, true/false = cached probe result
+// === GOOGLE DRIVE CLOUD SYNC CORE ===
 
-function getCleanSyncKey() {
-  return (S.customSyncKey || '').trim().replace(/^["']|["']$/g, '');
-}
-
-function getSyncGatewayUrl(uid) {
-  const cleanKey = getCleanSyncKey();
-  if (_vercelGatewayAvailable === true) {
-    return { url: '/api/sync', type: 'gateway', headers: {} };
+function getValidToken() {
+  if (!_googleAccessToken) {
+    return Promise.reject(new Error("No access token available. Please sign in."));
   }
-  if (S.customSyncProxy && cleanKey) {
-    var host = S.customSyncProxy.replace(/\/$/, '');
-    return { url: host + '/sync/' + uid + '.json', type: 'proxy', headers: { 'x-sync-key': cleanKey } };
+  if (Date.now() < _googleTokenExpiry) {
+    return Promise.resolve(_googleAccessToken);
   }
-  return null;
-}
-
-function getSyncRequestHeaders(gw) {
-  var baseHeaders = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-  if (gw && gw.type === 'gateway') {
-    var user = typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser;
-    if (!user) return Promise.reject(new Error('User not authenticated'));
-    return user.getIdToken(false).then(function(token) {
-      return Object.assign(baseHeaders, { 'Authorization': 'Bearer ' + token });
-    });
-  }
-  return Promise.resolve(Object.assign(baseHeaders, gw ? gw.headers : {}));
+  // Token expired or close to expiry, request a new one
+  return new Promise((resolve, reject) => {
+    if (!_googleTokenClient) {
+      reject(new Error("Google Identity Services not initialized."));
+      return;
+    }
+    const originalCallback = _googleTokenClient.callback;
+    _googleTokenClient.callback = (tokenResponse) => {
+      _googleTokenClient.callback = originalCallback;
+      if (tokenResponse.error) {
+        reject(new Error("Failed to refresh token: " + tokenResponse.error));
+        return;
+      }
+      _googleAccessToken = tokenResponse.access_token;
+      _googleTokenExpiry = Date.now() + (parseInt(tokenResponse.expires_in) || 3600) * 1000 - 60000;
+      localStorage.setItem('google_access_token', _googleAccessToken);
+      localStorage.setItem('google_token_expiry', _googleTokenExpiry);
+      resolve(_googleAccessToken);
+    };
+    _googleTokenClient.requestAccessToken({ prompt: '' });
+  });
 }
 
 function getSyncPathReport() {
-  var user = typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser;
-  var uid = user ? user.uid : '<not-authenticated>';
-  var gw = user ? getSyncGatewayUrl(uid) : null;
-  var cleanKey = getCleanSyncKey();
+  const uid = currentUser ? currentUser.uid : '<not-authenticated>';
   return {
     uid: uid,
-    path: gw ? gw.type.toUpperCase() : 'DIRECT FIREBASE',
-    url: gw ? gw.url : firebaseConfig.databaseURL + '/sync/' + uid,
-    clientKeyLength: cleanKey.length,
-    auth: gw && gw.type === 'gateway' ? 'Firebase ID token' : (cleanKey ? 'sync key' : 'Firebase direct')
+    path: 'GOOGLE DRIVE APPDATA',
+    url: _driveFileId ? `files/${_driveFileId}` : 'ethos_state.json',
+    clientKeyLength: 0,
+    auth: _googleAccessToken ? 'Google OAuth2 Token' : 'unauthenticated'
   };
 }
 
-function getSyncErrorMessage(err) {
-  var msg = (err && err.message) ? err.message : String(err);
-  if (msg.indexOf('HTTP 401') !== -1) {
-    return msg + '. The sync gateway rejected the Firebase login token. Sign out, sign back in, then try sync again.';
+function driveFindStateFile(token) {
+  if (_driveFileId) return Promise.resolve(_driveFileId);
+  return fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='ethos_state.json'", {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error("Drive search failed: " + res.statusText);
+    return res.json();
+  })
+  .then(data => {
+    if (data.files && data.files.length > 0) {
+      _driveFileId = data.files[0].id;
+      return _driveFileId;
+    }
+    return null;
+  });
+}
+
+function driveReadState(token, fileId) {
+  return fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { 'Authorization': `Bearer ${token}` }
+  })
+  .then(res => {
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error("Drive read failed: " + res.statusText);
+    return res.json();
+  });
+}
+
+function driveWriteState(token, statePayload) {
+  return driveFindStateFile(token).then(fileId => {
+    if (fileId) {
+      return fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(statePayload)
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Drive patch failed: " + res.statusText);
+        return res.json();
+      });
+    } else {
+      return fetch(`https://www.googleapis.com/drive/v3/files`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: 'ethos_state.json',
+          parents: ['appDataFolder']
+        })
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Drive create failed: " + res.statusText);
+        return res.json();
+      })
+      .then(meta => {
+        _driveFileId = meta.id;
+        return fetch(`https://www.googleapis.com/upload/drive/v3/files/${_driveFileId}?uploadType=media`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(statePayload)
+        });
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Drive write failed: " + res.statusText);
+        return res.json();
+      });
+    }
+  });
+}
+
+function driveSyncPush(callback) {
+  if (!_syncSafe) { if (callback) callback(false, 'sync not ready'); return; }
+  if (currentUser && currentUser.uid === 'demo-session') {
+    if (callback) callback(true, 'demo_session_no_push');
+    return;
   }
-  return msg;
-}
-
-function probeGateway() {
-  if (_vercelGatewayAvailable !== null) return Promise.resolve(_vercelGatewayAvailable);
-  return fetch('/api/health', { method: 'GET', cache: 'no-store' })
-    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function(data) {
-      _vercelGatewayAvailable = !!(data && data.sync_ready);
-      console.log('[Sync] Gateway probe:', _vercelGatewayAvailable ? 'AVAILABLE (sync_ready)' : 'NOT AVAILABLE (sync not configured)');
-      return _vercelGatewayAvailable;
+  getValidToken().then(token => {
+    S.pushCount = (S.pushCount || 0) + 1;
+    const syncableState = Object.assign({}, S);
+    delete syncableState.cmdHistory;
+    setSyncStatus('Status: pushing to Drive...');
+    return driveWriteState(token, {
+      state: syncableState,
+      lastUpdated: S.lastUpdated,
+      pushCount: S.pushCount
     })
-    .catch(function() { _vercelGatewayAvailable = false; console.log('[Sync] Gateway probe: NOT AVAILABLE (fetch error)'); return false; });
-}
-probeGateway();
-
-
-
-function firebaseRestPush(uid, callback) {
-  const gw = getSyncGatewayUrl(uid);
-  if (!gw) { if (callback) callback(false, 'No sync gateway available'); return; }
-
-  S.pushCount = (S.pushCount || 0) + 1;
-  const syncableState = Object.assign({}, S);
-  delete syncableState.cmdHistory;
-
-  getSyncRequestHeaders(gw).then(function (headers) {
-    return fetch(gw.url, {
-      method: 'PUT',
-      headers: headers,
-      body: JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount }),
+    .then(data => {
+      _syncRetryDelay = 2000;
+      const payloadStr = JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount });
+      const sizeKb = (payloadStr.length / 1024).toFixed(1) + 'kb';
+      addLog('info', 'Cloud sync: Pushed newer local state to Drive. [' + sizeKb + ']');
+      setSyncStatus('Status: synced (' + new Date(S.lastUpdated).toLocaleTimeString() + ')');
+      if (callback) callback(true, 'pushed');
     });
   })
-  .then(function (response) {
-    if (!response.ok) throw new Error('gateway push HTTP ' + response.status);
-    return response.json();
-  })
-  .then(function (data) {
-    if (data && typeof data.lastUpdated === 'number') {
-      S.lastUpdated = data.lastUpdated;     // adopt server-authoritative time
-      save('mathInit_state', S);            // local-only persist, no re-push
-    }
-    _syncRetryDelay = 2000;                  // reset backoff on success
-
-    // Calculate pushed size
-    const payloadStr = JSON.stringify({ state: syncableState, lastUpdated: S.lastUpdated, pushCount: S.pushCount });
-    const sizeKb = (payloadStr.length / 1024).toFixed(1) + 'kb';
-    addLog('info', 'Cloud sync: Pushed newer local state to cloud. [' + sizeKb + ']');
-
-    setSyncStatus('Status: synced (' + new Date(S.lastUpdated).toLocaleTimeString() + ')');
-    if (callback) callback(true, 'pushed');
-  })
-  .catch(function (err) {
-    console.warn('[Sync] gateway push failed (no fallback):', err.message);
+  .catch(err => {
+    console.warn('[Sync] Drive push failed:', err.message);
     setSyncStatus('Status: sync unavailable — retrying…');
-    scheduleSyncRetry(function () { firebaseSyncPush(); });
+    scheduleSyncRetry(() => { driveSyncPush(); });
     if (callback) callback(false, err);
   });
 }
 
-function firebaseSyncPush(callback) {
-  if (!_syncSafe) { if (callback) callback(false, 'sync not ready'); return; }
-  if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
-  const user = firebase.auth().currentUser;
-  if (!user) { if (callback) callback(false, 'User not authenticated'); return; }
-  firebaseRestPush(user.uid, callback);
+function driveSyncPull(callback, forcePull = false) {
+  if (currentUser && currentUser.uid === 'demo-session') {
+    if (callback) callback(true, 'demo_session_no_pull');
+    return;
+  }
+  getValidToken().then(token => {
+    setSyncStatus('Status: pulling from Drive...');
+    return driveFindStateFile(token).then(fileId => {
+      if (!fileId) {
+        applyCloudState(null, forcePull, callback);
+        return;
+      }
+      return driveReadState(token, fileId).then(payload => {
+        _syncRetryDelay = 2000;
+        if (payload) {
+          const payloadStr = JSON.stringify(payload);
+          const sizeKb = (payloadStr.length / 1024).toFixed(1) + 'kb';
+          addLog('info', 'Cloud sync: Pulled state from Drive. [' + sizeKb + ']');
+          let val = null;
+          if (payload.state) {
+            val = { state: payload.state, lastUpdated: payload.lastUpdated, pushCount: payload.pushCount };
+          }
+          applyCloudState(val, forcePull, callback);
+        } else {
+          applyCloudState(null, forcePull, callback);
+        }
+      });
+    });
+  })
+  .catch(err => {
+    console.warn('[Sync] Drive pull failed:', err.message);
+    setSyncStatus('Status: sync unavailable — retrying…');
+    scheduleSyncRetry(() => { driveSyncPull(callback, forcePull); });
+    if (callback) callback(false, err);
+  });
 }
+
 
 // === ROBUST CLOUD PULL ENGINE ===
 // Applies cloud state to the local app. Shared by both WebSocket and REST paths.
@@ -507,21 +563,21 @@ function applyCloudState(val, forcePull, callback) {
       S.everSynced = true;
       _syncSafe = true;
       checkDailyReset(true);
-      addLog('info', 'Cloud sync: Pulled state from cloud.');
+      addLog('info', 'Cloud sync: Pulled state from Drive.');
       ss(true);
       render();
-      if (statusEl) statusEl.textContent = 'Status: synced (pulled cloud state)';
+      if (statusEl) statusEl.textContent = 'Status: synced (pulled Drive state)';
       unlockBootSync();
       // If the merge captured genuine local edits, converge once.
-      _syncSafe = true; queueFirebaseSyncPush();
+      _syncSafe = true; queueDriveSyncPush();
       if (callback) callback(true, 'pulled');
       return;
 
     } else if (localIsNewer) {
       S.everSynced = true;
       _syncSafe = true;
-      addLog('info', 'Cloud sync: Pushed newer local state to cloud.');
-      firebaseSyncPush();
+      addLog('info', 'Cloud sync: Pushed newer local state to Drive.');
+      driveSyncPush();
       if (statusEl) statusEl.textContent = 'Status: synced (pushed newer state)';
       unlockBootSync();
       if (callback) callback(true, 'pushed');
@@ -539,16 +595,14 @@ function applyCloudState(val, forcePull, callback) {
 
   // No cloud data (exists:false / null).
   if (localIsUntrustedFresh(S)) {
-    if (statusEl) statusEl.textContent = 'Status: no cloud data yet (not overwriting)';
-    // Genuinely-new user with a fresh device: it is safe to begin syncing,
-    // because there is nothing to lose locally or remotely.
+    if (statusEl) statusEl.textContent = 'Status: no Drive data yet (not overwriting)';
     S = applyMigrations(S);
     S.everSynced = true;
     _syncSafe = true;
     checkDailyReset(true);
-    addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
+    addLog('info', 'Cloud sync: Initialized Drive backup with local state.');
     unlockBootSync();
-    firebaseSyncPush(); // create the user's initial cloud record from (empty) defaults
+    driveSyncPush(); // create the user's initial cloud record from (empty) defaults
     if (callback) callback(true, 'initialized_empty');
     return;
   }
@@ -557,9 +611,9 @@ function applyCloudState(val, forcePull, callback) {
   S.everSynced = true;
   _syncSafe = true;
   checkDailyReset(true);
-  addLog('info', 'Cloud sync: Initialized cloud backup with local state.');
-  firebaseSyncPush();
-  if (statusEl) statusEl.textContent = 'Status: synced (created cloud backup)';
+  addLog('info', 'Cloud sync: Initialized Drive backup with local state.');
+  driveSyncPush();
+  if (statusEl) statusEl.textContent = 'Status: synced (created Drive backup)';
   unlockBootSync();
   if (callback) callback(true, 'pushed_initial');
 }
@@ -725,57 +779,7 @@ function mergeLogs(a, b) {
   }).slice(-200);
 }
 
-// REST API pull — uses gateway → proxy → direct Firebase REST (with automatic fallback).
-function firebaseRestPull(uid, callback, forcePull, isDirectCall) {
-  const gw = getSyncGatewayUrl(uid);
-  if (!gw) {
-    setSyncStatus('Status: sync unavailable (no gateway)');
-    scheduleSyncRetry(function () { firebaseSyncPull(callback, forcePull); });
-    if (callback) callback(false, 'No sync gateway available');
-    return;
-  }
-  setSyncStatus('Status: syncing with cloud…');
 
-  getSyncRequestHeaders(gw).then(function (headers) {
-    delete headers['Content-Type'];
-    return fetch(gw.url, { method: 'GET', headers: headers, cache: 'no-store' });
-  })
-  .then(function (response) {
-    if (!response.ok) throw new Error('gateway GET HTTP ' + response.status);
-    return response.json();
-  })
-  .then(function (payload) {
-    _syncRetryDelay = 2000;
-
-    // Calculate pulled size
-    const payloadStr = JSON.stringify(payload || {});
-    const sizeKb = (payloadStr.length / 1024).toFixed(1) + 'kb';
-    addLog('info', 'Cloud sync: Direct REST pull succeeded. [' + sizeKb + ']');
-
-    // Normalize new gateway shape -> the {state,lastUpdated,pushCount} or null applyCloudState expects.
-    let val = null;
-    if (payload && payload.exists === true) {
-      val = { state: payload.state, lastUpdated: payload.lastUpdated, pushCount: payload.pushCount };
-    } else if (payload && payload.state) {
-      val = payload; // backward-compat if an old record exists
-    }
-    applyCloudState(val, forcePull, callback);
-  })
-  .catch(function (err) {
-    console.warn('[Sync] gateway pull failed (no fallback):', err.message);
-    setSyncStatus('Status: sync unavailable — retrying…');
-    // Do NOT unlock boot sync, do NOT push. Keep waiting.
-    scheduleSyncRetry(function () { firebaseSyncPull(callback, forcePull); });
-    if (callback) callback(false, err);
-  });
-}
-
-function firebaseSyncPull(callback, forcePull = false) {
-  if (typeof firebase === 'undefined') { if (callback) callback(false, 'Firebase not loaded'); return; }
-  const user = firebase.auth().currentUser;
-  if (!user) { if (callback) callback(false, 'User not authenticated'); return; }
-  firebaseRestPull(user.uid, callback, forcePull, true);
-}
 
 function renderSyncPanel() {
   const usernameEl = document.getElementById('auth-profile-username');
@@ -794,29 +798,34 @@ function renderSyncPanel() {
 
 function handleLogout() {
   addLog('info', 'Deauthorizing current terminal session...');
-  const clearDemoAndReload = () => {
+  const clearSessionAndReload = () => {
     S.authEmail = '';
     S.authUsername = '';
+    _googleAccessToken = null;
+    _googleTokenExpiry = 0;
+    _driveFileId = null;
+    localStorage.removeItem('google_access_token');
+    localStorage.removeItem('google_token_expiry');
     save('mathInit_state', S);
     window.location.reload();
   };
   
   if (currentUser && currentUser.uid === 'demo-session') {
-    clearDemoAndReload();
+    clearSessionAndReload();
     return;
   }
   
-  if (typeof firebase === 'undefined') {
-    clearDemoAndReload();
-    return;
+  if (_googleAccessToken) {
+    try {
+      google.accounts.oauth2.revoke(_googleAccessToken, () => {
+        clearSessionAndReload();
+      });
+      return;
+    } catch (e) {
+      console.warn("Revoke failed, clearing local session anyway:", e);
+    }
   }
-  
-  firebase.auth().signOut().then(() => {
-    clearDemoAndReload();
-  }).catch(err => {
-    console.error("Sign out failed:", err);
-    clearDemoAndReload();
-  });
+  clearSessionAndReload();
 }
 
 // === DESTRUCTIVE MIGRATIONS (v2Lifestyle, v22Water, historyKeys) ===
@@ -869,10 +878,9 @@ document.addEventListener('keydown', function(e) {
   if (e.key.toLowerCase() === 't') {
     const now = Date.now();
     if (now - lastTKeyPress < 500) {
-      if (typeof firebase !== 'undefined' && firebase.auth().currentUser) {
+      if (_googleAccessToken || (currentUser && currentUser.uid === 'demo-session')) {
         bootFinished = true;
         authStateFetched = true;
-        currentUser = firebase.auth().currentUser;
         
         // Remove boot gate immediately
         const bootEl = document.getElementById('boot');
@@ -943,48 +951,25 @@ function init() {
 }
 
 // === INTERACTIVE TERMINAL AUTH PORTAL ===
-let isSignUpMode = false;
 
 function initAuthGate() {
-  const submitBtn = document.getElementById('auth-submit-btn');
-  const switchBtn = document.getElementById('auth-switch-btn');
-  const emailInput = document.getElementById('auth-email');
-  const usernameInput = document.getElementById('auth-username');
-  const usernameRow = document.getElementById('auth-username-row');
-  const passwordInput = document.getElementById('auth-password');
+  const googleBtn = document.getElementById('auth-google-btn');
+  const demoBtn = document.getElementById('auth-demo-btn');
   const errorDisplay = document.getElementById('auth-error-display');
-  const toggleDesc = document.getElementById('auth-toggle-desc');
   
-  if (!submitBtn || !switchBtn) return;
+  if (googleBtn) {
+    googleBtn.onclick = () => {
+      if (!_googleTokenClient) {
+        showAuthError("Google Identity Services is still loading. Please wait.");
+        return;
+      }
+      if (errorDisplay) errorDisplay.style.display = 'none';
+      _googleTokenClient.requestAccessToken();
+    };
+  }
   
-  switchBtn.onclick = () => {
-    isSignUpMode = !isSignUpMode;
-    if (usernameRow) {
-      usernameRow.style.display = isSignUpMode ? 'block' : 'none';
-    }
-    if (isSignUpMode) {
-      submitBtn.textContent = 'register --account';
-      switchBtn.textContent = '[sign in]';
-      toggleDesc.textContent = '// Enter a valid email and new passphrase to provision a new security profile.';
-    } else {
-      submitBtn.textContent = 'authorize --session';
-      switchBtn.textContent = '[register]';
-      toggleDesc.textContent = '// Authentication credentials required to synchronize mathematical mastery records.';
-    }
-    if (errorDisplay) errorDisplay.style.display = 'none';
-  };
-  
-  submitBtn.onclick = () => {
-    const rawIdentity = emailInput.value.trim();
-    const password = passwordInput.value;
-    const rawUsername = usernameInput ? usernameInput.value.trim() : '';
-    
-    if (!rawIdentity || !password) {
-      showAuthError('ERROR: Identity and passphrase fields cannot be blank.');
-      return;
-    }
-    
-    if (rawIdentity.toLowerCase() === 'demo' && password.trim().toLowerCase() === 'omed') {
+  if (demoBtn) {
+    demoBtn.onclick = () => {
       currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
       authStateFetched = true;
       if (typeof seedDemoData === 'function') {
@@ -996,123 +981,94 @@ function initAuthGate() {
       }
       addLog('ok', 'Demo security clearance granted.');
       tryDismissBoot();
-      return;
-    }
-    
-    // Resolve email and username
-    const isEmailFormat = rawIdentity.includes('@');
-    const mappedEmail = isEmailFormat ? rawIdentity : (rawIdentity.toLowerCase() + '@ethos.io');
-    
-    let mappedUsername = rawUsername;
-    if (!mappedUsername) {
-      mappedUsername = isEmailFormat ? rawIdentity.split('@')[0] : rawIdentity;
-    }
-    
-    submitBtn.disabled = true;
-    submitBtn.textContent = isSignUpMode ? 'provisioning...' : 'authorizing...';
-    if (errorDisplay) errorDisplay.style.display = 'none';
-    
-    // Add a safety timeout to prevent getting stuck in "authorizing..." state if database/auth hangs
-    const authTimeout = setTimeout(() => {
-      if (submitBtn.disabled && (submitBtn.textContent === 'authorizing...' || submitBtn.textContent === 'provisioning...')) {
-        submitBtn.disabled = false;
-        submitBtn.textContent = isSignUpMode ? 'register --account' : 'authorize --session';
-        showAuthError('AUTH_TIMEOUT: The authorization server took too long to respond. Please check your connection or try again.');
-      }
-    }, 6000); // 6 second safety timeout
-    
-    if (isSignUpMode) {
-      firebase.auth().createUserWithEmailAndPassword(mappedEmail, password)
-        .then(userCredential => {
-          clearTimeout(authTimeout);
-          const user = userCredential.user;
-          user.updateProfile({
-            displayName: mappedUsername
-          }).then(() => {
-            S.authUsername = mappedUsername;
-            ss();
-            
-            // Save username-to-email mapping in DB
-            if (typeof firebase !== 'undefined') {
-              firebase.database().ref('usernames/' + mappedUsername.toLowerCase()).set(mappedEmail)
-                .catch(err => console.error("Failed to save username mapping:", err));
-            }
-            
-            addLog('ok', 'Security credentials provisioned with handle: @' + mappedUsername);
-          }).catch(err => {
-            clearTimeout(authTimeout);
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'register --account';
-            showAuthError('REGISTRATION_FAILED: Profile update failed: ' + err.message);
-          });
-        })
-        .catch(err => {
-          clearTimeout(authTimeout);
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'register --account';
-          showAuthError('REGISTRATION_FAILED: ' + err.message);
-        });
-    } else {
-      const signInWithResolvedEmail = (email, pwd) => {
-        firebase.auth().signInWithEmailAndPassword(email, pwd)
-          .then(userCredential => {
-            clearTimeout(authTimeout);
-            addLog('ok', 'Security clearance granted.');
-          })
-          .catch(err => {
-            clearTimeout(authTimeout);
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'authorize --session';
-            showAuthError('AUTH_FAILED: ' + err.message);
-          });
-      };
-
-      if (typeof firebase !== 'undefined' && !isEmailFormat) {
-        // Look up registered email from the usernames database directory
-        firebase.database().ref('usernames/' + rawIdentity.toLowerCase()).once('value')
-          .then(snapshot => {
-            const resolvedEmail = snapshot.val();
-            const emailToUse = resolvedEmail || mappedEmail; // fallback to username@ethos.io
-            signInWithResolvedEmail(emailToUse, password);
-          })
-          .catch(err => {
-            clearTimeout(authTimeout); // Make sure to clear or handle the timeout error here too
-            console.warn("Username database lookup failed, using fallback:", err);
-            signInWithResolvedEmail(mappedEmail, password);
-          });
-      } else {
-        signInWithResolvedEmail(mappedEmail, password);
-      }
-    }
-  };
-  
-  [emailInput, usernameInput, passwordInput].forEach(input => {
-    if (input) {
-      input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-          submitBtn.click();
-        }
-      });
-    }
-  });
+      renderSyncPanel();
+      render();
+    };
+  }
 }
 
 function showAuthError(msg) {
   const errorDisplay = document.getElementById('auth-error-display');
   if (errorDisplay) {
-    let finalMsg = '// ' + msg;
-    if (msg.includes('auth/configuration-not-found') || msg.includes('auth/operation-not-allowed')) {
-      finalMsg += '\n\n// DEVELOPER TIP: The Email/Password sign-in provider is disabled.';
-      finalMsg += '\n// Please enable it in your Firebase Console under:';
-      finalMsg += '\n// Authentication -> Sign-in method -> Email/Password';
-      finalMsg += '\n// Direct Link: https://console.firebase.google.com/project/ethos-jet/authentication/providers';
-    }
-    errorDisplay.textContent = finalMsg;
+    errorDisplay.textContent = '// ' + msg;
     errorDisplay.style.display = 'block';
     errorDisplay.style.animation = 'none';
     errorDisplay.offsetHeight; // trigger reflow
     errorDisplay.style.animation = 'shake 0.3s ease';
   }
+}
+
+function initGoogleAuth() {
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+    console.warn("Google Identity Services SDK not loaded yet, retrying in 200ms...");
+    setTimeout(initGoogleAuth, 200);
+    return;
+  }
+  _googleTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/drive.appdata',
+    callback: (tokenResponse) => {
+      if (tokenResponse.error) {
+        console.error("Google Auth error:", tokenResponse.error);
+        showAuthError("Google Sign-In failed: " + (tokenResponse.error_description || tokenResponse.error));
+        return;
+      }
+      onGoogleAuthSuccess(tokenResponse);
+    }
+  });
+}
+
+function onGoogleAuthSuccess(tokenResponse) {
+  _googleAccessToken = tokenResponse.access_token;
+  _googleTokenExpiry = Date.now() + (parseInt(tokenResponse.expires_in) || 3600) * 1000 - 60000; // 1 min buffer
+  
+  localStorage.setItem('google_access_token', _googleAccessToken);
+  localStorage.setItem('google_token_expiry', _googleTokenExpiry);
+
+  setSyncStatus('Status: authenticating profile...');
+  
+  fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+    headers: { 'Authorization': `Bearer ${_googleAccessToken}` }
+  })
+  .then(res => {
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  })
+  .then(userInfo => {
+    currentUser = {
+      uid: userInfo.sub,
+      displayName: userInfo.name || userInfo.given_name || userInfo.email.split('@')[0],
+      email: userInfo.email
+    };
+    S.authEmail = currentUser.email;
+    S.authUsername = currentUser.email.split('@')[0];
+    
+    authStateFetched = true;
+    updateOracleKeyStatus();
+    renderSyncPanel();
+    
+    _bootSyncLocked = true;
+    _syncSafe = false;
+    tryDismissBoot();
+    
+    setSyncStatus('Status: initializing Drive sync...');
+    if (localIsUntrustedFresh(S)) {
+      driveSyncPull((success, result) => {
+        unlockBootSync();
+        render();
+      }, true); // force pull
+    } else {
+      driveSyncPull((success, result) => {
+        unlockBootSync();
+        render();
+      }, false); // pull-merge
+    }
+  })
+  .catch(err => {
+    console.error("Failed to retrieve Google user profile:", err);
+    showAuthError("Failed to retrieve Google user profile: " + err.message);
+    setSyncStatus('Status: authentication failed');
+  });
 }
 
 // Wire up authorization gate on load
@@ -1124,73 +1080,82 @@ if (document.readyState === 'loading') {
   initAuthGate();
 }
 
-// Wire up Auth Observer
-let activeSyncRef = null;
-if (typeof firebase !== 'undefined') {
-  firebase.auth().onAuthStateChanged(function (user) {
-    authStateFetched = true;
-    if (user) {
-      currentUser = user;
-      S.authEmail = user.email || '';
-      S.authUsername = user.displayName || user.email || 'anon';
+// Wire up Auth Observer (Google Session checker)
+document.addEventListener('DOMContentLoaded', () => {
+  initGoogleAuth();
+  
+  const token = localStorage.getItem('google_access_token');
+  const expiry = localStorage.getItem('google_token_expiry');
+  
+  if (token && expiry && Date.now() < parseInt(expiry)) {
+    _googleAccessToken = token;
+    _googleTokenExpiry = parseInt(expiry);
+    
+    setSyncStatus('Status: restoring session...');
+    fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { 'Authorization': `Bearer ${_googleAccessToken}` }
+    })
+    .then(res => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then(userInfo => {
+      currentUser = {
+        uid: userInfo.sub,
+        displayName: userInfo.name || userInfo.given_name || userInfo.email.split('@')[0],
+        email: userInfo.email
+      };
+      S.authEmail = currentUser.email;
+      S.authUsername = currentUser.email.split('@')[0];
+      
+      gameStateFetched = true; // backward-compat or local usage
+      authStateFetched = true;
       updateOracleKeyStatus();
       renderSyncPanel();
       
-      // Gated sync lock: fresh devices pull first without clobbering.
       _bootSyncLocked = true;
       _syncSafe = false;
-
-      // Dismiss boot gate immediately for snappy responsiveness
       tryDismissBoot();
-
-      probeGateway().then(function() {
-        if (localIsUntrustedFresh(S)) {
-          setSyncStatus('Status: untrusted empty device — forcing cloud pull first');
-          firebaseSyncPull(function (success, msg) {
-            unlockBootSync();
-            render();
-          }, true); // force-pull cloud state into this fresh device
-        } else {
-          setSyncStatus('Status: connecting…');
-          firebaseSyncPull(function (success, msg) {
-            unlockBootSync();
-            render();
-          }, false); // safe pull-merge
-        }
-      });
-    } else {
-      if (S.authUsername === 'demo') {
-        currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
-        tryDismissBoot();
-      } else {
-        currentUser = null;
-        S.authEmail = '';
-        S.authUsername = '';
-        tryDismissBoot();
-      }
-      _syncSafe = false;
+      
+      driveSyncPull((success, result) => {
+        unlockBootSync();
+        render();
+      }, false);
+    })
+    .catch(err => {
+      console.warn("Restoring Google session failed:", err);
+      _googleAccessToken = null;
+      _googleTokenExpiry = 0;
+      localStorage.removeItem('google_access_token');
+      localStorage.removeItem('google_token_expiry');
+      currentUser = null;
+      authStateFetched = true;
+      tryDismissBoot();
       unlockBootSync();
-      updateOracleKeyStatus();
       renderSyncPanel();
       render();
+    });
+  } else {
+    authStateFetched = true;
+    if (S.authUsername === 'demo') {
+      currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
+    } else {
+      currentUser = null;
+      S.authEmail = '';
+      S.authUsername = '';
     }
-  });
-} else {
-  authStateFetched = true;
-  if (S.authUsername === 'demo') {
-    currentUser = { uid: 'demo-session', displayName: 'demo', email: 'demo@ethos.io' };
+    tryDismissBoot();
+    unlockBootSync();
+    renderSyncPanel();
+    render();
   }
-  tryDismissBoot();
-  unlockBootSync();
-}
+});
 
 // Force background sync pull on tab focus/visibility change
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    const user = typeof firebase !== 'undefined' && firebase.auth().currentUser;
-    if (user) {
-      // Pull quietly without forcing (timestamp / pushCount still wins)
-      firebaseSyncPull(null, false);
+    if (_googleAccessToken) {
+      driveSyncPull(null, false);
     }
   }
 });
@@ -2085,47 +2050,30 @@ function handleCommand(cmd) {
   } else if (action === 'auth') {
     const sub = args[1] ? args[1].toLowerCase() : '';
     if (sub === 'status' || !sub) {
-      const isLoaded = typeof firebase !== 'undefined';
       const email = S.authEmail || '<none>';
       const username = S.authUsername || '<none>';
       const lastUp = S.lastUpdated ? new Date(S.lastUpdated).toLocaleString() : '<never>';
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== SECURITY CLEARANCE DIODE ===</span><br>' +
-                'Firebase Client: ' + (isLoaded ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE (NOT LOADED)</span>') + '<br>' +
+                'Google Client ID: ' + (GOOGLE_CLIENT_ID ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE</span>') + '<br>' +
                 'Active Identity: <span style="color:var(--amber)">@' + username + '</span><br>' +
                 'Active Email:    <span style="color:var(--text-dim)">' + email + '</span><br>' +
+                'Drive File ID:   <span style="color:var(--text-dim)">' + (_driveFileId || 'not cached') + '</span><br>' +
                 'Last Sync Merge: <span style="color:var(--blue)">' + lastUp + '</span>', 'info');
     } else if (sub === 'username' || sub === 'handle') {
-      const newName = args.slice(2).join(' ').trim();
-      if (!newName) {
-        printTerm('Usage: auth username &lt;new_handle&gt;', 'err');
-      } else if (typeof firebase === 'undefined' || !firebase.auth().currentUser) {
-        printTerm('Error: Session is unauthenticated. Cannot change handle.', 'err');
-      } else {
-        printTerm('Updating developer handle to: @' + newName + '...', 'info');
-        firebase.auth().currentUser.updateProfile({
-          displayName: newName
-        }).then(() => {
-          S.authUsername = newName;
-          ss();
-          render();
-          printTerm('Developer handle successfully updated to: @' + newName, 'ok');
-        }).catch(err => {
-          printTerm('Failed to update developer handle: ' + err.message, 'err');
-        });
-      }
+      printTerm('Handle is determined by your Google account: @' + S.authUsername, 'warn');
     } else if (sub === 'logout' || sub === 'deauthorize') {
       printTerm('Initiating session deauthorization...', 'info');
       handleLogout();
     } else if (sub === 'sync') {
       printTerm('Initiating safe database synchronization check...', 'info');
-      firebaseSyncPull((success, result) => {
+      driveSyncPull((success, result) => {
         if (success) {
           if (result === 'pulled') {
-            printTerm('Sync complete: Pulled newer state from the cloud.', 'ok');
+            printTerm('Sync complete: Pulled newer state from Google Drive.', 'ok');
           } else if (result === 'pushed') {
-            printTerm('Sync complete: Pushed newer local state to the cloud.', 'ok');
+            printTerm('Sync complete: Pushed newer local state to Google Drive.', 'ok');
           } else if (result === 'synced') {
-            printTerm('Sync complete: Local and cloud states are fully in sync.', 'ok');
+            printTerm('Sync complete: Local and Drive states are fully in sync.', 'ok');
           } else {
             printTerm('Sync complete: Status is ' + result, 'ok');
           }
@@ -2134,10 +2082,10 @@ function handleCommand(cmd) {
         }
       }, false);
     } else if (sub === 'push') {
-      printTerm('Forcing local state push to cloud database...', 'info');
-      firebaseSyncPush((success, result) => {
+      printTerm('Forcing local state push to Google Drive...', 'info');
+      driveSyncPush((success, result) => {
         if (success) {
-          printTerm('Local state successfully pushed to cloud database.', 'ok');
+          printTerm('Local state successfully pushed to Google Drive.', 'ok');
           printTerm('<span style="color:var(--accent); font-weight:bold;">--- PUSH SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
         } else {
           printTerm('Push failed: ' + (result.message || result), 'err');
@@ -2145,60 +2093,40 @@ function handleCommand(cmd) {
       });
     } else if (sub === 'pull') {
       printTerm('Forcing cloud state pull (overwriting local)...', 'info');
-      const user = typeof firebase !== 'undefined' && firebase.auth().currentUser;
-      const gw = user && getSyncGatewayUrl(user.uid);
-      if (gw) {
-        printTerm('<span style="color:var(--text-dim)">Pulling directly from Vercel sync gateway...</span>', 'info');
-      } else {
-        printTerm('<span style="color:var(--text-dim)">Trying WebSocket first, REST API fallback after 10s...</span>', 'info');
-      }
-      firebaseSyncPull((success, result) => {
+      driveSyncPull((success, result) => {
         if (success) {
-          printTerm('Cloud state successfully pulled and applied. (' + result + ')', 'ok');
+          printTerm('Google Drive state successfully pulled and applied. (' + result + ')', 'ok');
           printTerm('<span style="color:var(--accent); font-weight:bold;">--- PULL SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
         } else {
           printTerm('Pull failed: ' + (result.message || result), 'err');
         }
       }, true);
-    } else if (sub === 'rest-pull') {
-      // Direct REST API pull — bypasses WebSocket entirely
-      const user = firebase.auth().currentUser;
-      if (!user) {
-        printTerm('Not authenticated.', 'err');
-      } else {
-        printTerm('Forcing direct REST API pull (bypassing WebSocket)...', 'info');
-        firebaseRestPull(user.uid, (success, result) => {
-          if (success) {
-            printTerm('REST pull succeeded: ' + result, 'ok');
-            printTerm('<span style="color:var(--accent); font-weight:bold;">--- PULL SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
-          } else {
-            printTerm('REST pull failed: ' + result, 'err');
-          }
-        }, true, true);
-      }
     } else if (sub === 'diag') {
-      var diagUser = typeof firebase !== 'undefined' && firebase.auth().currentUser;
-      var diagUid = diagUser ? diagUser.uid : (S.authUsername || 'default_user');
-      printTerm('Running sync gateway diagnostics...', 'info');
-      fetch('/api/health', { method: 'GET', cache: 'no-store' })
-        .then(function(r) { return r.ok ? r.json() : Promise.reject(new Error('HTTP ' + r.status)); })
-        .catch(function(err) { return { status: 'unreachable', error: err.message }; })
-        .then(function(health) {
-          var gwOnline = health && health.status === 'ok';
-          var syncReady = !!(health && health.sync_ready);
-          _vercelGatewayAvailable = syncReady;
-          var rpt = '<span style="color:var(--accent); font-weight:bold;">--- GATEWAY HEALTH ---</span><br>' +
-            '  /api/health: ' + (gwOnline ? '<span style="color:var(--accent)">ONLINE</span>' : '<span style="color:var(--red)">OFFLINE</span> (' + (health.error || 'unknown') + ')') + '<br>';
-          if (gwOnline) {
-            rpt += '  Sync ready: ' + (syncReady ? '<span style="color:var(--accent)">YES</span> (API key + KV configured)' : '<span style="color:var(--red)">NO</span> (env vars missing, using direct Firebase)') + '<br>';
+      if (!_googleAccessToken) {
+        printTerm('Cannot run diagnostics: Session is unauthenticated.', 'err');
+        return;
+      }
+      printTerm('Running Google Drive sync diagnostics...', 'info');
+      
+      const expiryTime = new Date(_googleTokenExpiry).toLocaleTimeString();
+      let rpt = '<span style="color:var(--accent); font-weight:bold;">--- GOOGLE AUTH DIAGNOSTICS ---</span><br>' +
+        '  Token Expiry: <span style="color:var(--accent)">' + expiryTime + '</span><br>' +
+        '  File Cache ID: <span style="color:var(--accent)">' + (_driveFileId || '&lt;none&gt;') + '</span><br>';
+        
+      getValidToken().then(token => {
+        return driveFindStateFile(token).then(fileId => {
+          if (!fileId) {
+            rpt += '  Drive File: <span style="color:var(--red)">NOT FOUND</span> (will be created on next change)';
+            printTerm(rpt, 'info');
+            return;
           }
-          rpt += '  Proxy override: ' + (escapeHtml(S.customSyncProxy) || '&lt;none&gt;') + '<br>';
-          var gw = getSyncGatewayUrl(diagUid);
-          rpt += '  UID: <span style="color:var(--amber)">' + diagUid + '</span><br>';
-          rpt += '  Active path: <span style="color:var(--amber)">' + (gw ? gw.type.toUpperCase() + ' \u2192 ' + gw.url.substring(0, 60) : 'DIRECT FIREBASE REST') + '</span>';
-          printTerm(rpt, 'info');
-          function showDiag(val) {
-            if (!val || !val.state) { printTerm('Cloud: No state found.', 'warn'); return; }
+          rpt += '  Drive File ID: <span style="color:var(--accent)">' + fileId + '</span><br>';
+          return driveReadState(token, fileId).then(val => {
+            if (!val || !val.state) {
+              rpt += '  Drive Content: <span style="color:var(--red)">EMPTY OR INVALID</span>';
+              printTerm(rpt, 'info');
+              return;
+            }
             var cT = val.lastUpdated || val.state.lastUpdated || 0, cPC = val.pushCount || val.state.pushCount || 0;
             var lT = S.lastUpdated || 0, lPC = S.pushCount || 0;
             var cDone = 0, cEthe = [];
@@ -2208,103 +2136,26 @@ function handleCommand(cmd) {
             var eD = '';
             cEthe.slice(0, 15).forEach(function(e) { eD += '  - [' + (e.done ? 'x' : ' ') + '] ' + e.name + ' (' + e.groupId + ')<br>'; });
             if (cEthe.length > 15) eD += '  - ... and ' + (cEthe.length - 15) + ' more<br>';
-            printTerm('<span style="color:var(--accent); font-weight:bold;">--- CLOUD STATE ---</span><br>' +
-              '<b>Cloud:</b> updated ' + new Date(cT).toLocaleString() + ' | pushCount ' + cPC + ' | done ' + cDone + '/' + cEthe.length + '<br>' +
-              '<b>Local:</b> updated ' + new Date(lT).toLocaleString() + ' | pushCount ' + lPC + ' | done ' + lDone + '/' + getAllEthe().length + '<br>' +
-              '<b>Verdict:</b> cloud newer=' + (cT > lT || (cT === lT && cPC > lPC)) + ' | local newer=' + (lT > cT || (lT === cT && lPC > cPC)) + '<br>' +
-              '<b>First 15 cloud ethe:</b><br>' + eD, 'info');
-          }
-          if (gw) {
-            getSyncRequestHeaders(gw).then(function(headers) {
-              delete headers['Content-Type'];
-              return fetch(gw.url, { method: 'GET', headers: headers, cache: 'no-store' });
-            })
-              .then(function(r) { if (!r.ok) throw new Error(gw.type + ' HTTP ' + r.status); return r.json(); })
-              .then(function(v) { showDiag(v); })
-              .catch(function(e) { printTerm('Diag fetch failed (' + gw.type + '): ' + e.message, 'err'); });
-          } else if (diagUser) {
-            firebase.auth().currentUser.getIdToken(false)
-              .then(function(t) { return fetch(firebaseConfig.databaseURL + '/sync/' + diagUid + '.json?auth=' + encodeURIComponent(t), { method: 'GET', headers: { 'Accept': 'application/json' }, cache: 'no-store' }); })
-              .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-              .then(function(v) { showDiag(v); })
-              .catch(function(e) { printTerm('Diag fetch failed (direct): ' + e.message, 'err'); });
-          } else {
-            printTerm('Cannot fetch cloud state: no gateway and not authenticated.', 'err');
-          }
+            
+            rpt += '  Drive State: updated ' + new Date(cT).toLocaleString() + ' | pushCount ' + cPC + ' | done ' + cDone + '/' + cEthe.length + '<br>' +
+              '  Local State: updated ' + new Date(lT).toLocaleString() + ' | pushCount ' + lPC + ' | done ' + lDone + '/' + getAllEthe().length + '<br>' +
+              '  Verdict: Drive newer=' + (cT > lT || (cT === lT && cPC > lPC)) + ' | Local newer=' + (lT > cT || (lT === cT && lPC > cPC)) + '<br>' +
+              '  First 15 Drive ethe:<br>' + eD;
+            printTerm(rpt, 'info');
+          });
         });
-    } else if (sub === 'proxy') {
-      const pUrl = args[2] ? args[2].trim() : '';
-      const pKey = args[3] ? args[3].trim() : '';
-      if (!pUrl) {
-        if (S.customSyncProxy) {
-          printTerm('Active sync proxy: ' + escapeHtml(S.customSyncProxy), 'info');
-          if (S.customSyncKey) {
-            printTerm('Active proxy key: registered (hidden)', 'info');
-          }
-        } else {
-          printTerm('No custom sync proxy configured. Using default Firebase connection.', 'info');
-        }
-        printTerm('Usage: auth proxy gateway (same-origin token sync) OR auth proxy &lt;url&gt; [&lt;key&gt;] (legacy external proxy) OR auth proxy clear', 'info');
-      } else if (pUrl.toLowerCase() === 'clear') {
-        S.customSyncProxy = '';
-        S.customSyncKey = '';
-        ss(true);
-        printTerm('Custom sync proxy and key cleared. Using same-origin Firebase-token gateway.', 'ok');
-      } else if (pUrl.toLowerCase() === 'gateway' || pUrl.toLowerCase() === 'same-origin') {
-        S.customSyncProxy = '';
-        S.customSyncKey = '';
-        ss(true);
-        if (activeSyncRef) {
-          activeSyncRef.off();
-          activeSyncRef = null;
-        }
-        printTerm('Same-origin gateway selected. Firebase login token will be used automatically.', 'ok');
-        printTerm('<span style="color:var(--text-dim)">Checking cloud for latest state...</span>', 'info');
-        firebaseSyncPull(function(success, result) {
-          if (success) {
-            printTerm('Cloud state successfully retrieved and applied.', 'ok');
-            printTerm('<span style="color:var(--accent); font-weight:bold;">--- PULL SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
-          } else {
-            printTerm('Initial pull failed: ' + (result.message || result), 'warn');
-          }
-        }, false);
-      } else {
-        if (!pUrl.startsWith('http://') && !pUrl.startsWith('https://')) {
-          printTerm('Invalid URL. Proxy URL must start with http:// or https:// (or use "auth proxy gateway" for same-origin token sync)', 'err');
-        } else {
-          S.customSyncProxy = pUrl;
-          S.customSyncKey = pKey;
-          ss(true);
-          if (activeSyncRef) {
-            activeSyncRef.off();
-            activeSyncRef = null;
-          }
-          printTerm('Custom sync proxy successfully configured to: ' + escapeHtml(S.customSyncProxy), 'ok');
-          if (S.customSyncKey) {
-            printTerm('Edge authentication key successfully registered.', 'ok');
-          }
-          printTerm('<span style="color:var(--text-dim)">Forcing cloud pull to retrieve existing state...</span>', 'info');
-          firebaseSyncPull(function(success, result) {
-            if (success) {
-              printTerm('Cloud state successfully retrieved and applied.', 'ok');
-              printTerm('<span style="color:var(--accent); font-weight:bold;">--- PULL SUMMARY ---</span><br>' + getSyncDetailsReport(S), 'info');
-            } else {
-              printTerm('Initial pull failed: ' + (result.message || result), 'warn');
-            }
-          }, true);
-        }
-      }
+      })
+      .catch(err => {
+        printTerm('Diagnostics fetch failed: ' + err.message, 'err');
+      });
     } else {
       printTerm('<span style="color:var(--accent); font-weight:bold;">=== CLI SECURITY CONTROL ===</span><br>' +
                 'Usage:<br>' +
                 '  auth status                   Show current clearance status<br>' +
-                '  auth username &lt;new_handle&gt;  Update your active developer handle<br>' +
                 '  auth sync                     Run a safe timestamp-based sync check<br>' +
-                '  auth push                     Force push local state to the cloud<br>' +
-                '  auth pull                     Force pull cloud state to local (overwrites)<br>' +
-                '  auth rest-pull                Direct REST API pull (bypasses WebSocket)<br>' +
-                '  auth diag                     Fetch and compare cloud vs local state details<br>' +
-                '  auth proxy &lt;url&gt; [&lt;key&gt;]       Configure first-party serverless sync proxy<br>' +
+                '  auth push                     Force push local state to Google Drive<br>' +
+                '  auth pull                     Force pull Google Drive state to local (overwrites)<br>' +
+                '  auth diag                     Fetch and compare Drive vs local state details<br>' +
                 '  auth logout                   Deauthorize current terminal session', 'info');
     }
   } else if (action === 'logout') {

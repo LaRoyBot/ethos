@@ -3,17 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.firebasedatabase.app wss://*.firebasedatabase.app https://ethos-jet-default-rtdb.asia-southeast1.firebasedatabase.app wss://ethos-jet-default-rtdb.asia-southeast1.firebasedatabase.app https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://generativelanguage.googleapis.com; img-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://accounts.google.com/gsi/client; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-src https://accounts.google.com; connect-src 'self' https://accounts.google.com https://www.googleapis.com https://generativelanguage.googleapis.com; img-src 'self' data: https://lh3.googleusercontent.com; object-src 'none'; base-uri 'self'; form-action 'self';">
 <title>ethos.init — LLM Math Mastery Tracker</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%23000000'/%3E%3Cpath d='M18 12C17.2 10.8 14.8 10.4 13.2 10.4C9.6 10.4 6.8 13.2 6.8 16.8C6.8 20.4 9.6 23.2 13.2 23.2C14.8 23.2 17.2 22.8 18 21.6M6.8 16.8H16.4' fill='none' stroke='%2300ff88' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M10 7.2C10.8 7.2 11.6 6.4 11.6 5.6' fill='none' stroke='%2300ff88' stroke-width='1.8' stroke-linecap='round'/%3E%3Cpath d='M13.2 7.2L14.8 5.6' fill='none' stroke='%2300ff88' stroke-width='1.8' stroke-linecap='round'/%3E%3Cline x1='20' y1='23.2' x2='26' y2='23.2' stroke='%2300ff88' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
 <meta name="description" content="A terminal-style tracker for mastering the mathematics behind large language models.">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
 <link rel="stylesheet" href="styles.css?v=2.3.1">
 <link rel="manifest" href="manifest.json">
-<!-- Firebase App, Database, and Auth SDKs (Compat v9/v10 format) -->
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js" integrity="sha384-4gq9w/AGf72FXdNQ3Kn3EqWP7633NbCMjpYHt8YCZyXf23o2opcuAr4cif41tLrC" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js" integrity="sha384-5PDE6CZvnNIJI5xu68GIFoOO3U73lAnRLBwPBmmKjWnYnYwKEHWr/ghtGooEOXGb" crossorigin="anonymous"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js" integrity="sha384-xtdq4MQqPj1dB5DQsuw9O7dh4kHhMP/Wp5u8O1jiaWiou13ZfJIgiccjtVK2pBhL" crossorigin="anonymous"></script>
+<!-- Google Identity Services (OAuth 2.0) -->
+<script src="https://accounts.google.com/gsi/client" async></script>
 </head>
 <body>
 
@@ -37,25 +35,20 @@
       :: SECURITY AUTHORIZATION REQUIRED ::
     </div>
     <div id="auth-toggle-desc" style="color:var(--text-dim); margin-bottom:1.5rem; font-size:11px; line-height:1.4;">
-      // Authentication credentials required to synchronize mathematical mastery records.
+      // Authorize with Google Account to synchronize mathematical mastery records.
     </div>
     
-    <div class="modal-row" style="margin-bottom:12px;">
-      <label class="modal-label" style="font-family:var(--font); font-size:10px; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:4px;">user_identity (username or email)</label>
-      <input type="text" class="terminal-input" id="auth-email" placeholder="e.g. meletus or calculus@ethos.io" style="width:100%; box-sizing:border-box;">
-    </div>
-    <div class="modal-row" id="auth-username-row" style="margin-bottom:12px; display:none;">
-      <label class="modal-label" style="font-family:var(--font); font-size:10px; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:4px;">user_handle (username)</label>
-      <input type="text" class="terminal-input" id="auth-username" placeholder="e.g. meletus" style="width:100%; box-sizing:border-box;">
-    </div>
-    <div class="modal-row" style="margin-bottom:16px;">
-      <label class="modal-label" style="font-family:var(--font); font-size:10px; text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:4px;">security_passphrase (password)</label>
-      <input type="password" class="terminal-input" id="auth-password" placeholder="••••••••" style="width:100%; box-sizing:border-box;">
+    <div style="margin-bottom:16px;">
+      <button class="btn" id="auth-google-btn" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; text-transform:uppercase;">
+        <svg style="width:14px; height:14px; fill:currentColor;" viewBox="0 0 24 24">
+          <path d="M12.24 10.285V13.4h6.887c-.275 1.565-1.88 4.604-6.887 4.604-4.33 0-7.866-3.577-7.866-8s3.536-8 7.866-8c2.46 0 4.105 1.025 5.047 1.926l2.427-2.334C17.955 2.192 15.34 1 12.24 1 6.12 1 1.12 6 1.12 12s5 11 11.12 11c6.38 0 10.62-4.474 10.62-10.796 0-.727-.08-1.282-.178-1.919H12.24z"/>
+        </svg>
+        Sign in with Google
+      </button>
     </div>
     
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:8px;">
-      <button class="btn" id="auth-submit-btn" style="flex:1;">authorize --session</button>
-      <button class="btn btn-ghost" id="auth-switch-btn" style="font-size:10px; padding:0 8px;">[register]</button>
+    <div style="display:flex; justify-content:center; align-items:center; margin-bottom:16px;">
+      <button class="btn btn-ghost" id="auth-demo-btn" style="font-size:10px; padding:0 8px;">[launch demo_session]</button>
     </div>
     
     <div id="auth-error-display" style="color:var(--red); font-size:11px; font-family:var(--font); line-height:1.4; border-top:1px dashed var(--red); padding-top:8px; display:none; white-space:pre-wrap;">
