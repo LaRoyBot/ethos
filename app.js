@@ -126,9 +126,49 @@ function scheduleSyncRetry(fn) {
   }, _syncRetryDelay);
 }
 
+let _headerThinkingOrb = null;
+let _headerOrbFadeTimer = null;
+
+function triggerHeaderOrbActivity(state, durationMs = 12000) {
+  const canvas = document.getElementById('header-thinking-orb');
+  if (!_headerThinkingOrb || !canvas) return;
+  
+  if (state) {
+    _headerThinkingOrb.setState(state);
+  }
+  
+  canvas.classList.remove('orb-hidden');
+  
+  if (_headerOrbFadeTimer) {
+    clearTimeout(_headerOrbFadeTimer);
+  }
+  _headerOrbFadeTimer = setTimeout(() => {
+    canvas.classList.add('orb-hidden');
+  }, durationMs);
+}
+
+function initThinkingOrbs() {
+  if (typeof ThinkingOrbsEngine === 'undefined') return;
+  const headerCanvas = document.getElementById('header-thinking-orb');
+  if (headerCanvas && !_headerThinkingOrb) {
+    _headerThinkingOrb = ThinkingOrbsEngine.createOrb(headerCanvas, { state: 'working', size: 20, theme: 'dark' });
+    triggerHeaderOrbActivity('working', 12000);
+  }
+}
+
 function setSyncStatus(text) {
   const el = document.getElementById('auth-sync-status');
   if (el) el.textContent = text;
+  if (_headerThinkingOrb) {
+    const lower = (text || '').toLowerCase();
+    if (lower.includes('pushing') || lower.includes('pulling') || lower.includes('restoring') || lower.includes('authenticating')) {
+      triggerHeaderOrbActivity('searching', 12000);
+    } else if (lower.includes('failed') || lower.includes('error')) {
+      triggerHeaderOrbActivity('connecting', 12000);
+    } else {
+      triggerHeaderOrbActivity('working', 12000);
+    }
+  }
 }
 
 
@@ -306,7 +346,7 @@ function ss(skipFirebase = false) {
     S.lastUpdated = Date.now();
   }
   save('mathInit_state', S);
-  if (!skipFirebase && !_bootSyncLocked && _syncSafe && _googleAccessToken) {
+  if (!skipFirebase && !_bootSyncLocked && _syncSafe && currentUser && currentUser.uid && currentUser.uid !== 'demo-session') {
     queueDriveSyncPush();
   }
 }
@@ -350,33 +390,52 @@ function backupLocalStateBeforeCloudReplace(reason) {
 
 // === GOOGLE DRIVE CLOUD SYNC CORE ===
 
-function getValidToken() {
-  if (!_googleAccessToken) {
-    return Promise.reject(new Error("No access token available. Please sign in."));
-  }
-  if (Date.now() < _googleTokenExpiry) {
-    return Promise.resolve(_googleAccessToken);
-  }
-  // Token expired or close to expiry, request a new one
+function ensureGoogleAuthInitialized() {
   return new Promise((resolve, reject) => {
-    if (!_googleTokenClient) {
-      reject(new Error("Google Identity Services not initialized."));
+    if (_googleTokenClient) {
+      resolve();
       return;
     }
-    const originalCallback = _googleTokenClient.callback;
-    _googleTokenClient.callback = (tokenResponse) => {
-      _googleTokenClient.callback = originalCallback;
-      if (tokenResponse.error) {
-        reject(new Error("Failed to refresh token: " + tokenResponse.error));
-        return;
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts++;
+      if (_googleTokenClient) {
+        clearInterval(interval);
+        resolve();
+      } else if (attempts >= 25) { // 5 seconds max wait
+        clearInterval(interval);
+        reject(new Error("Google Identity Services failed to initialize."));
       }
-      _googleAccessToken = tokenResponse.access_token;
-      _googleTokenExpiry = Date.now() + (parseInt(tokenResponse.expires_in) || 3600) * 1000 - 60000;
-      localStorage.setItem('google_access_token', _googleAccessToken);
-      localStorage.setItem('google_token_expiry', _googleTokenExpiry);
-      resolve(_googleAccessToken);
-    };
-    _googleTokenClient.requestAccessToken({ prompt: '' });
+    }, 200);
+  });
+}
+
+function getValidToken() {
+  const hasProfile = !!localStorage.getItem('google_user_profile');
+  if (!_googleAccessToken && !hasProfile) {
+    return Promise.reject(new Error("No access token available. Please sign in."));
+  }
+  if (_googleAccessToken && Date.now() < _googleTokenExpiry) {
+    return Promise.resolve(_googleAccessToken);
+  }
+  // Token expired or close to expiry (or null but we are signed in), request a new one
+  return ensureGoogleAuthInitialized().then(() => {
+    return new Promise((resolve, reject) => {
+      const originalCallback = _googleTokenClient.callback;
+      _googleTokenClient.callback = (tokenResponse) => {
+        _googleTokenClient.callback = originalCallback;
+        if (tokenResponse.error) {
+          reject(new Error("Failed to refresh token: " + tokenResponse.error));
+          return;
+        }
+        _googleAccessToken = tokenResponse.access_token;
+        _googleTokenExpiry = Date.now() + (parseInt(tokenResponse.expires_in) || 3600) * 1000 - 60000;
+        localStorage.setItem('google_access_token', _googleAccessToken);
+        localStorage.setItem('google_token_expiry', _googleTokenExpiry);
+        resolve(_googleAccessToken);
+      };
+      _googleTokenClient.requestAccessToken({ prompt: '' });
+    });
   });
 }
 
@@ -398,8 +457,9 @@ function driveFindStateFile(token) {
   })
   .then(res => {
     if (res.status === 401) {
-      handleLogout();
-      throw new Error("Unauthorized");
+      _googleAccessToken = null;
+      _googleTokenExpiry = 0;
+      throw new Error("Token expired");
     }
     if (!res.ok) throw new Error("Drive search failed: " + res.statusText);
     return res.json();
@@ -419,8 +479,9 @@ function driveReadState(token, fileId) {
   })
   .then(res => {
     if (res.status === 401) {
-      handleLogout();
-      throw new Error("Unauthorized");
+      _googleAccessToken = null;
+      _googleTokenExpiry = 0;
+      throw new Error("Token expired");
     }
     if (res.status === 404) return null;
     if (!res.ok) throw new Error("Drive read failed: " + res.statusText);
@@ -441,8 +502,9 @@ function driveWriteState(token, statePayload) {
       })
       .then(res => {
         if (res.status === 401) {
-          handleLogout();
-          throw new Error("Unauthorized");
+          _googleAccessToken = null;
+          _googleTokenExpiry = 0;
+          throw new Error("Token expired");
         }
         if (!res.ok) throw new Error("Drive patch failed: " + res.statusText);
         return res.json();
@@ -461,8 +523,9 @@ function driveWriteState(token, statePayload) {
       })
       .then(res => {
         if (res.status === 401) {
-          handleLogout();
-          throw new Error("Unauthorized");
+          _googleAccessToken = null;
+          _googleTokenExpiry = 0;
+          throw new Error("Token expired");
         }
         if (!res.ok) throw new Error("Drive create failed: " + res.statusText);
         return res.json();
@@ -480,8 +543,9 @@ function driveWriteState(token, statePayload) {
       })
       .then(res => {
         if (res.status === 401) {
-          handleLogout();
-          throw new Error("Unauthorized");
+          _googleAccessToken = null;
+          _googleTokenExpiry = 0;
+          throw new Error("Token expired");
         }
         if (!res.ok) throw new Error("Drive write failed: " + res.statusText);
         return res.json();
@@ -953,6 +1017,7 @@ function init() {
   var crtEl = document.getElementById('crt-screen-effect');
   if (crtEl) { if (S.crtEnabled) crtEl.classList.add('crt-active'); else crtEl.classList.remove('crt-active'); }
   initTabs(); initButtons(); render(); startClock(); startFlowerAnimation();
+  initThinkingOrbs();
   
   // v2.4.0 PWA & Reminders Init
   initPWANotifications();
@@ -1110,33 +1175,52 @@ document.addEventListener('DOMContentLoaded', () => {
   const expiry = localStorage.getItem('google_token_expiry');
   const cachedProfile = localStorage.getItem('google_user_profile');
   
-  if (token && expiry && Date.now() < parseInt(expiry) && cachedProfile) {
-    _googleAccessToken = token;
-    _googleTokenExpiry = parseInt(expiry);
-    
+  // Restore session from cached profile — the user stays logged in until
+  // they explicitly call logout. Token refresh is handled lazily by
+  // getValidToken() whenever a Drive API call is actually needed.
+  if (cachedProfile) {
     try {
       currentUser = JSON.parse(cachedProfile);
-      S.authEmail = currentUser.email;
-      S.authUsername = currentUser.email.split('@')[0];
-      
-      gameStateFetched = true; // backward-compat or local usage
-      authStateFetched = true;
-      updateOracleKeyStatus();
-      renderSyncPanel();
-      
-      _bootSyncLocked = true;
-      _syncSafe = false;
-      tryDismissBoot();
-      
-      setSyncStatus('Status: restoring session...');
+    } catch (e) {
+      currentUser = null;
+    }
+  }
+  
+  if (currentUser && currentUser.uid && currentUser.uid !== 'demo-session') {
+    S.authEmail = currentUser.email;
+    S.authUsername = currentUser.email.split('@')[0];
+    
+    gameStateFetched = true;
+    authStateFetched = true;
+    updateOracleKeyStatus();
+    renderSyncPanel();
+    
+    _bootSyncLocked = true;
+    _syncSafe = false;
+    tryDismissBoot();
+    
+    // Restore cached token if still valid
+    if (token && expiry && Date.now() < parseInt(expiry)) {
+      _googleAccessToken = token;
+      _googleTokenExpiry = parseInt(expiry);
+    }
+    // else: _googleAccessToken stays null — getValidToken() will silently
+    // request a fresh one when a Drive call is made.
+    
+    setSyncStatus('Status: restoring session...');
+    // Use getValidToken flow for the initial pull — it handles refresh.
+    getValidToken().then(() => {
       driveSyncPull((success, result) => {
         unlockBootSync();
         render();
       }, false);
-    } catch (e) {
-      console.warn("Restoring Google session failed:", e);
-      handleLogout();
-    }
+    }).catch(err => {
+      console.warn('Token refresh deferred, running in offline mode:', err.message);
+      setSyncStatus('Status: offline (sync will resume on next action)');
+      _syncSafe = true;
+      unlockBootSync();
+      render();
+    });
   } else {
     authStateFetched = true;
     if (S.authUsername === 'demo') {
@@ -1156,7 +1240,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Force background sync pull on tab focus/visibility change
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') {
-    if (_googleAccessToken) {
+    if (currentUser && currentUser.uid && currentUser.uid !== 'demo-session') {
       driveSyncPull(null, false);
     }
   }
@@ -3513,7 +3597,7 @@ function completeFocusSession() {
     addLog('ok', 'focus session completed (' + mins + 'm) +' + xpGained + ' xp' + (isDeepSync ? ' (Flow Buff)' : ''));
   }
   
-  if (typeof triggerECRECheck === 'function') triggerECRECheck('focus');
+    if (typeof triggerECRECheck === 'function') triggerECRECheck('focus');
   if (typeof pushECREUnpromptedAppraisal === 'function') {
     pushECREUnpromptedAppraisal('focus_complete');
   }
@@ -5188,6 +5272,7 @@ async function queryOracle(prompt) {
 
   const loader = showTerminalLoader();
   window.oracleStreamingActive = true;
+  if (_headerThinkingOrb) triggerHeaderOrbActivity('composing', 25000);
   
   // Format history for conversational turn
   S.oracleHistory.push({ role: 'user', parts: [{ text: prompt }] });
@@ -5437,9 +5522,12 @@ Do not show these raw [COMMAND: ...] syntax blocks to the user in your conversat
   } catch (error) {
     loader.stop();
     window.oracleStreamingActive = false;
+    if (_headerThinkingOrb) triggerHeaderOrbActivity('working', 12000);
     // Revert last user prompt on failure so conversation stays in sync
     S.oracleHistory.pop();
     printTerm(`// LINK ERROR: ${escapeHtml(error.message)}`, 'err');
+  } finally {
+    if (_headerThinkingOrb) triggerHeaderOrbActivity('working', 12000);
   }
 }
 

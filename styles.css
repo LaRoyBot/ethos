@@ -111,6 +111,29 @@ body { background:var(--bg); color:var(--text); font-family:var(--font); font-si
 .site-desc { color:var(--text-dim); font-size:12px; margin-top:2px; }
 .site-desc::before { content:'// '; color:var(--text-faint); }
 
+/* ═══ THINKING ORBS (Jakub Antalik Engine) ═══ */
+.thinking-orb-header {
+  display: inline-block;
+  vertical-align: middle;
+  filter: drop-shadow(0 0 4px var(--accent-faint));
+  max-width: 20px;
+  margin-right: 10px;
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              max-width 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              margin-right 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.thinking-orb-header.orb-hidden {
+  opacity: 0;
+  max-width: 0px;
+  margin-right: 0px;
+  transform: scale(0.3);
+  pointer-events: none;
+}
+
 .coherence-hud {
   display: flex;
   align-items: center;

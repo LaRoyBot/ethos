@@ -6,3 +6,5 @@ renderProtocolView*.js
 extracted_app*.js
 leveldb_temp/
 read_log.js
+node_modules/
+build-orbs-vanilla.js
